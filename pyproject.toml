@@ -1,0 +1,11 @@
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+extend-exclude = [
+    "server/.venv",
+    "server/**/migrations",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
