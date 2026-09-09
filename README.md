@@ -18,7 +18,8 @@ FloodSense is a planned Android application for scenario-based flood susceptibil
 - `research_data/provisional/` - fictional or unvalidated development fixtures only
 - `research_data/approved/` - validated data approved for research use
 - `FILES/` - existing research documents
-- `frontend-design-output/` - existing interface mockups
+- `frontend-design-output/` - high-fidelity interface mockups, shared palette tokens, and the regenerated component/design boards
+- `scripts/regenerate_design_assets.py` - rerenders the design boards and applies the shared tokens to the screen references
 
 ## Data safety rule
 
@@ -33,7 +34,9 @@ Provisional records must never be presented as official Bacoor flood information
 
 The complete teammate-ready Windows manual is in
 `docs/COMPLETE_WINDOWS_SETUP_GUIDE.md`. A shorter setup reference is available
-in `docs/SETUP_WINDOWS.md`.
+in `docs/SETUP_WINDOWS.md`. All contributors and coding agents must also follow
+`docs/TEAM_DATABASE_AND_GIT_WORKFLOW.md` before changing models, migrations,
+seed/import processes, or shared backend data.
 
 Before PostGIS is installed, the database-independent backend foundation can be checked with:
 

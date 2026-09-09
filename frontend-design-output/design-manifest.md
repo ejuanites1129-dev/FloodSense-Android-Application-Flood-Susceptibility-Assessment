@@ -3,9 +3,9 @@
 ## Shared design language
 
 - **Direction:** calm civic technology with strong hierarchy, restrained surfaces, and fast recognition under stress.
-- **Primary colors:** navy `#0B3C5D`, blue `#075985`, cyan `#0891B2`.
-- **Semantic colors:** Low/safe `#15803D`, Moderate/advisory `#D97706`, High `#EA580C`, Very High/critical `#DC2626`, information `#2563EB`, neutral limitation `#64748B`.
-- **Canvas:** `#F6F9FC`; surfaces `#FFFFFF`; primary text `#172033`; borders `#CBD5E1`.
+- **Primary colors:** brand `#1A94D5`, nav/link hover `#8BD7FF`, active background `#E8F5EC`.
+- **Semantic colors:** Low/safe `#2E9E5B`, Moderate/advisory `#E8B923`, High `#E2691B`, Very High/critical `#C0392B`, neutral limitation `#8791A1`.
+- **Canvas:** `#F7F8F5`; surfaces `#FFFFFF`; body text `#000000`; secondary text `#6B7280`; borders `#E5E7EB`.
 - **Typography:** Arial/Segoe UI fallback; 28/20/16/13/11 px scale; heavier weights for titles and safety labels.
 - **Layout:** 12-column desktop grid, 4-column mobile grid, desktop sidebar, mobile bottom navigation, 8/12/18 px radius scale, one restrained shadow tier.
 - **Accessibility:** status uses label + icon + color; legends use text; limitation states use neutral styling; touch targets are generous; focus/disabled/error/offline states are visible.
@@ -38,9 +38,11 @@
 | `admin-centers-desktop.png` | Admin center manager | Center record → verify/deactivate → public output | Coordinates, source, validation date, status, public eligibility (Feature Specifications p. 33) | Table, map preview, detail form, status badges | Verified / review | Center records are representative and not official capacity/occupancy data. |
 | `admin-sources-content-desktop.png` | Sources + public content | Source/content → preview → publication checks | Provenance fields, public content, version/date, mobile preview (Feature Specifications pp. 33-34) | Table, preview card, checks, action buttons | Published / review / material change | Content is condensed; exact public copy is admin-maintained. |
 | `admin-publication-review-desktop.png` | Release review | Draft bundle → gates → hold or publish | Version manifest, consistency checks, change summary, approval record, blockers (Feature Specifications pp. 30-34, 38-42, 45) | Manifest table, checks, timeline, review form | Candidate / hold / blocker | The rainfall-reference blocker reflects the source documents’ requirement for final threshold verification. |
-| `design-system.png` | Visual token board | Design system reference for all screens | Palette, type, spacing, grid, breakpoints, semantic states, safety copy (User brief; Feature Specifications pp. 15, 38, 46-49) | Swatches, type rows, spacing bars, state pills | Default / secondary / disabled / focus / warning | Tokens are visual design decisions tuned to the brief; contrast should be formally checked in implementation. |
-| `component-library.png` | Component library board | Reuse across resident/admin workflows | Buttons, inputs, notices, badges, map controls, tables, loading/empty/offline, provenance (User brief; Feature Specifications pp. 13-21, 30-34) | Component variants and states | Error / saved / review / disabled / empty | Components are high-fidelity concept references, not production code. |
+| `design-system.png` | Visual token board | Design system reference for all screens | New supplied palette, type, spacing, semantic states, safety copy (User brief; Feature Specifications pp. 15, 38, 46-49) | Palette swatches, susceptibility classes, reusable component rules | Default / secondary / disabled / focus / warning | The supplied palette is now the source of truth; contrast should be formally checked in implementation. |
+| `component-library.png` | Component library board | Reuse across resident/admin workflows | Buttons, status pills, susceptibility chips, alerts, forms, map controls, metrics, tables, empty states, provenance (User brief; Feature Specifications pp. 13-21, 30-34) | Tokenized component variants and states | Error / saved / review / disabled / empty | Components are high-fidelity concept references generated from `design-tokens.json`. |
 
 ## QA notes
+
+The high-fidelity regeneration applies the supplied palette across every screen reference. The contour reference was regenerated to match the new blue/yellow/orange/red class language, and reusable components are documented in `design-tokens.json` and `scripts/regenerate_design_assets.py`.
 
 All final concept images were rendered at approximately 390 × 844 for mobile, 1440 × 1024 for desktop, and 1600 × 1200 for boards. Visual inspection covered legibility, clipped text, state labels, responsive framing, map/legend consistency, and safety copy. A mobile centering/cropping issue was caught and corrected before the final mobile renders.

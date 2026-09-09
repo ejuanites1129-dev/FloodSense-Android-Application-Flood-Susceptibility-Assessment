@@ -1,0 +1,35 @@
+{
+  "name": "FloodSense high-fidelity design tokens",
+  "palette": {
+    "primary": "#1a94d5",
+    "linkHover": "#8bd7ff",
+    "activeBackground": "#e8f5ec",
+    "pageBackground": "#f7f8f5",
+    "surface": "#ffffff",
+    "divider": "#e5e7eb",
+    "bodyText": "#000000",
+    "secondaryText": "#6b7280",
+    "low": "#2e9e5b",
+    "moderate": "#e8b923",
+    "high": "#e2691b",
+    "veryHigh": "#c0392b",
+    "uncertain": "#8791a1"
+  },
+  "typography": {
+    "family": "Arial, Segoe UI, sans-serif",
+    "display": 28,
+    "heading": 20,
+    "body": 16,
+    "caption": 13,
+    "label": 11
+  },
+  "radii": { "sm": 8, "md": 12, "lg": 18 },
+  "components": {
+    "button": ["primary", "secondary", "tertiary", "review", "danger", "disabled"],
+    "statusPill": ["draft", "underReview", "approved", "published", "superseded", "rejected"],
+    "susceptibilityChip": ["low", "moderate", "high", "veryHigh", "uncertain"],
+    "notice": ["info", "warning", "success", "error"],
+    "field": ["default", "focused", "error", "disabled"],
+    "surface": ["card", "metric", "table", "modal"]
+  }
+}

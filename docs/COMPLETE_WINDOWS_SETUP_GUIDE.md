@@ -253,6 +253,114 @@ The following local/generated folders must not be committed:
 - `.idea` and `.vscode` - local editor settings unless intentionally shared.
 - `mobile/android/local.properties` - local Android and Flutter SDK paths.
 
+### 5.1 Data-format policy and citations
+
+There is no single file format that every data provider must use. If an agency
+sends an Excel workbook, CSV, shapefile, PDF, or another format, keep that file
+unchanged as the **original source file**. Create a documented, normalized copy
+for analysis and import. Never silently change units, timestamps, coordinates,
+or classifications in the original file.
+
+Use these formats for the normalized working copies:
+
+| Data | Recommended exchange/working format | Minimum structure |
+| --- | --- | --- |
+| Rainfall and water-level observations | UTF-8 CSV (`.csv`) | One observation per row: `station_id`, `timestamp`, `value`, `unit`, `variable`, `quality_flag`, `source_id` |
+| Station metadata | UTF-8 CSV or JSON | `station_id`, `station_name`, `station_type`, `latitude`, `longitude`, `installation_date`, `last_transmission_date`, `source_id` |
+| Barangay/city boundaries | GeoJSON (`.geojson`) for interchange; PostGIS for application storage | A Feature or FeatureCollection with `barangay_code`, `barangay_name`, geometry, CRS/source metadata |
+| Rivers, drainage, roads, and other lines | GeoJSON for interchange; PostGIS for application storage | Line geometry, name/type, source, and validation status |
+| Evacuation centers and monitoring stations | CSV plus GeoJSON Point, or GeoJSON with properties | Name/ID, address, latitude/longitude, capacity or station type, contact, verification date, source |
+| Elevation or raster hazard data | GeoTIFF or the provider's original raster; document CRS and resolution | Raster file plus metadata describing extent, cell size, CRS, date, and source |
+| GIS bundle supplied by an agency | Original shapefile/GeoPackage retained; normalized GeoJSON/PostGIS copy | Include every component file and a metadata record; do not keep only the `.shp` file |
+| Flood-incident records | UTF-8 CSV for coded records; original report/PDF retained | Incident ID, date/time or date range, location, depth, duration, impacts, source, validation status |
+| Interview evidence | Original audio (if consented), transcript `.docx`/`.pdf`, and a coded `.xlsx`/`.csv` sheet | Interview ID, date, participant role, question/topic, anonymized quote or summary, code, analyst, consent and source reference |
+| Expert System rules | Human-readable `.csv` or `.json`, then database rows | `rule_id`, IF conditions, THEN classification/action, rationale, source/interview ID, reviewer, status, version, effective date |
+| Data dictionary and provenance | Markdown/CSV/JSON; database provenance rows | Field name, definition, type, unit, allowed values, missing-value meaning, source, processing step, validation status |
+
+For map interchange, GeoJSON is a defensible choice because the IETF standard
+defines Feature and FeatureCollection objects and requires WGS 84 longitude and
+latitude coordinates in decimal degrees ([RFC 7946, The GeoJSON Format](https://www.rfc-editor.org/rfc/rfc7946.html)). For a single portable GIS file,
+GeoPackage is an open, platform-independent OGC format for vector features and
+raster tiles ([OGC GeoPackage Encoding Standard](https://docs.ogc.org/is/12-128r19/12-128r19.html)). The running application should store validated
+geometries in PostgreSQL/PostGIS; GeoJSON and GeoPackage are exchange/import
+formats, not replacements for the database.
+
+For every dataset, create a metadata record covering title, source, geographic
+extent, time period, coordinate reference system, units, quality, missing-data
+periods, processing history, and access restrictions. This follows the purpose
+of ISO 19115-1, which defines metadata for identification, extent, quality,
+spatial and temporal aspects, content, reference system, and distribution
+([ISO 19115-1:2014](https://www.iso.org/standard/53798.html)).
+
+Use an unambiguous timestamp such as:
+
+```text
+2024-09-15T08:30:00+08:00
+```
+
+The format follows ISO 8601's year-month-day and 24-hour ordering ([ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)); the explicit `+08:00`
+offset records Philippine local time. If a provider supplies UTC, preserve UTC
+with `Z` instead. Do not mix `09/15/24`, `15/09/24`, and unlabelled local times
+in one normalized table.
+
+#### How to format interview-derived information
+
+Interview material is qualitative evidence. Store it in three linked layers:
+
+1. **Original evidence:** consent record, audio when permitted, and the untouched
+   transcript or notes.
+2. **Coded evidence:** a spreadsheet/CSV with an anonymized interview ID,
+   participant role, topic, summary or short quote, code, analyst, and page or
+   timestamp reference.
+3. **System interpretation:** the proposed factor, threshold, rule, or procedure
+   derived from the coded evidence, with the interview ID and expert reviewer.
+
+Do not turn an interviewee's statement directly into an official flood threshold.
+Mark it as proposed until the responsible BDRRMO/technical expert and adviser
+review and approve it. Report the interview method, researcher role, sampling,
+recording/transcription method, coding, and quotations consistently; the
+32-item COREQ checklist is a recognized reporting guide for interviews and focus
+groups ([EQUATOR Network COREQ](https://www.equator-network.org/reporting-guidelines/coreq/)).
+
+#### Suggested files for this project
+
+```text
+research_data/
+|-- raw/
+|   |-- dost_asti_original_2026-09-06.xlsx
+|   |-- bdrrmo_interview_01_transcript.pdf
+|   `-- cpdo_boundary_original.zip
+|-- normalized/
+|   |-- rainfall_observations.csv
+|   |-- station_metadata.csv
+|   |-- flood_incidents.csv
+|   |-- evacuation_centers.csv
+|   |-- barangay_boundaries.geojson
+|   `-- interviews_coded.csv
+|-- provisional/
+|   `-- README.md
+|-- approved/
+|   `-- README.md
+`-- data_dictionary.md
+```
+
+The current repository already has `provisional/` and `approved/` folders. Add
+`raw/` and `normalized/` only after the team agrees on privacy and document-
+sharing rules. Raw interview files may need to remain in a restricted location
+outside Git.
+
+#### DOST-ASTI format note
+
+The DOST-ASTI correspondence supplied to the team states that available station
+records are raw observations, sent at 15-minute intervals before 2023 and
+10-minute intervals from 2023 onward, with datasets depending on station type.
+That statement should be cited in the thesis as primary correspondence, for
+example: **DOST-ASTI PhilSensors team, email correspondence, September 2026**.
+It is not a public web citation. When the actual file arrives, follow the
+provider's column names and preserve its interval, units, quality flags, and
+missing records in the metadata rather than assuming every station has the same
+variables.
+
 The repository's `.gitignore` already excludes these items.
 
 ## 6. Install Git and VS Code
