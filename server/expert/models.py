@@ -29,6 +29,16 @@ class ScenarioOption(models.Model):
         null=True,
         blank=True,
     )
+    derived_value = models.DecimalField(
+        max_digits=12,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        help_text=(
+            "Controlled value used by inference, such as a demonstration intensity "
+            "rank or duration in hours."
+        ),
+    )
     unit = models.CharField(max_length=40, blank=True)
     source = models.ForeignKey(
         DataSource,
@@ -223,6 +233,8 @@ class ExpertRuleCondition(models.Model):
         DURATION_OPTION = "DURATION_OPTION", "Duration option equals"
         AREA_FACT_TEXT = "AREA_FACT_TEXT", "Area text fact"
         AREA_FACT_NUMBER = "AREA_FACT_NUMBER", "Area numeric fact"
+        INTENSITY_RANK = "INTENSITY_RANK", "Rainfall intensity rank"
+        DURATION_HOURS = "DURATION_HOURS", "Rainfall duration hours"
 
     class Operator(models.TextChoices):
         EQUALS = "EQ", "Equals"
@@ -302,6 +314,27 @@ class ExpertRuleCondition(models.Model):
                 errors["expected_number"] = "A numeric area-fact condition requires a number."
             if self.scenario_option is not None or self.expected_text:
                 errors["scenario_option"] = "Use only numeric fields for this condition."
+
+        elif self.condition_type in {
+            self.ConditionType.INTENSITY_RANK,
+            self.ConditionType.DURATION_HOURS,
+        }:
+            if self.expected_number is None:
+                errors["expected_number"] = (
+                    "A derived-input condition requires an expected number."
+                )
+            if self.scenario_option is not None:
+                errors["scenario_option"] = (
+                    "A derived-input condition cannot contain a scenario option."
+                )
+            if self.expected_text:
+                errors["expected_text"] = (
+                    "A derived-input condition cannot contain a text expectation."
+                )
+            if self.fact_key:
+                errors["fact_key"] = (
+                    "A derived-input condition cannot contain an area-fact key."
+                )
 
         if errors:
             raise ValidationError(errors)

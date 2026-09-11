@@ -3,6 +3,7 @@ from django.contrib import admin
 from django.contrib.gis.admin import GISModelAdmin
 
 from .models import AreaFact, GeographicArea
+from .widgets import FloodSenseOSMWidget
 
 
 class AreaFactInline(admin.TabularInline):
@@ -21,6 +22,7 @@ class AreaFactInline(admin.TabularInline):
 
 @admin.register(GeographicArea)
 class GeographicAreaAdmin(GISModelAdmin):
+    gis_widget = FloodSenseOSMWidget
     list_display = ("name", "code", "area_type", "status", "is_enabled", "source")
     list_filter = ("area_type", "status", "is_enabled")
     search_fields = ("name", "code")

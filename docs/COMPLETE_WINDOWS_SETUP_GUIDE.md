@@ -1100,6 +1100,27 @@ only one side.
 - Restart the Django server after changing `.env`.
 - Run `scripts/verify_postgis.ps1` again.
 
+### Django Admin geometry map shows OpenStreetMap “Access blocked” tiles
+
+Django 5.2's default `OSMWidget` loads OpenLayers 7.2.2. That version can omit
+the referrer information now required by OpenStreetMap's standard tile service,
+which causes the repeated 403 “Access blocked” images even though PostGIS and
+the geometry field are working.
+
+FloodSense overrides only the Admin GIS widget and loads OpenLayers 10.8.0,
+which contains the relevant referrer-policy fix. After pulling the fix:
+
+1. Stop and restart Django.
+2. Open the Geographic area form again.
+3. Perform a hard refresh with `Ctrl+F5` so the browser does not reuse the old
+   OpenLayers JavaScript or blocked tile images.
+4. In browser developer tools, confirm that `ol@v10.8.0` is loaded instead of
+   `ol@v7.2.2` if the problem remains.
+
+Do not repeatedly request blocked tiles, disable attribution, proxy the
+volunteer service anonymously, or treat changing PostgreSQL permissions as a
+solution. The background tile service is external to the spatial database.
+
 ### Django reports that port 8000 is already in use
 
 Another Django server may already be running. Return to its terminal and press

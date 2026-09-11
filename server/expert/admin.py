@@ -12,7 +12,15 @@ from .models import (
 
 @admin.register(ScenarioOption)
 class ScenarioOptionAdmin(admin.ModelAdmin):
-    list_display = ("label", "code", "category", "status", "is_enabled", "source")
+    list_display = (
+        "label",
+        "code",
+        "category",
+        "derived_value",
+        "status",
+        "is_enabled",
+        "source",
+    )
     list_filter = ("category", "status", "is_enabled")
     search_fields = ("label", "code")
     autocomplete_fields = ("source",)
