@@ -137,29 +137,111 @@ The system must know whether the selected location is:
 
 ### Required input 2: Rainfall-intensity scenario
 
-Until validated thresholds are available, the demonstration must use symbolic scenario codes rather than invented millimeters-per-hour thresholds.
+The demonstration uses the rainfall-intensity labels already established in
+the feature specification, but stores explicitly demonstrational codes and no
+invented millimeters-per-hour thresholds.
 
-Initial safe examples:
+| Stored code | Interface label | Demonstration rank |
+| --- | --- | ---: |
+| `DEMO_LIGHT` | Light | 1 |
+| `DEMO_MODERATE` | Moderate | 2 |
+| `DEMO_HEAVY` | Heavy | 3 |
+| `DEMO_INTENSE` | Intense | 4 |
+| `DEMO_TORRENTIAL` | Torrential | 5 |
 
-- `DEMO_INTENSITY_A`
-- `DEMO_INTENSITY_B`
-- `DEMO_INTENSITY_C`
-
-The interface must identify them as demonstration scenarios. They must not be presented as PAGASA warning levels or official Bacoor measurements.
+The ranks are internal ordinal test values used only to exercise the rule
+engine. They are not rainfall measurements, PAGASA warning thresholds, or
+official Bacoor observations. The interface must identify every option as a
+hypothetical demonstration scenario.
 
 ### Required input 3: Rainfall-duration scenario
 
-The first prototype may use controlled demonstration choices such as:
+The first prototype uses the configurable hypothetical durations established
+in the feature specification:
 
-- `DEMO_SHORT`
-- `DEMO_MEDIUM`
-- `DEMO_PROLONGED`
+| Stored code | Interface label | Derived fact |
+| --- | --- | ---: |
+| `DEMO_1_HOUR` | 1 hour | `rainfall_duration_hours=1` |
+| `DEMO_3_HOURS` | 3 hours | `rainfall_duration_hours=3` |
+| `DEMO_6_HOURS` | 6 hours | `rainfall_duration_hours=6` |
+| `DEMO_12_HOURS` | 12 hours | `rainfall_duration_hours=12` |
+| `DEMO_24_HOURS` | 24 hours | `rainfall_duration_hours=24` |
 
-The exact minute/hour ranges must remain configurable and must not be described as official thresholds until they are supported by an approved source or expert validation.
+These describe a user-selected hypothetical duration, not an observed storm or
+official warning threshold. The options remain database-managed so the team
+can revise them after methodological review without changing Flutter code.
 
 ### Area facts
 
 Area facts are retrieved by the backend rather than freely entered by the resident. Examples of future facts include hazard-map classification, elevation category, drainage-related condition, or documented historical flooding. Only facts justified by the approved methodology should become active production inputs.
+
+### Closed Day 1 demonstration fact dictionary
+
+The Day 3 prototype engine will assemble the following facts. All ranks and
+zone values in demonstration mode are fictional control values.
+
+| Fact | Type | Source in the prototype | Meaning |
+| --- | --- | --- | --- |
+| `zone_code` | Text | Selected `GeographicArea` | Stable neutral identifier such as `DEMO_ZONE_A` |
+| `zone_baseline_rank` | Integer, 1–4 | Enabled `AreaFact` | Fictional value used to prove that changing an Admin-managed area fact changes a result |
+| `rainfall_intensity_code` | Text | Selected `ScenarioOption` | Demonstration scenario identifier |
+| `rainfall_intensity_rank` | Integer, 1–5 | Selected option's controlled order/value | Internal ordinal value; not a measured rainfall threshold |
+| `rainfall_duration_hours` | Integer | Selected duration option | Hypothetical duration selected by the user |
+
+For the demonstration dataset only, the neutral zones use:
+
+| Demonstration zone | `zone_baseline_rank` |
+| --- | ---: |
+| Demo Zone A | 1 |
+| Demo Zone B | 2 |
+| Demo Zone C | 3 |
+| Demo Zone D | 4 |
+
+These zone ranks have no relationship to real Bacoor barangays, hazard levels,
+or geographic conditions.
+
+### Closed Day 1 demonstration rule table
+
+All conditions in a rule are joined with **AND**. Rules are evaluated using the
+precedence procedure in Section 9. These four global rules have equal geographic
+specificity, so their explicit priority determines precedence.
+
+| Rule code | Priority | IF conditions | THEN result |
+| --- | ---: | --- | --- |
+| `DEMO-RULE-400` | 400 | intensity rank ≥ 4 AND duration ≥ 6 hours AND zone baseline rank ≥ 3 | Very High |
+| `DEMO-RULE-300` | 300 | intensity rank ≥ 3 AND duration ≥ 3 hours AND zone baseline rank ≥ 2 | High |
+| `DEMO-RULE-200` | 200 | intensity rank ≥ 2 AND duration ≥ 1 hour AND zone baseline rank ≥ 1 | Moderate |
+| `DEMO-RULE-100` | 100 | intensity rank ≥ 1 AND duration ≥ 1 hour AND zone baseline rank ≥ 1 | Low |
+
+Because higher-priority rules are considered first, a scenario may satisfy a
+lower rule without overriding the more specific conclusion. For example:
+
+| Zone | Intensity | Duration | Highest matching rule | Demonstration result |
+| --- | --- | ---: | --- | --- |
+| Demo Zone A | Light | 1 hour | `DEMO-RULE-100` | Low |
+| Demo Zone A | Moderate | 1 hour | `DEMO-RULE-200` | Moderate |
+| Demo Zone B | Heavy | 3 hours | `DEMO-RULE-300` | High |
+| Demo Zone D | Intense | 6 hours | `DEMO-RULE-400` | Very High |
+
+This table exists only to test data flow, forward chaining, rule precedence,
+explainability, map recoloring, and Admin-driven changes. It must be replaced
+or separately versioned after the research methodology, official data, and
+expert-reviewed rules are available. It must never be cited as a scientific
+model of flood susceptibility.
+
+Conflict handling is tested with temporary test records rather than a published
+demonstration rule. Two equally ranked rules with different conclusions must
+return `UNCERTAIN`. Missing inputs, no active ruleset, or no eligible rules must
+return `INSUFFICIENT_DATA` rather than a default class.
+
+### Day 2 model-alignment note
+
+The Day 2 containers are valid, but the current controlled condition vocabulary
+supports exact scenario-option matches and numeric area facts. Before the Day 3
+engine is implemented, it must be minimally extended to support numeric derived
+input facts such as `rainfall_intensity_rank` and
+`rainfall_duration_hours`. This is a small schema-alignment change requiring a
+reviewed migration and tests; it does not require redesigning the database.
 
 ---
 
@@ -443,8 +525,8 @@ Example demonstration request:
 {
   "mode": "demonstration",
   "geographic_area_id": 1,
-  "rainfall_intensity_code": "DEMO_INTENSITY_B",
-  "rainfall_duration_code": "DEMO_MEDIUM"
+  "rainfall_intensity_code": "DEMO_MODERATE",
+  "rainfall_duration_code": "DEMO_1_HOUR"
 }
 ```
 
@@ -464,16 +546,18 @@ Example response shape:
     "name": "Demo Zone A"
   },
   "scenario": {
-    "rainfall_intensity_code": "DEMO_INTENSITY_B",
-    "rainfall_duration_code": "DEMO_MEDIUM"
+    "rainfall_intensity_code": "DEMO_MODERATE",
+    "rainfall_duration_code": "DEMO_1_HOUR"
   },
   "explanation": {
-    "summary": "The selected demonstration facts satisfied DEMO-RULE-002.",
-    "matched_rule_codes": ["DEMO-RULE-002"],
+    "summary": "The selected demonstration facts satisfied DEMO-RULE-200.",
+    "matched_rule_codes": ["DEMO-RULE-200"],
     "ruleset": "Demonstration Rules v1",
     "facts_used": [
-      "rainfall_intensity=DEMO_INTENSITY_B",
-      "rainfall_duration=DEMO_MEDIUM"
+      "rainfall_intensity_code=DEMO_MODERATE",
+      "rainfall_intensity_rank=2",
+      "rainfall_duration_hours=1",
+      "zone_baseline_rank=1"
     ]
   },
   "guidance": [
@@ -628,21 +712,27 @@ Day 2 should implement the reviewed minimum models in this order:
 
 ## 16. Day 1 Acceptance Checklist
 
-Day 1 is complete when the team agrees that:
+The checkmarks below record the decisions adopted for prototype development.
+They do not claim scientific validation, agency approval, or adviser approval
+of the final methodology.
 
-- [ ] The official title is correct and final for current development.
-- [ ] The first prototype is rule-based and does not require ML training.
-- [ ] The Admin-to-database-to-API-to-Flutter flow is understood.
-- [ ] Location, intensity scenario, and duration scenario are sufficient initial user inputs.
-- [ ] The four susceptibility classes are accepted.
-- [ ] The three limitation states are understood.
-- [ ] The Expert System and DSS responsibilities are separate.
-- [ ] No rainfall threshold or real barangay risk is being invented.
-- [ ] The proposed minimum data containers are acceptable for Day 2.
-- [ ] The deterministic rule-selection procedure is acceptable.
-- [ ] Demonstration records will always be labeled and separated from official data.
-- [ ] Resident authentication will not block the immediate vertical slice unless the adviser requires it.
-- [ ] The listed deferred features will not distract from the one-week demonstration.
+- [x] The official title is correct and final for current development.
+- [x] The first prototype is rule-based and does not require ML training.
+- [x] The Admin-to-database-to-API-to-Flutter flow is defined.
+- [x] Location, intensity scenario, and duration scenario are sufficient initial user inputs.
+- [x] The four susceptibility classes are accepted for the prototype vocabulary.
+- [x] The three limitation states are defined separately from classifications.
+- [x] The Expert System and DSS responsibilities are separate.
+- [x] No rainfall threshold or real barangay risk is being invented.
+- [x] The proposed minimum data containers were accepted and implemented on Day 2.
+- [x] The deterministic rule-selection procedure is defined.
+- [x] Demonstration records will always be labeled and separated from official data.
+- [x] Resident authentication will not block the immediate vertical slice unless the adviser requires it.
+- [x] The listed deferred features will not distract from the one-week demonstration.
+- [x] The demonstration fact dictionary and rule table are explicit and reproducible.
+
+**Day 1 closure status:** Complete for prototype development. Research and
+expert validation remain pending and are tracked in Section 17.
 
 ---
 
