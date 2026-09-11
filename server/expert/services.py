@@ -7,7 +7,7 @@ from typing import Any
 from django.core.exceptions import ValidationError
 from django.db.models import Prefetch, Q
 from geography.models import GeographicArea
-from provenance.models import DataSource, PublicationStatus
+from provenance import policies
 
 from .models import (
     ExpertRule,
@@ -17,10 +17,8 @@ from .models import (
     SusceptibilityLevel,
 )
 
-DEMONSTRATION_WARNING = "DEMONSTRATION DATA—NOT OFFICIAL"
-NON_AUTHORITY_WARNING = (
-    "This result is not an official flood forecast, warning, or emergency instruction."
-)
+DEMONSTRATION_WARNING = policies.DEMONSTRATION_WARNING
+NON_AUTHORITY_WARNING = policies.NON_AUTHORITY_WARNING
 
 _NUMERIC_COMPARATORS = {
     ExpertRuleCondition.Operator.EQUALS: eq,
@@ -173,13 +171,13 @@ def evaluate_assessment(
 
 
 def _normalize_mode(mode: str) -> str:
-    normalized_mode = str(mode).strip().upper()
-    valid_modes = {value for value, _label in RuleSet.Mode.choices}
-    if normalized_mode not in valid_modes:
+    try:
+        return policies.normalize_operating_mode(mode)
+    except ValueError:
+        valid_modes = {value for value, _label in RuleSet.Mode.choices}
         raise AssessmentInputError(
             {"mode": f"Choose one of: {', '.join(sorted(valid_modes))}."}
-        )
-    return normalized_mode
+        ) from None
 
 
 def _get_area(area_identifier: int | str, mode: str) -> GeographicArea:
@@ -197,7 +195,18 @@ def _get_area(area_identifier: int | str, mode: str) -> GeographicArea:
         raise AssessmentInputError(
             {"area_identifier": "The selected geographic area is disabled."}
         )
-    if not _record_is_permitted(area, mode):
+    if (
+        mode == RuleSet.Mode.DEMONSTRATION
+        and area.area_type != GeographicArea.AreaType.DEMO_ZONE
+    ):
+        raise AssessmentInputError(
+            {
+                "area_identifier": (
+                    "Demonstration assessments require a neutral demonstration zone."
+                )
+            }
+        )
+    if not policies.record_is_permitted(area, mode):
         raise AssessmentInputError(
             {"area_identifier": "The selected geographic area is not permitted in this mode."}
         )
@@ -224,7 +233,7 @@ def _get_scenario_option(
         )
     if not option.is_enabled:
         raise AssessmentInputError({field_name: "The selected scenario option is disabled."})
-    if not _record_is_permitted(option, mode):
+    if not policies.record_is_permitted(option, mode):
         raise AssessmentInputError(
             {field_name: "The selected scenario option is not permitted in this mode."}
         )
@@ -236,7 +245,9 @@ def _select_ruleset(mode: str) -> tuple[RuleSet | None, str]:
         RuleSet.objects.select_related("source").filter(mode=mode, is_active=True)
     )
     usable_rulesets = [
-        ruleset for ruleset in active_rulesets if _record_is_permitted(ruleset, mode)
+        ruleset
+        for ruleset in active_rulesets
+        if policies.record_is_permitted(ruleset, mode)
     ]
     if len(usable_rulesets) == 1:
         return usable_rulesets[0], ""
@@ -256,7 +267,7 @@ def _assemble_area_facts(
     area_fact_records = area.facts.select_related("source").filter(is_enabled=True)
 
     for area_fact in area_fact_records:
-        if not _record_is_permitted(area_fact, mode):
+        if not policies.record_is_permitted(area_fact, mode):
             continue
         value: str | Decimal = (
             area_fact.numeric_value
@@ -301,26 +312,10 @@ def _eligible_rules(
     return [
         rule
         for rule in candidate_rules
-        if _record_is_permitted(rule, mode)
+        if policies.record_is_permitted(rule, mode)
         and rule.result_level.is_enabled
-        and _record_is_permitted(rule.result_level, mode)
+        and policies.record_is_permitted(rule.result_level, mode)
     ]
-
-
-def _record_is_permitted(record: Any, mode: str) -> bool:
-    source: DataSource = record.source
-    if mode == RuleSet.Mode.DEMONSTRATION:
-        return (
-            record.status == PublicationStatus.DEMONSTRATION
-            and source.status == PublicationStatus.DEMONSTRATION
-            and source.source_type == DataSource.SourceType.DEMONSTRATION
-        )
-    return (
-        record.status == PublicationStatus.APPROVED
-        and source.status == PublicationStatus.APPROVED
-        and source.source_type != DataSource.SourceType.DEMONSTRATION
-        and source.is_publicly_releasable
-    )
 
 
 def _rule_matches(
@@ -424,7 +419,7 @@ def _result(
 ) -> dict[str, Any]:
     matched_rules = matched_rules or []
     rule_codes = [rule.code for rule in matched_rules]
-    warnings = _warnings_for_mode(mode)
+    warnings = policies.warnings_for_mode(mode)
     serialized_facts = {key: _serialize_fact(value) for key, value in facts.items()}
     facts_used = [f"{key}={value}" for key, value in serialized_facts.items()]
     ruleset_payload = (
@@ -467,21 +462,9 @@ def _result(
         },
         "ruleset": ruleset_payload,
         "operating_mode": mode,
-        "data_status": _status_for_mode(mode),
+        "data_status": policies.data_status_for_mode(mode),
         "warnings": warnings,
     }
-
-
-def _warnings_for_mode(mode: str) -> list[str]:
-    if mode == RuleSet.Mode.DEMONSTRATION:
-        return [DEMONSTRATION_WARNING, NON_AUTHORITY_WARNING]
-    return [NON_AUTHORITY_WARNING]
-
-
-def _status_for_mode(mode: str) -> str:
-    if mode == RuleSet.Mode.DEMONSTRATION:
-        return PublicationStatus.DEMONSTRATION
-    return PublicationStatus.APPROVED
 
 
 def _serialize_fact(value: str | Decimal | None) -> str | int | float | None:
