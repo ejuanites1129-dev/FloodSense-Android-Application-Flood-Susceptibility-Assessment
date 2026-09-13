@@ -83,9 +83,12 @@ intended command name is:
 server\.venv\Scripts\python.exe server\manage.py seed_demo
 ```
 
-**Current status:** `seed_demo` must not be assumed to exist until its command
-file and tests are added to this repository. Until then, manually created Admin
-records are local only.
+**Current status:** Day 6 implements and tests `seed_demo`. It creates only the
+reserved fictional demonstration dataset, is transactional and idempotent,
+and stops on unsafe stable-code or active-ruleset conflicts. It must be run only
+against an explicitly authorized local development database. Manually created
+Admin records still remain local unless a reviewed seed/import process owns
+them.
 
 "Idempotent" means that running the command again updates or reuses the same
 demonstration records instead of creating duplicates.
@@ -278,8 +281,10 @@ The repeatable seed process should eventually create items such as:
 - sample DSS preparedness guidance; and
 - provenance showing that every item is synthetic and unapproved.
 
-The seed command must be safe to run repeatedly and must not overwrite approved
-official records. Tests should verify both requirements.
+The Day 6 seed command is safe to run repeatedly and refuses to take over
+reserved identities owned by another source, including a different
+demonstration source. Its database-backed tests verify idempotence, atomic
+conflicts, geometry, and preservation of unrelated non-demonstration records.
 
 Do not assign invented susceptibility classes to real Bacoor barangays. If a real
 place name is needed for interface layout, the assessment must return

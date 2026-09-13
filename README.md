@@ -2,6 +2,12 @@
 
 FloodSense is a planned Android application for scenario-based flood susceptibility assessment and pre-event preparedness in Bacoor City. Its core classification component is a deterministic, rule-based Expert System. It is not a real-time forecast or official warning service.
 
+The current demonstration vertical slice includes Django-managed hypothetical
+rainfall options, fictional map polygons, backend-derived map colors, temporary
+pin resolution through PostGIS, explainable single-zone assessment, and DSS
+preparedness guidance. Every demonstration response remains explicitly labeled
+as unofficial.
+
 ## Planned stack
 
 - Flutter and Dart for the Android application
@@ -49,3 +55,14 @@ After PostgreSQL/PostGIS, GDAL/GEOS, and `server/.env` are configured, verify th
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/verify_postgis.ps1
 ```
+
+For an authorized local development database only, the tested Day 6 command
+can create or refresh the fictional demonstration records:
+
+```powershell
+server\.venv\Scripts\python.exe server\manage.py seed_demo
+```
+
+Never run this command against a shared, staging, or deployed database without
+explicit authorization. See `docs/DAY_6_DYNAMIC_MAP_GUIDE.md` for its safety
+checks and the map/API workflow.

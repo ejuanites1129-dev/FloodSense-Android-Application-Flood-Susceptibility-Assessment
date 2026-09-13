@@ -668,6 +668,6 @@ server\.venv\Scripts\python.exe server\manage.py check
 server\.venv\Scripts\python.exe -m pytest -q --reuse-db
 ```
 
-Each teammate must create their own local demonstration rows through Admin
-until a separate, reviewed, idempotent demonstration-data command is actually
-implemented.
+Day 6 now provides a reviewed, idempotent `seed_demo` command. Each teammate
+must explicitly run it against their own authorized local database when the
+shared fictional dataset is needed; Git still does not synchronize local rows.

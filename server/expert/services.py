@@ -170,6 +170,64 @@ def evaluate_assessment(
     )
 
 
+def evaluate_map_scenario(
+    *,
+    intensity_code: str,
+    duration_code: str,
+    mode: str,
+) -> dict[str, Any]:
+    """Evaluate every eligible area through the existing inference service."""
+
+    normalized_mode = _normalize_mode(mode)
+    intensity = _get_scenario_option(
+        code=intensity_code,
+        category=ScenarioOption.Category.INTENSITY,
+        field_name="intensity_code",
+        mode=normalized_mode,
+    )
+    duration = _get_scenario_option(
+        code=duration_code,
+        category=ScenarioOption.Category.DURATION,
+        field_name="duration_code",
+        mode=normalized_mode,
+    )
+
+    areas = GeographicArea.objects.select_related("source").filter(is_enabled=True)
+    if normalized_mode == policies.DEMONSTRATION_MODE:
+        areas = areas.filter(area_type=GeographicArea.AreaType.DEMO_ZONE)
+    areas = policies.permitted_records(areas, normalized_mode).order_by("name", "id")
+
+    results = []
+    for area in areas:
+        assessment = evaluate_assessment(
+            area_identifier=area.id,
+            intensity_code=intensity.code,
+            duration_code=duration.code,
+            mode=normalized_mode,
+        )
+        results.append(
+            {
+                "area": assessment["area"],
+                "assessment_state": assessment["assessment_state"],
+                "susceptibility": assessment["susceptibility"],
+                "matched_rule_codes": assessment["matched_rule_codes"],
+                "ruleset": assessment["ruleset"],
+                "summary": assessment["explanation"]["summary"],
+            }
+        )
+
+    return {
+        "scenario": {
+            "rainfall_intensity_code": intensity.code,
+            "rainfall_duration_code": duration.code,
+        },
+        "results": results,
+        "operating_mode": normalized_mode,
+        "data_status": policies.data_status_for_mode(normalized_mode),
+        "warnings": policies.warnings_for_mode(normalized_mode),
+    }
+
+
 def _normalize_mode(mode: str) -> str:
     try:
         return policies.normalize_operating_mode(mode)

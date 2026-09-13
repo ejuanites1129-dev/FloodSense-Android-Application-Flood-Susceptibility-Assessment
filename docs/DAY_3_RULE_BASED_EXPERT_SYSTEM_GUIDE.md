@@ -423,9 +423,10 @@ susceptibility logic is not an official forecast or emergency instruction.
 
 ## Configure demonstration inference through Django Admin
 
-There is no automatic demonstration-data command. The following records are
-entered in each developer's local database and are not synchronized by Git.
-Reuse existing records instead of creating duplicates with the same codes.
+Day 6 now provides the tested `seed_demo` command for an explicitly authorized
+local development database. The manual steps below remain useful for learning
+and Admin verification. Local database rows are not synchronized by Git; use
+the Day 6 guide when the complete repeatable dataset is required.
 
 ### Step 1 — Apply migrations and create a local administrator
 
@@ -752,8 +753,8 @@ any data import or seed command.
 
 ## Remaining Day 3 limitations
 
-- Rules and demonstration records must still be entered manually until a later,
-  explicitly reviewed seeding task is implemented.
+- Rules and demonstration records can now be prepared by the reviewed Day 6
+  `seed_demo` command or inspected and edited manually in Django Admin.
 - Day 4 now exposes the assessment service through the API and selects separate
   DSS guidance for classified results.
 - Flutter and the dynamic map do not yet consume results.

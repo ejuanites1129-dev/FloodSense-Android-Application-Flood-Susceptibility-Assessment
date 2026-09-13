@@ -10,11 +10,14 @@ from provenance.policies import (
     permitted_records,
     warnings_for_mode,
 )
+from rest_framework import serializers
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from .models import GeographicArea
+from .serializers import PointResolutionRequestSerializer
+from .services import PointResolutionInputError, resolve_area_for_point
 
 
 @api_view(["GET"])
@@ -39,6 +42,26 @@ def area_collection(request):
             "warnings": warnings_for_mode(mode),
         }
     )
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def resolve_point(request):
+    """Resolve a temporary coordinate without saving it."""
+
+    serializer = PointResolutionRequestSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    inputs = serializer.validated_data
+    try:
+        result = resolve_area_for_point(
+            latitude=inputs["latitude"],
+            longitude=inputs["longitude"],
+            mode=inputs["mode"],
+        )
+    except PointResolutionInputError as error:
+        detail = getattr(error, "message_dict", {"non_field_errors": error.messages})
+        raise serializers.ValidationError(detail) from error
+    return Response(result)
 
 
 def _serialize_area_feature(area: GeographicArea) -> dict:

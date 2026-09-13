@@ -16,8 +16,8 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from .models import ScenarioOption
-from .serializers import AssessmentRequestSerializer
-from .services import AssessmentInputError, evaluate_assessment
+from .serializers import AssessmentRequestSerializer, MapAssessmentRequestSerializer
+from .services import AssessmentInputError, evaluate_assessment, evaluate_map_scenario
 
 
 @api_view(["GET"])
@@ -73,6 +73,26 @@ def evaluate(request):
         raise serializers.ValidationError(detail) from error
 
     return Response({**result, "guidance": select_guidance(result)})
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def evaluate_map(request):
+    """Return lightweight Expert System results for every eligible map area."""
+
+    serializer = MapAssessmentRequestSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    inputs = serializer.validated_data
+    try:
+        result = evaluate_map_scenario(
+            intensity_code=inputs["rainfall_intensity_code"],
+            duration_code=inputs["rainfall_duration_code"],
+            mode=inputs["mode"],
+        )
+    except AssessmentInputError as error:
+        detail = getattr(error, "message_dict", {"non_field_errors": error.messages})
+        raise serializers.ValidationError(detail) from error
+    return Response(result)
 
 
 def _serialize_scenario_option(option: ScenarioOption) -> dict:
