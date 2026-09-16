@@ -1,0 +1,64 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Authorized FloodSense administration sign-in">
+  <title>Sign in | FloodSense Admin</title>
+  <link rel="stylesheet" href="{% static 'admin_portal/css/admin_portal.css' %}">
+</head>
+<body class="auth-page">
+  <main class="auth-shell">
+    <section class="auth-card" aria-labelledby="login-title">
+      <a class="brand brand--auth" href="{% url 'admin_portal:login' %}" aria-label="FloodSense Admin">
+        <span class="brand__mark" aria-hidden="true">≈</span>
+        <span>FloodSense</span>
+      </a>
+
+      <div class="auth-heading">
+        <p class="eyebrow">Admin console</p>
+        <h1 id="login-title">Sign in to FloodSense Admin</h1>
+        <p>Authorized maintainers only</p>
+      </div>
+
+      {% if form.non_field_errors %}
+        <div class="notice notice--error" role="alert">
+          {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+        </div>
+      {% endif %}
+
+      <form method="post" class="auth-form" novalidate>
+        {% csrf_token %}
+        {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+
+        <div class="field-group{% if form.username.errors %} field-group--error{% endif %}">
+          <label for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
+          {{ form.username }}
+          {% for error in form.username.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+        </div>
+
+        <div class="field-group{% if form.password.errors %} field-group--error{% endif %}">
+          <label for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>
+          <div class="password-field">
+            {{ form.password }}
+            <button class="password-toggle" type="button" data-password-toggle aria-label="Show password">Show</button>
+          </div>
+          {% for error in form.password.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+        </div>
+
+        <label class="checkbox-row" for="{{ form.remember_device.id_for_label }}">
+          {{ form.remember_device }}
+          <span>{{ form.remember_device.label }}</span>
+        </label>
+
+        <button class="button button--primary button--wide" type="submit">Sign in</button>
+        <a class="auth-help" href="{% url 'admin_portal:password-help' %}">Forgot password?</a>
+      </form>
+
+      <footer class="auth-footer">FloodSense Admin · Controlled access for research operations</footer>
+    </section>
+  </main>
+  <script src="{% static 'admin_portal/js/admin_portal.js' %}" defer></script>
+</body>
+</html>

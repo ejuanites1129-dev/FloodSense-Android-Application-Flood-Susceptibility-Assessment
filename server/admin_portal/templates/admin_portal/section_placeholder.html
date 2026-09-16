@@ -1,0 +1,22 @@
+{% extends "admin_portal/base.html" %}
+
+{% block title %}{{ section.title }} | FloodSense Admin{% endblock %}
+
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <p class="eyebrow">{{ section.eyebrow }}</p>
+      <h1>{{ section.title }}</h1>
+      <p>{{ section.description }}</p>
+    </div>
+    <span class="status-pill status-pill--planned">Planned · {{ section.day }}</span>
+  </section>
+
+  <section class="empty-state panel">
+    <span class="empty-state__icon" aria-hidden="true">◇</span>
+    <p class="eyebrow">Route protected and ready</p>
+    <h2>This module will be implemented in {{ section.day }}.</h2>
+    <p>The shared administration layout and authorization boundary are already active. No provisional information is published from this placeholder.</p>
+    <a class="button button--secondary" href="{% url 'admin_portal:dashboard' %}">Return to overview</a>
+  </section>
+{% endblock %}

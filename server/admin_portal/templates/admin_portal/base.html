@@ -1,0 +1,71 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="FloodSense administration console">
+  <title>{% block title %}FloodSense Admin{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'admin_portal/css/admin_portal.css' %}">
+</head>
+<body class="portal-page">
+  <header class="topbar">
+    <button class="mobile-menu-button" type="button" data-menu-toggle aria-controls="portal-sidebar" aria-expanded="false">
+      <span aria-hidden="true">☰</span><span class="sr-only">Open navigation</span>
+    </button>
+    <a class="brand mobile-brand" href="{% url 'admin_portal:dashboard' %}">
+      <span class="brand__mark" aria-hidden="true">≈</span>
+      <span>FloodSense</span>
+    </a>
+    <div class="topbar__spacer"></div>
+    <span class="system-state"><span class="status-dot" aria-hidden="true"></span>Development environment</span>
+    <div class="account-menu">
+      <button class="account-menu__toggle" type="button" data-account-toggle aria-controls="account-menu" aria-expanded="false" aria-haspopup="menu">
+        <span class="account-summary__name">{{ display_name }}</span>
+        <span class="avatar" aria-hidden="true">{{ user_initials }}</span>
+        <span class="sr-only">Open account menu</span>
+      </button>
+      <div class="account-menu__panel" id="account-menu" data-account-menu role="menu" hidden>
+        <a class="account-menu__item" href="{% url 'admin_portal:section' section_slug='settings' %}" role="menuitem">
+          <span aria-hidden="true">⚙</span><span>Settings</span>
+        </a>
+        <form method="post" action="{% url 'admin_portal:logout' %}">
+          {% csrf_token %}
+          <button class="account-menu__item" type="submit" role="menuitem">
+            <span aria-hidden="true">↪</span><span>Sign out</span>
+          </button>
+        </form>
+      </div>
+    </div>
+  </header>
+
+  <div class="portal-layout">
+    <aside class="sidebar" id="portal-sidebar">
+      <a class="sidebar__brand" href="{% url 'admin_portal:dashboard' %}">
+        <span class="sidebar__brand-mark" aria-hidden="true">≈</span><span>FloodSense</span>
+      </a>
+      <nav aria-label="Administration navigation">
+        <ul class="nav-list">
+          {% for slug, label, icon in navigation %}
+            <li>
+              {% if slug == 'dashboard' %}
+                <a class="nav-link{% if active_section == slug %} nav-link--active{% endif %}" href="{% url 'admin_portal:dashboard' %}"{% if active_section == slug %} aria-current="page"{% endif %}>
+              {% else %}
+                <a class="nav-link{% if active_section == slug %} nav-link--active{% endif %}" href="{% url 'admin_portal:section' section_slug=slug %}"{% if active_section == slug %} aria-current="page"{% endif %}>
+              {% endif %}
+                <span class="nav-link__icon" aria-hidden="true">{{ icon }}</span><span>{{ label }}</span>
+              </a>
+            </li>
+          {% endfor %}
+        </ul>
+      </nav>
+    </aside>
+
+    <main class="portal-main" id="main-content">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+  <div class="sidebar-scrim" data-menu-scrim></div>
+  <script src="{% static 'admin_portal/js/admin_portal.js' %}" defer></script>
+</body>
+</html>

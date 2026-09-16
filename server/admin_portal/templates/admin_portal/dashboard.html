@@ -1,0 +1,65 @@
+{% extends "admin_portal/base.html" %}
+
+{% block title %}Overview | FloodSense Admin{% endblock %}
+
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <p class="eyebrow">Operations overview</p>
+      <h1>Good day, {{ display_name }}.</h1>
+      <p>Day 1 establishes the protected administration shell. Operational modules will be connected incrementally.</p>
+    </div>
+    <span class="status-pill status-pill--development">Foundation · Day 1</span>
+  </section>
+
+  <section class="notice notice--warning portal-notice" aria-label="Data safety notice">
+    <strong>Development data only</strong>
+    <p>No MGB susceptibility layer, official rainfall series, or approved Expert System parameters are published through this portal.</p>
+  </section>
+
+  <section class="metric-grid" aria-label="Foundation status">
+    <article class="metric-card">
+      <p class="metric-card__label">Protected access</p>
+      <strong>Staff only</strong>
+      <p>Server-side authorization is active.</p>
+    </article>
+    <article class="metric-card">
+      <p class="metric-card__label">Expert System</p>
+      <strong>Controlled</strong>
+      <p>Rules remain read-only to ordinary administrators.</p>
+    </article>
+    <article class="metric-card">
+      <p class="metric-card__label">Data publication</p>
+      <strong>Not connected</strong>
+      <p>Provisional files cannot be published from Day 1.</p>
+    </article>
+    <article class="metric-card">
+      <p class="metric-card__label">Resident impact</p>
+      <strong>None</strong>
+      <p>These placeholder routes do not change mobile output.</p>
+    </article>
+  </section>
+
+  <section class="content-grid">
+    <article class="panel">
+      <div class="panel__heading">
+        <div><p class="eyebrow">Day 1 checklist</p><h2>Administration foundation</h2></div>
+      </div>
+      <ul class="check-list">
+        <li><span aria-hidden="true">✓</span><div><strong>Custom responsive shell</strong><p>Shared top bar, sidebar, mobile navigation, and content layout.</p></div></li>
+        <li><span aria-hidden="true">✓</span><div><strong>Staff authentication boundary</strong><p>Email/password login, protected routes, safe errors, and POST-only logout.</p></div></li>
+        <li><span aria-hidden="true">✓</span><div><strong>Design system foundation</strong><p>Shared colors, spacing, forms, notices, cards, and accessibility states.</p></div></li>
+        <li><span aria-hidden="true">✓</span><div><strong>Module routes prepared</strong><p>Every planned administration section has a protected destination.</p></div></li>
+      </ul>
+    </article>
+
+    <aside class="panel">
+      <div class="panel__heading"><div><p class="eyebrow">Continue the build</p><h2>Next modules</h2></div></div>
+      <div class="quick-links">
+        <a href="{% url 'admin_portal:section' section_slug='map-data' %}"><span>Map data</span><small>Day 3</small></a>
+        <a href="{% url 'admin_portal:section' section_slug='assessment-parameters' %}"><span>Assessment parameters</span><small>Day 4</small></a>
+        <a href="{% url 'admin_portal:section' section_slug='dss-content' %}"><span>DSS content</span><small>Day 5</small></a>
+      </div>
+    </aside>
+  </section>
+{% endblock %}

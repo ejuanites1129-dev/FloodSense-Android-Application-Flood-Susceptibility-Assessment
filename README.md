@@ -13,7 +13,8 @@ as unofficial.
 - Flutter and Dart for the Android application
 - Django and Django REST Framework for the backend and mobile API
 - GeoDjango with PostgreSQL/PostGIS for spatial data
-- Django Admin for the initial administration interface
+- Django templates for the authorized administration portal; Django Admin is
+  retained as a technical maintenance interface
 - A custom Python forward-chaining engine inside Django
 
 ## Repository layout
@@ -66,3 +67,14 @@ server\.venv\Scripts\python.exe server\manage.py seed_demo
 Never run this command against a shared, staging, or deployed database without
 explicit authorization. See `docs/DAY_6_DYNAMIC_MAP_GUIDE.md` for its safety
 checks and the map/API workflow.
+
+## Administration portal
+
+Start Django, then open `http://127.0.0.1:8000/management/`. The portal accepts
+existing active staff or superuser accounts. The separate `/admin/` route is
+the technical Django Admin and is not the designed day-to-day interface.
+
+Day 1 provides the responsive authenticated shell and protected module routes;
+later days replace the clearly labeled placeholders with working management
+screens. See `docs/ADMIN_FRONTEND_DAY_1_GUIDE.md` for the scope and verification
+commands.
