@@ -8,6 +8,22 @@ pin resolution through PostGIS, explainable single-zone assessment, and DSS
 preparedness guidance. Every demonstration response remains explicitly labeled
 as unofficial.
 
+## Current implementation sources of truth
+
+Before changing thesis-facing behavior, read:
+
+- `docs/TA_CONSULTATION_SYSTEM_DECISIONS.md` for the decisions distilled from
+  the adviser consultation and the team's later scenario-based scope decision;
+- `docs/ADMIN_WEB_7_DAY_IMPLEMENTATION_PLAN.md` for the current Admin web
+  sequence, acceptance criteria, and ownership boundaries; and
+- `docs/TEAM_DATABASE_AND_GIT_WORKFLOW.md` for shared-code and local-database
+  responsibilities.
+
+These current decision documents supersede conflicting feature descriptions in
+older demonstration guides or diagrams. In particular, FloodSense does not run
+background rainfall timers, and ordinary administrators do not edit raw Expert
+System rules.
+
 ## Planned stack
 
 - Flutter and Dart for the Android application

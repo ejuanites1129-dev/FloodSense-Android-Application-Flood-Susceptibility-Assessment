@@ -3,6 +3,10 @@ FLOODSENSE DIAGRAM RECONSTRUCTION AND REVISION GUIDE
 Official thesis title:
 FLOODSENSE: AN ANDROID-BASED EXPERT SYSTEM FOR FLOOD SUSCEPTIBILITY ASSESSMENT AND PRE-EVENT PREPAREDNESS IN BACOOR CITY
 
+CURRENT GOVERNANCE NOTICE - 17 SEPTEMBER 2026
+
+This reconstruction guide contains historical labels such as "Manage Expert Rules and Versions." Those labels do not authorize raw rule or algorithm editing by an ordinary administrator. For current implementation, docs/TA_CONSULTATION_SYSTEM_DECISIONS.md and docs/ADMIN_WEB_7_DAY_IMPLEMENTATION_PLAN.md take precedence: FloodSense remains scenario-based, has no background monitoring timer, and exposes only authorized, validated, versioned parameters and approved content workflows in the custom Admin portal. Technical rule tables may remain available to developers for controlled research testing.
+
 Document purpose:
 This plain-text document is the master manual for recreating, checking, and revising every FloodSense diagram in Microsoft Word, Lucidchart, or a comparable diagramming application. It records the exact recommended labels, element placement, connections, data-flow directions, hierarchy, database structure, and restrictions without requiring access to the earlier generated diagram files.
 
@@ -10,12 +14,13 @@ AUTHORITATIVE BASIS AND PRECEDENCE
 
 Use the following sources in this order when a conflict appears:
 1. The official title and explicit restrictions stated by the researchers.
-2. The latest revised FloodSense Chapter 1.
-3. The revised FloodSense concept checklist.
-4. The revised detailed feature specification and the later Django-based theoretical-framework/system-architecture document.
-5. Approved requirements-gathering questionnaires and validated interview information.
-6. Earlier FloodSense diagrams, but only when consistent with items 1 to 5.
-7. SURECUT and other senior-thesis materials only for page arrangement, symbol style, caption style, spacing, and visual discipline. Their substantive content must never be copied.
+2. The current consultation decision record and implementation plan named above.
+3. The latest revised FloodSense Chapter 1.
+4. The revised FloodSense concept checklist.
+5. The revised detailed feature specification and the later Django-based theoretical-framework/system-architecture document.
+6. Approved requirements-gathering questionnaires and validated interview information.
+7. Earlier FloodSense diagrams, but only when consistent with items 1 to 6.
+8. SURECUT and other senior-thesis materials only for page arrangement, symbol style, caption style, spacing, and visual discipline. Their substantive content must never be copied.
 
 GLOBAL TERMINOLOGY
 

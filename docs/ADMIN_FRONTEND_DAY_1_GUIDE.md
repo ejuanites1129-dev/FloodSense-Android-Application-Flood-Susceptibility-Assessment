@@ -87,4 +87,5 @@ migration.
 
 Day 2 should connect the overview to truthful database-backed summaries and
 review queues. It must not replace unavailable official data with fabricated
-statistics.
+statistics. The complete sequence, Day 2 acceptance criteria, and later-day
+dependencies are maintained in `ADMIN_WEB_7_DAY_IMPLEMENTATION_PLAN.md`.

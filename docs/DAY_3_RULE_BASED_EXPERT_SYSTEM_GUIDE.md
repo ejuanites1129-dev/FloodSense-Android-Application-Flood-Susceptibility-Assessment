@@ -4,6 +4,14 @@
 **FLOODSENSE: AN ANDROID-BASED EXPERT SYSTEM FOR FLOOD SUSCEPTIBILITY
 ASSESSMENT AND PRE-EVENT PREPAREDNESS IN BACOOR CITY**
 
+> **Current governance notice (17 September 2026):** This guide explains the
+> inference implementation and historical developer demonstration workflow. It
+> does not authorize an ordinary administrator to edit raw rules, rule
+> conditions, or the inference algorithm. Follow
+> `TA_CONSULTATION_SYSTEM_DECISIONS.md` and
+> `ADMIN_WEB_7_DAY_IMPLEMENTATION_PLAN.md`; their current governance decisions
+> supersede conflicting Admin instructions below.
+
 ## Day 3 outcome
 
 Day 3 adds a database-driven inference service. It accepts a selected area and
@@ -541,6 +549,9 @@ value.
 
 ### Step 7 — Create and activate the ruleset
 
+This is a historical, developer-only demonstration procedure. It is not an
+ordinary administrator workflow in the custom portal.
+
 Open **Expert → Rule sets** and create or verify:
 
 - Name: `Demonstration Rules`
@@ -553,6 +564,9 @@ Open **Expert → Rule sets** and create or verify:
 Only one ruleset per mode can be active.
 
 ### Step 8 — Create the demonstration rules and conditions
+
+This is a historical, developer-only demonstration procedure. Current
+governance prohibits exposing these raw controls to ordinary administrators.
 
 Open **Expert → Expert rules**. All rules use the active demonstration ruleset,
 demonstration source/status, an empty geographic scope, and **Is enabled**.

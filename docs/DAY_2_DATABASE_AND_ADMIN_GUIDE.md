@@ -114,7 +114,9 @@ features can be added with reviewed migrations when the core flow works.
    - Provenance — Data sources
    - Geography — Geographic areas and Area facts
    - Expert — Scenario options, Susceptibility levels, Rule sets, Expert rules,
-     and Expert rule conditions
+     and Expert rule conditions (technical model registration for controlled
+     development; raw rule controls are not exposed to ordinary custom-portal
+     administrators)
    - DSS — Guidance items
 
 The Admin labels may use Django's automatic pluralization until more

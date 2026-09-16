@@ -4,6 +4,12 @@
 **FLOODSENSE: AN ANDROID-BASED EXPERT SYSTEM FOR FLOOD SUSCEPTIBILITY
 ASSESSMENT AND PRE-EVENT PREPAREDNESS IN BACOOR CITY**
 
+> **Current scope notice (17 September 2026):** FloodSense remains a
+> user-triggered, scenario-based assessment. The historical demonstration flow
+> below is not a live rainfall feed, background timer, continuous monitor, or
+> official alerting service. Follow `TA_CONSULTATION_SYSTEM_DECISIONS.md` for the
+> current behavior and unresolved adviser questions.
+
 ## Day 5 outcome
 
 Day 5 replaces the Flutter counter scaffold with one responsive assessment
@@ -300,8 +306,9 @@ Sign in with the local administrator and confirm these current Admin groups:
   `zone_baseline_rank`;
 - **Expert → Scenario options** controls rainfall choices and derived values;
 - **Expert → Susceptibility levels** controls labels and stored map colors;
-- **Expert → Rule sets**, **Expert rules**, and **Expert rule conditions**
-  control the deterministic knowledge base; and
+- **Expert → Rule sets**, **Expert rules**, and **Expert rule conditions** are
+  developer-only demonstration controls for the deterministic knowledge base
+  and are not ordinary custom-portal administrator functions; and
 - **DSS → Guidance items** controls preparedness text without changing the
   Expert System conclusion.
 

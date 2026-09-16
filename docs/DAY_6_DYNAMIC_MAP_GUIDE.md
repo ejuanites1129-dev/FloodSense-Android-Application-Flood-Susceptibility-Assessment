@@ -4,6 +4,15 @@
 **FLOODSENSE: AN ANDROID-BASED EXPERT SYSTEM FOR FLOOD SUSCEPTIBILITY
 ASSESSMENT AND PRE-EVENT PREPAREDNESS IN BACOOR CITY**
 
+> **Current governance notice (17 September 2026):** The Django Admin editing
+> steps in this historical demonstration guide are developer-only verification
+> procedures. They are not the intended permissions of the custom Admin web
+> portal. Ordinary administrators must not edit raw Expert System rules, rule
+> conditions, or the inference algorithm. FloodSense remains scenario-based and
+> does not add background monitoring or timers. Follow
+> `TA_CONSULTATION_SYSTEM_DECISIONS.md` and
+> `ADMIN_WEB_7_DAY_IMPLEMENTATION_PLAN.md` when implementing current behavior.
+
 ## Day 6 outcome
 
 Day 6 connects the Day 5 assessment screen to a functional interactive map.
@@ -427,9 +436,9 @@ development.
 | Geography → Area facts | Edit `zone_baseline_rank` | Changes facts evaluated by stored Expert System rules |
 | Expert → Scenario options | Edit labels, ranks/hours, order, status, or enabled state | Changes selectors and assessment facts |
 | Expert → Susceptibility levels | Edit labels and `map_color` | Changes returned classification presentation and polygon color |
-| Expert → Rule sets | Manage version, mode, status, and active state | Selects the knowledge-base version used by evaluation |
-| Expert → Expert rules | Manage priority, result level, scope, status, and enabled state | Changes eligible IF–THEN conclusions |
-| Expert → Expert rule conditions | Manage controlled condition type, operator, and expected value | Changes how a stored rule matches facts |
+| Expert → Rule sets | Developer-only demonstration inspection | Not exposed as an ordinary custom-portal control |
+| Expert → Expert rules | Developer-only demonstration inspection | Raw IF-THEN conclusions are fixed outside ordinary Admin workflows |
+| Expert → Expert rule conditions | Developer-only demonstration inspection | Raw matching logic is fixed outside ordinary Admin workflows |
 | DSS → Guidance items | Edit ordered provisional preparedness text | Changes DSS output without changing susceptibility |
 
 For `Geographic areas`, baseline facts are available both as inline rows on the
