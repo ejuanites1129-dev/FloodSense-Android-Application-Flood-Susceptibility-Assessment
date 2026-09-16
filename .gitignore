@@ -27,7 +27,9 @@ Thumbs.db
 # Local review and generated temporary files
 tmp/
 
+# Large national-scale GIS source files (preserve locally; do not commit)
+research_data/administrative_boundaries/phl_admin*.geojson
+
 # Secrets and local configuration
 .env
 *.local
-

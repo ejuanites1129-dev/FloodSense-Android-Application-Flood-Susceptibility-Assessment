@@ -38,7 +38,12 @@ Future<void> chooseZone(WidgetTester tester) async {
 }
 
 void tapMapCoordinate(WidgetTester tester, LatLng point) {
-  final map = tester.widget<FlutterMap>(find.byType(FlutterMap));
+  final map = tester.widget<FlutterMap>(
+    find.descendant(
+      of: find.byKey(const Key('dynamic-map')),
+      matching: find.byType(FlutterMap),
+    ),
+  );
   map.options.onTap!(const TapPosition(Offset.zero, Offset.zero), point);
 }
 
@@ -48,6 +53,27 @@ List<Polygon<int>> renderedPolygons(WidgetTester tester) => tester
 
 void main() {
   group('Day 6 dynamic map', () {
+    testWidgets('renders the administrative reference as a neutral layer', (
+      tester,
+    ) async {
+      await pumpMap(tester, FakeFloodSenseApi());
+
+      expect(find.byKey(const Key('reference-boundary-map')), findsOneWidget);
+      expect(
+        find.text('1 barangay boundaries loaded from Django/PostGIS.'),
+        findsOneWidget,
+      );
+      final layer = tester.widget<PolygonLayer<int>>(
+        find.byKey(const Key('reference-boundary-polygons')),
+      );
+      expect(layer.polygons, hasLength(1));
+      expect(layer.polygons.single.borderColor, AppColors.primary);
+      expect(
+        find.byKey(const Key('reference-boundary-warning')),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('renders API polygons neutrally before a complete scenario', (
       tester,
     ) async {

@@ -60,6 +60,24 @@ void main() {
       },
     );
 
+    test('reference boundaries use the dedicated neutral endpoint', () async {
+      late Uri requested;
+      final api = FloodSenseApiClient(
+        baseUrl: 'http://example.test/api/v1',
+        client: MockClient((request) async {
+          requested = request.url;
+          return jsonResponse(referenceBoundaryCollectionJson());
+        }),
+      );
+
+      final result = await api.fetchReferenceBoundaries();
+
+      expect(requested.path, '/api/v1/geography/reference-boundaries/');
+      expect(requested.queryParameters, isEmpty);
+      expect(result.single.name, 'Bayanan');
+      expect(result.single.dataStatus, 'PENDING_VALIDATION');
+    });
+
     test('14 assessment POST sends exact expected JSON fields', () async {
       late http.Request captured;
       final api = FloodSenseApiClient(

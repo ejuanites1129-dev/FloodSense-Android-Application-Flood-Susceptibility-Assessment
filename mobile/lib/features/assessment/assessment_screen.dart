@@ -10,6 +10,7 @@ import 'widgets/demonstration_warning.dart';
 import 'widgets/dynamic_map_card.dart';
 import 'widgets/duration_selector.dart';
 import 'widgets/limitation_result_card.dart';
+import 'widgets/reference_boundary_map_card.dart';
 import 'widgets/scenario_selector.dart';
 import 'widgets/zone_selector.dart';
 
@@ -107,6 +108,11 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        ReferenceBoundaryMapCard(
+          controller: _controller,
+          showBasemap: widget.showBasemap,
+        ),
+        const SizedBox(height: 14),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),

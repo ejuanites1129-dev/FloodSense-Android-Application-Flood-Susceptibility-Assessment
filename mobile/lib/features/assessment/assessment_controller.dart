@@ -20,8 +20,10 @@ class AssessmentController extends ChangeNotifier {
   bool isSubmitting = false;
   bool isMapAssessing = false;
   bool isResolvingPoint = false;
+  bool isReferenceLoading = false;
   AssessmentOptions? options;
   List<GeographicArea> areas = const [];
+  List<GeographicArea> referenceAreas = const [];
   ScenarioOption? selectedIntensity;
   ScenarioOption? selectedDuration;
   GeographicArea? selectedArea;
@@ -33,6 +35,7 @@ class AssessmentController extends ChangeNotifier {
   ApiException? submissionError;
   ApiException? mapError;
   ApiException? pointError;
+  ApiException? referenceError;
 
   int _mapGeneration = 0;
   int _pointGeneration = 0;
@@ -65,6 +68,7 @@ class AssessmentController extends ChangeNotifier {
     isLoading = true;
     loadError = null;
     notifyListeners();
+    unawaited(loadReferenceBoundaries());
     try {
       final resources = await Future.wait<Object>([
         _api.fetchAssessmentOptions(),
@@ -83,6 +87,26 @@ class AssessmentController extends ChangeNotifier {
       );
     } finally {
       isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadReferenceBoundaries() async {
+    if (isReferenceLoading) return;
+    isReferenceLoading = true;
+    referenceError = null;
+    notifyListeners();
+    try {
+      referenceAreas = List.unmodifiable(await _api.fetchReferenceBoundaries());
+    } on ApiException catch (error) {
+      referenceError = error;
+    } catch (_) {
+      referenceError = const ApiException(
+        'FloodSense could not load the Bacoor administrative reference layer.',
+        kind: ApiFailureKind.service,
+      );
+    } finally {
+      isReferenceLoading = false;
       notifyListeners();
     }
   }

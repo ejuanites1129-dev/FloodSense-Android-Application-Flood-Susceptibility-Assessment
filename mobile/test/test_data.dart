@@ -100,6 +100,49 @@ Map<String, dynamic> areaCollectionJson({bool empty = false}) => {
   'warnings': ['DEMONSTRATION DATA—NOT OFFICIAL'],
 };
 
+Map<String, dynamic> referenceBoundaryCollectionJson({bool empty = false}) => {
+  'type': 'FeatureCollection',
+  'features': empty
+      ? <dynamic>[]
+      : [
+          {
+            'type': 'Feature',
+            'id': 101,
+            'geometry': {
+              'type': 'MultiPolygon',
+              'coordinates': [
+                [
+                  [
+                    [120.96, 14.40],
+                    [120.96, 14.41],
+                    [120.97, 14.41],
+                    [120.97, 14.40],
+                    [120.96, 14.40],
+                  ],
+                ],
+              ],
+            },
+            'properties': {
+              'id': 101,
+              'code': 'PSGC_0402103004',
+              'name': 'Bayanan',
+              'area_type': 'BARANGAY',
+              'data_status': 'PENDING_VALIDATION',
+              'updated_at': '2026-09-16T00:00:00+08:00',
+              'source': {
+                'name': 'Bacoor administrative boundaries—derived reference',
+              },
+            },
+          },
+        ],
+  'layer_kind': 'ADMINISTRATIVE_REFERENCE',
+  'data_status': 'PENDING_VALIDATION',
+  'warnings': [
+    'DERIVED ADMINISTRATIVE REFERENCE—NOT CITY-VERIFIED',
+    'Administrative boundaries only; they do not indicate flood susceptibility or current conditions.',
+  ],
+};
+
 Map<String, dynamic> assessmentJson({
   String state = 'CLASSIFIED',
   bool guidance = true,
@@ -192,6 +235,11 @@ AssessmentOptions sampleOptions({bool empty = false}) =>
 List<GeographicArea> sampleAreas({bool empty = false}) =>
     GeographicArea.listFromFeatureCollection(areaCollectionJson(empty: empty));
 
+List<GeographicArea> sampleReferenceAreas({bool empty = false}) =>
+    GeographicArea.listFromFeatureCollection(
+      referenceBoundaryCollectionJson(empty: empty),
+    );
+
 AssessmentResult sampleResult({
   String state = 'CLASSIFIED',
   bool guidance = true,
@@ -270,6 +318,7 @@ class FakeFloodSenseApi implements FloodSenseApi {
   FakeFloodSenseApi({
     AssessmentOptions? options,
     List<GeographicArea>? areas,
+    List<GeographicArea>? referenceAreas,
     AssessmentResult? result,
     this.loadError,
     this.evaluateError,
@@ -284,10 +333,12 @@ class FakeFloodSenseApi implements FloodSenseApi {
     this.pointHandler,
   }) : options = options ?? sampleOptions(),
        areas = areas ?? sampleAreas(),
+       referenceAreas = referenceAreas ?? sampleReferenceAreas(),
        result = result ?? sampleResult();
 
   AssessmentOptions options;
   List<GeographicArea> areas;
+  List<GeographicArea> referenceAreas;
   AssessmentResult result;
   Object? loadError;
   Object? evaluateError;
@@ -304,6 +355,7 @@ class FakeFloodSenseApi implements FloodSenseApi {
   pointHandler;
   int optionsCalls = 0;
   int areasCalls = 0;
+  int referenceAreasCalls = 0;
   int evaluateCalls = 0;
   int mapCalls = 0;
   int pointCalls = 0;
@@ -326,6 +378,13 @@ class FakeFloodSenseApi implements FloodSenseApi {
     areasCalls++;
     if (loadError != null) throw loadError!;
     return areasCompleter?.future ?? areas;
+  }
+
+  @override
+  Future<List<GeographicArea>> fetchReferenceBoundaries() async {
+    referenceAreasCalls++;
+    if (loadError != null) throw loadError!;
+    return referenceAreas;
   }
 
   @override

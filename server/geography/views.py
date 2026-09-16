@@ -14,8 +14,14 @@ from rest_framework import serializers
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from provenance.models import DataSource, PublicationStatus
 
 from .models import GeographicArea
+from .constants import (
+    BACOOR_REFERENCE_LIMITATION,
+    BACOOR_REFERENCE_SOURCE_NAME,
+    BACOOR_REFERENCE_WARNING,
+)
 from .serializers import PointResolutionRequestSerializer
 from .services import PointResolutionInputError, resolve_area_for_point
 
@@ -40,6 +46,35 @@ def area_collection(request):
             "operating_mode": mode,
             "data_status": data_status_for_mode(mode),
             "warnings": warnings_for_mode(mode),
+        }
+    )
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def reference_boundary_collection(request):
+    """Return the current derived Bacoor barangay reference layer without classifications."""
+
+    areas = (
+        GeographicArea.objects.select_related("source")
+        .filter(
+            area_type=GeographicArea.AreaType.BARANGAY,
+            is_enabled=True,
+            status=PublicationStatus.PENDING_VALIDATION,
+            source__name=BACOOR_REFERENCE_SOURCE_NAME,
+            source__source_type=DataSource.SourceType.AGENCY_DATASET,
+            source__status=PublicationStatus.PENDING_VALIDATION,
+            source__is_publicly_releasable=True,
+        )
+        .order_by("name", "id")
+    )
+    return Response(
+        {
+            "type": "FeatureCollection",
+            "features": [_serialize_area_feature(area) for area in areas],
+            "layer_kind": "ADMINISTRATIVE_REFERENCE",
+            "data_status": PublicationStatus.PENDING_VALIDATION,
+            "warnings": [BACOOR_REFERENCE_WARNING, BACOOR_REFERENCE_LIMITATION],
         }
     )
 

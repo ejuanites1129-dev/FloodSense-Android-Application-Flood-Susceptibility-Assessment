@@ -17,6 +17,7 @@ import 'api_exception.dart';
 abstract interface class FloodSenseApi {
   Future<AssessmentOptions> fetchAssessmentOptions();
   Future<List<GeographicArea>> fetchDemonstrationAreas();
+  Future<List<GeographicArea>> fetchReferenceBoundaries();
   Future<AssessmentResult> evaluateAssessment(AssessmentRequest request);
   Future<PointResolution> resolvePoint({
     required double latitude,
@@ -61,6 +62,12 @@ class FloodSenseApiClient implements FloodSenseApi {
     final json = await _get(
       _uri('geography/areas/', const {'mode': 'demonstration'}),
     );
+    return _parse(() => GeographicArea.listFromFeatureCollection(json));
+  }
+
+  @override
+  Future<List<GeographicArea>> fetchReferenceBoundaries() async {
+    final json = await _get(_uri('geography/reference-boundaries/'));
     return _parse(() => GeographicArea.listFromFeatureCollection(json));
   }
 
