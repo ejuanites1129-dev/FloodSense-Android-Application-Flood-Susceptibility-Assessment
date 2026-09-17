@@ -1,7 +1,9 @@
 # FloodSense Admin Web - Seven-Day Implementation Plan
 
-**Plan status:** Active  
-**Updated:** 17 September 2026  
+**Plan status:** Active team timeline; Days 1-2 complete, Day 3 next
+
+**Updated:** 18 September 2026
+
 **Interface:** Custom Django portal under `/management/`
 
 ## Purpose
@@ -9,6 +11,11 @@
 This is the implementation handoff for the designed FloodSense Admin web
 application. It gives teammates and coding agents enough context to continue a
 day independently without relying on a private conversation.
+
+The sequence and deliverables reflect the research team's updated seven-day
+Admin Web UI timeline supplied on 17 September 2026. This records the team's
+implementation plan, not a new claim of thesis-adviser approval. Day numbers
+identify development stages; calendar dates have not been assigned.
 
 The custom portal is the ordinary administrative interface. Django's `/admin/`
 remains a technical maintenance surface for developers and authorized research
@@ -42,8 +49,8 @@ All work must also follow:
 | Day | Status | Main outcome |
 | --- | --- | --- |
 | 1 | Complete | Authentication, responsive shell, navigation, Settings placeholder |
-| 2 | Next | Truthful operational dashboard |
-| 3 | Planned | Map and geographic-data review |
+| 2 | Complete | Truthful operational dashboard and limited recorded maintenance activity |
+| 3 | Next | Map and geographic-data review |
 | 4 | Planned | Settings and governed assessment parameters |
 | 5 | Planned | DSS preparedness-content workflow |
 | 6 | Planned | Rainfall references, centers, and provenance |
@@ -57,7 +64,7 @@ All work must also follow:
 - responsive desktop sidebar and mobile drawer;
 - FloodSense branding and fixed-height active navigation;
 - account menu containing Settings and Sign out;
-- reusable visual tokens, forms, cards, notices, and empty states;
+- reusable visual tokens, buttons, forms, cards, notices, and layout styles;
 - protected placeholder routes for planned modules; and
 - explicit development-data and publication-safety messaging.
 
@@ -82,16 +89,24 @@ already stored in the current local database.
 
 1. Add a focused dashboard query/service layer instead of placing unrelated ORM
    queries directly in the template.
-2. Display truthful counts for existing containers such as geographic areas,
-   data sources, scenario options, and DSS guidance items.
+2. Display truthful database-backed counts for geographic areas, data sources,
+   DSS guidance items, available assessment parameters, and records needing
+   review. Define parameter availability using authorized scenario/reference
+   records the current models actually support; do not count raw expert rules
+   as editable parameters.
 3. Group or label summaries by the existing publication status where useful, so
    demonstration records cannot look approved.
 4. Add a review-attention panel using only status signals the current models can
    actually support.
-5. Add quick links to the protected Map data, Settings, DSS content, and Sources
-   sections.
-6. Preserve an explicit data-safety notice and meaningful empty states.
-7. Keep raw rules, rule conditions, priorities, and inference details out of the
+5. Add recent administrative activity using an actual recorded event source,
+   with clear labels for its coverage. If no auditable event source exists,
+   show an explicit unavailable state and record the outstanding dependency;
+   do not infer administrator actions from modification timestamps.
+6. Add quick actions linking to the protected Map data, Settings, DSS content,
+   and Sources sections.
+7. Preserve an explicit data-safety notice and meaningful empty states when no
+   approved records exist, even if provisional or demonstration records exist.
+8. Keep raw rules, rule conditions, priorities, and inference details out of the
    ordinary dashboard.
 
 ### Do not implement on Day 2
@@ -108,7 +123,9 @@ already stored in the current local database.
 - anonymous and non-staff access remains blocked;
 - an empty database renders zero/empty states without errors;
 - demonstration and approved records are not combined under an official label;
-- counts match records created by the test; and
+- counts match records created by the test;
+- recent activity matches recorded events, or truthfully states that its source
+  is unavailable; and
 - the dashboard does not expose raw expert-rule management links.
 
 ### Day 2 completion evidence
@@ -117,6 +134,18 @@ already stored in the current local database.
 - Django system check;
 - `makemigrations --check --dry-run` reports no unintended model change; and
 - focused tests plus the complete backend test suite pass.
+
+### Verified completion - 18 September 2026
+
+The dashboard now uses five read-only summary queries, separates all recorded
+publication statuses, and displays safe limited Django maintenance activity.
+The portal suite passed 35 tests and the complete backend suite passed 124.
+Empty and populated layouts were verified at desktop, tablet, and mobile widths;
+Flutter analysis, 91 Flutter tests, the debug APK build, and live API-client
+integration checks passed. No models or migrations changed.
+
+See `ADMIN_FRONTEND_DAY_2_GUIDE.md` for count definitions, evidence, commands,
+remaining placeholders, and the three pre-existing repository-wide Ruff findings.
 
 ## Day 3 - Map and geographic-data review
 
@@ -127,11 +156,16 @@ source information, validation state, and layer readiness.
 
 ### Implement
 
-- map preview with the 47 current Bacoor barangay polygons;
+- interactive Bacoor map with the 47 current barangay boundaries;
 - area search, selection, and detail panel;
-- source, version, geometry type, publication status, and enabled state;
-- clear visual distinction among administrative boundaries, provisional layers,
-  demonstration zones, and future approved susceptibility information;
+- layer visibility controls;
+- source, version, geometry type, validation information, publication status,
+  and enabled state;
+- clear visual distinction among administrative boundaries, the provisional
+  MGB susceptibility layer, demonstration zones, and future approved
+  susceptibility data;
+- draft/review/approved labels backed by stored workflow status, with an explicit
+  unavailable state where the current model does not yet support that status;
 - controlled validation/review actions only where the backend model supports
   them; and
 - map legend and limitations that do not confuse a basemap with assessment data.
@@ -140,7 +174,8 @@ source information, validation state, and layer readiness.
 
 - OpenStreetMap remains background context only;
 - barangay boundaries do not establish susceptibility;
-- the provisional MGB layer is not published as an official Bacoor result; and
+- provisional susceptibility layers, including MGB, must not be published to
+  residents; and
 - do not assign demonstration classes to real barangays.
 
 ## Day 4 - Settings and assessment-parameter governance
@@ -152,11 +187,16 @@ authorized assessment parameters while keeping the algorithm fixed.
 
 ### Implement
 
-- Settings navigation and grouped configuration pages;
+- develop the Settings section and move authorized assessment parameters into
+  its grouped configuration pages;
 - read-only explanation of the inference method and current active version;
-- parameter list with value, unit, source, version, status, and effective date;
+- parameter list and controlled forms with value, unit, source, rationale,
+  version number, status, and effective date;
+- editing limited to approved parameter definitions and authorized administrator
+  roles, with proposed value changes passing through review before activation;
 - draft, validation, review, approval, activation, and rollback states;
 - server-side validation and permission checks;
+- change confirmation and audit recording for parameter mutations;
 - preview of the effect on demonstration scenarios without silently publishing;
   and
 - a designed import/export entry point only after its direction and schema are
@@ -166,6 +206,7 @@ authorized assessment parameters while keeping the algorithm fixed.
 
 - no ordinary-Admin rule-set, raw-rule, condition, priority, or conflict-policy
   editor;
+- no direct alteration of the inference algorithm;
 - no arbitrary threshold field without source and validation metadata; and
 - no direct activation of pending or restricted data.
 
@@ -181,9 +222,12 @@ without affecting susceptibility classification.
 
 ### Implement
 
-- searchable/filterable guidance list;
-- create/edit form with category, instruction, source, status, and display order;
-- preview matching the resident-facing presentation;
+- guidance-item list with search and category filters;
+- create/edit form with category, instruction, source, attribution, status, and
+  display order;
+- associate guidance with susceptibility results without changing the
+  classification logic;
+- mobile-preview section matching the resident-facing presentation;
 - draft/review/approval/publication workflow;
 - validation, confirmation, and safe error states; and
 - tests proving guidance edits do not change the Expert System conclusion.
@@ -198,23 +242,29 @@ without affecting susceptibility classification.
 
 ### Rainfall references
 
-- manage scenario-reference metadata such as category, duration, unit, source,
-  period of record, and time resolution;
-- prepare safe review of DOST-provided records under the EULA;
+- manage scenario rainfall intensity and duration options, including units,
+  source, period of record, and time resolution;
+- support import or review of future DOST rainfall references once the schema,
+  usage permissions, and intended workflow are confirmed; any official-data
+  import requires explicit authorization for its target and must follow the
+  EULA;
 - label reference/scenario data separately from current observations; and
 - do not imply live ingestion or monitoring.
 
 ### Evacuation centers
 
-- manage only verified records supplied by an authorized custodian;
-- include location, address, contact/source, verification date, and status;
-- provide map preview and validation; and
+- provide a verified evacuation-center list and form using records supplied by
+  an authorized custodian;
+- include coordinates, address, contact information, responsible source,
+  verification date, and verification status;
+- provide map placement, preview, and validation; and
 - do not invent center details or claim live capacity/occupancy.
 
 ### Sources and provenance
 
-- maintain organization, custodian, coverage, license, restrictions, version,
-  processing notes, validation state, and limitations;
+- provide a dataset/source registry with organization, custodian, coverage,
+  license, usage restrictions, version, processing notes, validation state, and
+  limitations;
 - link managed content back to its source; and
 - prevent restricted source material from being exposed through public output.
 
@@ -222,20 +272,45 @@ without affecting susceptibility classification.
 
 ### Implement and verify
 
-- administrative activity history for supported mutations;
+- administrative audit-history interface for supported mutations;
 - actor, action, object, timestamp, and before/after summary where appropriate;
+- filters by administrator, module, action, and date;
 - module/action permissions and least-privilege review;
 - confirmation for destructive or publication-impacting actions;
-- validation, forbidden, not-found, loading, and empty states;
-- keyboard navigation, focus order, labels, contrast, and responsive layouts;
+- form validation with helpful errors, plus forbidden, not-found, loading, and
+  empty states;
+- keyboard navigation, focus order, labels, contrast, and responsive testing at
+  mobile and desktop widths;
 - security review covering CSRF, session behavior, output escaping, uploads,
   authorization, safe redirects, secrets, and production HTTPS settings;
-- end-to-end Admin-to-API-to-Flutter regression checks; and
+- end-to-end Admin-to-API-to-Flutter regression checks;
+- full backend test suite;
+- final consistency check against the high-fidelity design, subject to the
+  current consultation decisions and this timeline; and
 - final screenshots and presentation checklist.
 
 Do not fabricate an audit history from model modification timestamps. If an
 auditable event source is absent, implement and migrate a reviewed audit model
 or explicitly leave the feature incomplete.
+
+## Expected result after seven days
+
+The designed day-to-day administrator interface under `/management/` should
+provide approximately these functional modules:
+
+1. Authentication
+2. Dashboard
+3. Geographic/map data
+4. Settings and assessment parameters
+5. DSS guidance
+6. Rainfall references
+7. Evacuation centers
+8. Data sources/provenance
+9. Audit history
+
+Django Admin remains available at `/admin/` as the technical maintenance tool.
+Module completion must be supported by its acceptance evidence; an empty state
+for missing approved data must not be mistaken for an implemented workflow.
 
 ## Team handoff for each day
 
@@ -260,14 +335,17 @@ Before handing off:
 
 ## Parallel-work rule
 
-Day 2 may begin now. Later days may be designed in parallel, but implementation
+Day 3 may begin now. Later days may be designed in parallel, but implementation
 must respect dependencies:
 
 - Day 4 must not finalize parameter editing before governance fields and
   approval ownership are agreed;
 - Day 5 needs an authorized guidance source and publication rules;
 - Day 6 needs verified source/custodian information; and
-- Day 7 audit work depends on knowing which mutations earlier days introduced.
+- audit event capture must accompany the governed mutations introduced from
+  Day 4 onward; Day 7 completes the history interface and verifies coverage
+  across modules. Day 2's recent-activity panel must use genuine recorded events
+  or clearly report the missing event-source dependency.
 
 When uncertainty would change scientific behavior, data publication, privacy,
 or administrator authority, stop and request a decision instead of filling the

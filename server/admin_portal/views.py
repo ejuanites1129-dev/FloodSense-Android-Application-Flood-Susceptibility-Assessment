@@ -13,6 +13,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_GET
 
 from .forms import StaffAuthenticationForm
+from .services.dashboard import get_dashboard_summary
 
 SECTIONS = {
     "map-data": {
@@ -171,6 +172,7 @@ def password_help(request: HttpRequest) -> HttpResponse:
 @require_GET
 def dashboard(request: HttpRequest) -> HttpResponse:
     context = _portal_context(request, active_section="dashboard")
+    context["dashboard"] = get_dashboard_summary()
     return render(request, "admin_portal/dashboard.html", context)
 
 

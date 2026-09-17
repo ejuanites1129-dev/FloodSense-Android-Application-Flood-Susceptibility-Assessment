@@ -3,63 +3,138 @@
 {% block title %}Overview | FloodSense Admin{% endblock %}
 
 {% block content %}
-  <section class="page-heading">
-    <div>
-      <p class="eyebrow">Operations overview</p>
-      <h1>Good day, {{ display_name }}.</h1>
-      <p>Day 1 establishes the protected administration shell. Operational modules will be connected incrementally.</p>
-    </div>
-    <span class="status-pill status-pill--development">Foundation · Day 1</span>
-  </section>
-
-  <section class="notice notice--warning portal-notice" aria-label="Data safety notice">
-    <strong>Development data only</strong>
-    <p>No MGB susceptibility layer, official rainfall series, or approved Expert System parameters are published through this portal.</p>
-  </section>
-
-  <section class="metric-grid" aria-label="Foundation status">
-    <article class="metric-card">
-      <p class="metric-card__label">Protected access</p>
-      <strong>Staff only</strong>
-      <p>Server-side authorization is active.</p>
-    </article>
-    <article class="metric-card">
-      <p class="metric-card__label">Expert System</p>
-      <strong>Controlled</strong>
-      <p>Rules remain read-only to ordinary administrators.</p>
-    </article>
-    <article class="metric-card">
-      <p class="metric-card__label">Data publication</p>
-      <strong>Not connected</strong>
-      <p>Provisional files cannot be published from Day 1.</p>
-    </article>
-    <article class="metric-card">
-      <p class="metric-card__label">Resident impact</p>
-      <strong>None</strong>
-      <p>These placeholder routes do not change mobile output.</p>
-    </article>
-  </section>
-
-  <section class="content-grid">
-    <article class="panel">
-      <div class="panel__heading">
-        <div><p class="eyebrow">Day 1 checklist</p><h2>Administration foundation</h2></div>
+  <div class="dashboard">
+    <section class="page-heading">
+      <div>
+        <p class="eyebrow">Operations overview</p>
+        <h1>Good day, {{ display_name }}.</h1>
+        <p>A read-only summary of the current local database. Local records differ between teammates.</p>
       </div>
-      <ul class="check-list">
-        <li><span aria-hidden="true">✓</span><div><strong>Custom responsive shell</strong><p>Shared top bar, sidebar, mobile navigation, and content layout.</p></div></li>
-        <li><span aria-hidden="true">✓</span><div><strong>Staff authentication boundary</strong><p>Email/password login, protected routes, safe errors, and POST-only logout.</p></div></li>
-        <li><span aria-hidden="true">✓</span><div><strong>Design system foundation</strong><p>Shared colors, spacing, forms, notices, cards, and accessibility states.</p></div></li>
-        <li><span aria-hidden="true">✓</span><div><strong>Module routes prepared</strong><p>Every planned administration section has a protected destination.</p></div></li>
-      </ul>
-    </article>
+      <span class="status-pill status-pill--development">Database-backed · Read-only</span>
+    </section>
 
-    <aside class="panel">
-      <div class="panel__heading"><div><p class="eyebrow">Continue the build</p><h2>Next modules</h2></div></div>
-      <div class="quick-links">
-        <a href="{% url 'admin_portal:section' section_slug='map-data' %}"><span>Map data</span><small>Day 3</small></a>
-        <a href="{% url 'admin_portal:section' section_slug='assessment-parameters' %}"><span>Assessment parameters</span><small>Day 4</small></a>
-        <a href="{% url 'admin_portal:section' section_slug='dss-content' %}"><span>DSS content</span><small>Day 5</small></a>
-      </div>
-    </aside>
-  </section>
+    <section class="notice notice--warning portal-notice" aria-label="Data safety notice">
+      <strong>Local records, with their recorded status</strong>
+      <p>These counts are not official citywide or national statistics. Demonstration data are not official Bacoor flood information. Enabled does not mean approved, and approval alone does not establish public availability.</p>
+    </section>
+
+    <section class="metric-grid dashboard-metrics" aria-label="Database record summaries">
+      <article class="metric-card" aria-labelledby="geographic-heading">
+        <h2 class="metric-card__label" id="geographic-heading">Geographic areas</h2>
+        <p class="dashboard-total"><span>{{ dashboard.geographic_areas.total }}</span> total records</p>
+        <p class="dashboard-secondary">{{ dashboard.geographic_areas.enabled }} enabled</p>
+        {% include "admin_portal/publication_breakdown.html" with summary=dashboard.geographic_areas only %}
+        {% if not dashboard.geographic_areas.status_counts.APPROVED %}
+          <p class="dashboard-empty">No geographic records are currently approved.</p>
+        {% endif %}
+        <details class="dashboard-details">
+          <summary>Area types</summary>
+          <dl class="dashboard-counts">
+            {% for area_type in dashboard.geographic_areas.area_types %}
+              <div><dt>{{ area_type.label }}</dt><dd>{{ area_type.count }}</dd></div>
+            {% endfor %}
+          </dl>
+        </details>
+        <p class="dashboard-note">Barangay boundaries identify administrative areas; they do not assign susceptibility.</p>
+      </article>
+
+      <article class="metric-card" aria-labelledby="sources-heading">
+        <h2 class="metric-card__label" id="sources-heading">Data sources</h2>
+        <p class="dashboard-total"><span>{{ dashboard.data_sources.total }}</span> total sources</p>
+        <p class="dashboard-secondary">{{ dashboard.data_sources.approved_public }} approved and publicly releasable</p>
+        {% include "admin_portal/publication_breakdown.html" with summary=dashboard.data_sources only %}
+        {% if not dashboard.data_sources.approved_public %}
+          <p class="dashboard-empty">No approved public data sources are available.</p>
+        {% endif %}
+        <p class="dashboard-note">Public release requires both approval and permission to release the source.</p>
+      </article>
+
+      <article class="metric-card" aria-labelledby="guidance-heading">
+        <h2 class="metric-card__label" id="guidance-heading">DSS guidance</h2>
+        <p class="dashboard-total"><span>{{ dashboard.guidance_items.total }}</span> total items</p>
+        <p class="dashboard-secondary">{{ dashboard.guidance_items.enabled }} enabled</p>
+        {% include "admin_portal/publication_breakdown.html" with summary=dashboard.guidance_items only %}
+        {% if not dashboard.guidance_items.status_counts.APPROVED %}
+          <p class="dashboard-empty">No approved preparedness guidance is available.</p>
+        {% endif %}
+        <p class="dashboard-note">Preparedness content is separate from susceptibility classification.</p>
+      </article>
+
+      <article class="metric-card" aria-labelledby="scenarios-heading">
+        <h2 class="metric-card__label" id="scenarios-heading">Scenario options</h2>
+        <p class="dashboard-total"><span>{{ dashboard.scenario_options.total }}</span> total options</p>
+        <p class="dashboard-secondary">{{ dashboard.scenario_options.enabled }} enabled</p>
+        {% include "admin_portal/publication_breakdown.html" with summary=dashboard.scenario_options only %}
+        {% if not dashboard.scenario_options.status_counts.APPROVED %}
+          <p class="dashboard-empty">No approved scenario options are available.</p>
+        {% endif %}
+        <dl class="dashboard-counts dashboard-categories">
+          <div><dt>Enabled rainfall intensity</dt><dd>{{ dashboard.scenario_options.enabled_intensity }}</dd></div>
+          <div><dt>Enabled rainfall duration</dt><dd>{{ dashboard.scenario_options.enabled_duration }}</dd></div>
+        </dl>
+        <p class="dashboard-note">Stored hypothetical inputs, not current rainfall observations.</p>
+      </article>
+
+      <article class="metric-card dashboard-attention-total" aria-labelledby="pending-heading">
+        <div>
+          <h2 class="metric-card__label" id="pending-heading">Pending validation</h2>
+          <p class="dashboard-total"><span>{{ dashboard.review_attention.total }}</span> records across the four modules above</p>
+        </div>
+        <a class="button button--secondary" href="#pending-validation">View breakdown <span aria-hidden="true">↓</span></a>
+      </article>
+    </section>
+
+    <section class="content-grid dashboard-panels" aria-label="Administrative overview">
+      <article class="panel dashboard-activity" aria-labelledby="activity-heading">
+        <div class="panel__heading"><div><p class="eyebrow">Recorded actions</p><h2 id="activity-heading">Recent recorded maintenance activity</h2></div></div>
+        <p class="dashboard-note">This is a limited view of recorded Django maintenance actions, not the complete FloodSense audit history.</p>
+        {% if dashboard.recent_activity %}
+          <ol class="dashboard-activity-list">
+            {% for event in dashboard.recent_activity %}
+              <li>
+                <span class="dashboard-activity-mark" aria-hidden="true">○</span>
+                <div>
+                  <p><b>{{ event.action }}</b> · {{ event.module }}</p>
+                  <p class="dashboard-note">By {{ event.actor }}</p>
+                  <time datetime="{{ event.timestamp|date:'c' }}">{{ event.timestamp|date:"M j, Y · H:i O" }}</time>
+                </div>
+              </li>
+            {% endfor %}
+          </ol>
+          <p class="dashboard-note dashboard-panel-footer">Up to five recorded actions for geography, sources, guidance, and scenario options.</p>
+        {% else %}
+          <div class="empty-state dashboard-empty-state">
+            <span class="empty-state__icon" aria-hidden="true">▤</span>
+            <p><b>No recorded maintenance activity is available.</b></p>
+            <p>Only recorded actions in the four summarized modules appear here. The full audit-history interface is planned for Day 7.</p>
+          </div>
+        {% endif %}
+      </article>
+
+      <article class="panel" id="pending-validation" aria-labelledby="attention-heading">
+        <div class="panel__heading"><div><p class="eyebrow">Attention needed</p><h2 id="attention-heading">Pending validation by module</h2></div></div>
+        <p class="dashboard-note">Only records marked Pending validation are counted. Restricted and retired records are separate statuses.</p>
+        {% if not dashboard.review_attention.total %}
+          <p class="dashboard-empty">No records are currently marked Pending validation.</p>
+        {% endif %}
+        <ul class="dashboard-review-list">
+          {% for module in dashboard.review_attention.modules %}
+            <li><a href="{% url 'admin_portal:section' section_slug=module.section_slug %}"><span>{{ module.label }}</span><span class="dashboard-review-count">{{ module.count }} <span class="sr-only">pending validation</span></span></a></li>
+          {% endfor %}
+        </ul>
+        <p class="dashboard-note dashboard-panel-footer">Links open protected module placeholders. Review workflows will arrive on their planned days.</p>
+      </article>
+
+      <aside class="panel dashboard-actions" aria-labelledby="actions-heading">
+        <div class="panel__heading"><div><p class="eyebrow">Management modules</p><h2 id="actions-heading">Quick actions</h2></div></div>
+        <p class="dashboard-note">Open a planned section. Editing and publication workflows are not yet available.</p>
+        <div class="quick-links">
+          <a href="{% url 'admin_portal:section' section_slug='map-data' %}"><span>Open map data</span><small>Planned Day 3</small></a>
+          <a href="{% url 'admin_portal:section' section_slug='assessment-parameters' %}"><span>Review assessment parameters</span><small>Planned Day 4</small></a>
+          <a href="{% url 'admin_portal:section' section_slug='dss-content' %}"><span>Open DSS content</span><small>Planned Day 5</small></a>
+          <a href="{% url 'admin_portal:section' section_slug='sources-content' %}"><span>Manage sources</span><small>Planned Day 6</small></a>
+        </div>
+      </aside>
+    </section>
+  </div>
 {% endblock %}

@@ -1,0 +1,8 @@
+<dl class="dashboard-statuses" aria-label="Recorded publication status">
+  {% for status in summary.statuses %}
+    <div>
+      <dt><span class="dashboard-status dashboard-status--{{ status.value|lower }}">{{ status.label }}</span></dt>
+      <dd>{{ status.count }}</dd>
+    </div>
+  {% endfor %}
+</dl>
