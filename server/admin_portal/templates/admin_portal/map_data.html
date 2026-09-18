@@ -1,0 +1,122 @@
+{% extends "admin_portal/base.html" %}
+{% load static %}
+
+{% block title %}Map and geographic data | FloodSense Admin{% endblock %}
+{% block extra_css %}
+  <link rel="stylesheet" href="{{ openlayers_root }}/ol.css">
+  <link rel="stylesheet" href="{% static 'admin_portal/css/map_data.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="map-data">
+  <section class="page-heading">
+    <div>
+      <p class="eyebrow">Geographic-data review</p>
+      <h1>Map and geographic data</h1>
+      <p>Inspect supported geographic records, their sources, and recorded validation status.</p>
+    </div>
+    <span class="status-pill status-pill--development">Read-only</span>
+  </section>
+  <section class="notice notice--warning portal-notice" aria-label="Geographic data safety notice">
+    <strong>Administrative boundaries are not flood-susceptibility information.</strong>
+    <p>The current derived administrative reference is not City-verified and remains pending validation. Its polygons do not represent flood susceptibility or current flood conditions.</p>
+  </section>
+
+  <section class="metric-grid map-metrics" aria-label="Reviewable geographic record counts">
+    <article class="metric-card"><h2 class="metric-card__label">Enabled reviewable areas</h2><strong data-count="enabled">{{ map_data.counts.enabled }}</strong><p>Administrative and demonstration records</p></article>
+    <article class="metric-card"><h2 class="metric-card__label">Enabled barangay boundaries</h2><strong data-count="barangays">{{ map_data.counts.barangays }}</strong><p>Administrative reference only</p></article>
+    <article class="metric-card"><h2 class="metric-card__label">Pending validation</h2><strong data-count="pending">{{ map_data.counts.pending }}</strong><p>Reviewable records, including disabled</p></article>
+    <article class="metric-card"><h2 class="metric-card__label">Demonstration-only areas</h2><strong data-count="demonstration">{{ map_data.counts.demonstration }}</strong><p>Synthetic records, including disabled</p></article>
+  </section>
+  <p class="map-note">{{ map_data.counts.total }} reviewable records · {{ map_data.counts.disabled }} disabled. Counts cover the supported administrative reference and demonstration categories only. Other records are outside this review page.</p>
+  <noscript><p class="notice notice--info">JavaScript is unavailable. The summary and area list remain usable; select an area to load its details. The interactive map and search require JavaScript.</p></noscript>
+
+  <div class="map-workspace">
+    <section class="panel map-panel" aria-labelledby="map-heading">
+      <div class="map-panel-heading">
+        <div><p class="eyebrow">Administrative geography</p><h2 id="map-heading">Bacoor reference map</h2></div>
+        <button class="button button--secondary" type="button" id="fit-boundaries" disabled>Fit visible layers</button>
+      </div>
+      <p class="map-note">OpenStreetMap is visual context only, not FloodSense assessment data. Select a boundary or use the area list below.</p>
+      <div id="geographic-map" class="geographic-map" role="region" aria-label="Interactive administrative reference map of Bacoor" aria-describedby="map-keyboard-help" tabindex="0"></div>
+      <p id="map-status" class="map-message" role="status">Map loading requires JavaScript and the mapping library. You can use the area list and details independently.</p>
+      <p id="map-keyboard-help" class="map-note">With the map focused, use arrow keys to pan and + or − to zoom. Use the area list to select records with the keyboard.</p>
+      <p class="map-note map-attribution">Basemap © <a href="https://www.openstreetmap.org/copyright" rel="noopener noreferrer" target="_blank">OpenStreetMap contributors</a>. Boundary sources are listed in record details.</p>
+      <ul class="map-legend" aria-label="Boundary legend">
+        <li><span class="map-swatch" aria-hidden="true"></span>Administrative reference</li>
+        <li><span class="map-swatch map-swatch--demo" aria-hidden="true"></span>Demonstration only</li>
+        <li><span class="map-swatch map-swatch--selected" aria-hidden="true"></span>Selected boundary</li>
+      </ul>
+    </section>
+
+    <section class="panel layer-panel" aria-labelledby="layers-heading">
+      <p class="eyebrow">Display controls</p><h2 id="layers-heading">Layers</h2>
+      <p class="map-note">Visibility affects this review map only. No data are published.</p>
+      <div class="layer-option">
+        <label for="layer-administrative"><input type="checkbox" id="layer-administrative" data-layer="administrative" disabled>Administrative boundaries</label>
+        <p>{{ map_data.administrative_mapped }} enabled, displayable features. Derived administrative reference; not City-verified.</p>
+        {% if not map_data.administrative_mapped %}<p class="map-unavailable">No administrative reference boundaries are available to display.</p>{% endif %}
+      </div>
+      <div class="layer-option">
+        <label for="layer-demonstration"><input type="checkbox" id="layer-demonstration" data-layer="demonstration" disabled>Demonstration areas</label>
+        <p><b>Demonstration only.</b> {{ map_data.demonstration_mapped }} enabled, displayable synthetic areas. Not real Bacoor classifications.</p>
+        {% if not map_data.demonstration_mapped %}<p class="map-unavailable">No demonstration areas are available to display.</p>{% endif %}
+      </div>
+      <div class="layer-option">
+        <label for="layer-mgb"><input type="checkbox" id="layer-mgb" disabled>Provisional MGB susceptibility</label>
+        <p class="map-unavailable">Unavailable in this application. No verified persisted layer is supported. The provisional dataset has not been approved for operational or resident publication.</p>
+      </div>
+      <div class="layer-option">
+        <label for="layer-approved"><input type="checkbox" id="layer-approved" disabled>Future approved susceptibility</label>
+        <p class="map-unavailable">Unavailable. A supported layer requires formal validation and approval. A geographic record marked Approved alone does not establish a susceptibility layer.</p>
+      </div>
+    </section>
+
+    <section class="panel area-panel" aria-labelledby="areas-heading">
+      <p class="eyebrow">Browse records</p><h2 id="areas-heading">Geographic areas</h2>
+      <div class="field-group map-search" id="map-search-controls" hidden>
+        <label for="area-search">Search by area name or geographic code</label>
+        <input id="area-search" type="search" autocomplete="off" aria-controls="area-list" aria-describedby="area-results">
+      </div>
+      <p class="map-note" id="area-results" role="status">{{ map_data.counts.total }} records. Select an area to inspect its details.</p>
+      <p class="map-note">Tab to a record and press Enter or Space to select it. Arrow keys move between visible records.</p>
+      <form method="get" action="{% url 'admin_portal:map-data' %}#record-details" id="area-selection-form">
+        <ul class="area-list" id="area-list" aria-label="Geographic records">
+          {% for record in map_data.records %}
+          <li data-area-row>
+            <button type="submit" name="area" value="{{ record.id }}" class="area-button" data-record-id="{{ record.id }}" aria-pressed="{% if record.id == map_data.selected.id %}true{% else %}false{% endif %}" aria-controls="record-details">
+              <span class="area-name">{{ record.name }}</span>
+              <span class="area-code">{{ record.code }}</span>
+              <span class="area-category">{{ record.layer_label }} · {% if record.enabled %}Enabled{% else %}Disabled{% endif %}</span>
+              <span class="area-status">{{ record.status }}</span>
+              <span class="area-selected">Selected</span>
+            </button>
+          </li>
+          {% empty %}
+          <li class="map-empty"><b>No reviewable geographic records are available.</b><p>Supported administrative boundaries and demonstration areas will appear here when eligible records exist in this database. This page does not import data.</p></li>
+          {% endfor %}
+        </ul>
+      </form>
+      <p class="map-message" id="area-no-results" hidden>No matching areas. Try another name or geographic code, or clear the search.</p>
+    </section>
+
+    <section class="panel detail-panel" id="record-details" aria-labelledby="detail-heading" data-selected-id="{{ map_data.selected.id|default:'' }}">
+      <p class="eyebrow">Selected record</p><h2 id="detail-heading">{{ map_data.selected.name|default:"Geographic-data details" }}</h2>
+      {% if map_data.unavailable_selection %}<p class="notice notice--info">The requested record is unavailable in this review page. An available record is shown instead, if present.</p>{% endif %}
+      <p class="map-note" id="detail-category">{{ map_data.selected.layer_label|default:"Select an available geographic record to inspect its source and status." }}</p>
+      <ul class="detail-warnings" id="detail-warnings">{% for warning in map_data.selected.warnings %}<li>{{ warning }}</li>{% endfor %}</ul>
+      <dl class="map-details" id="detail-fields">
+        {% for field in map_data.selected.details %}<div><dt>{{ field.label }}</dt><dd data-detail="{{ field.key }}">{{ field.value }}</dd></div>{% endfor %}
+      </dl>
+      <p class="map-note">Enabled state and source release permission are not approval. A modification timestamp is not a dataset version. Draft and approval workflows are not available here.</p>
+    </section>
+  </div>
+  <p class="sr-only" id="selection-announcement" role="status" aria-live="polite" aria-atomic="true"></p>
+  {{ map_data.payload|json_script:"map-data-payload" }}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{{ openlayers_root }}/dist/ol.js" defer></script>
+  <script src="{% static 'admin_portal/js/map_data.js' %}" defer></script>
+{% endblock %}

@@ -299,7 +299,7 @@ class OperationalDashboardTests(TestCase):
         self.assertNotContains(response, self.staff.display_name)
         self.assertFalse(DashboardHTML(response).select("img", onerror="alert(1)"))
 
-    def test_quick_actions_are_descriptive_links_to_protected_placeholders(self):
+    def test_quick_actions_are_descriptive_links_to_protected_modules(self):
         html = DashboardHTML(self.client.get(self.url))
         for label, slug in (
             ("Open map data", "map-data"),
@@ -312,7 +312,10 @@ class OperationalDashboardTests(TestCase):
                 self.assertTrue(
                     any(label in html.text(link) for link in html.select("a", href=url))
                 )
-                self.assertContains(self.client.get(url), "Planned")
+                self.assertContains(
+                    self.client.get(url),
+                    "Map and geographic data" if slug == "map-data" else "Planned",
+                )
                 self.assertRedirects(
                     Client().get(url),
                     f"{reverse('admin_portal:login')}?next={url}",

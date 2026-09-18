@@ -1,6 +1,6 @@
 # FloodSense Admin Web - Seven-Day Implementation Plan
 
-**Plan status:** Active team timeline; Days 1-2 complete, Day 3 next
+**Plan status:** Active team timeline; Days 1-3 complete, Day 4 next
 
 **Updated:** 18 September 2026
 
@@ -50,8 +50,8 @@ All work must also follow:
 | --- | --- | --- |
 | 1 | Complete | Authentication, responsive shell, navigation, Settings placeholder |
 | 2 | Complete | Truthful operational dashboard and limited recorded maintenance activity |
-| 3 | Next | Map and geographic-data review |
-| 4 | Planned | Settings and governed assessment parameters |
+| 3 | Complete | Read-only map, separate geographic layers, source/status review |
+| 4 | Next | Settings and governed assessment parameters |
 | 5 | Planned | DSS preparedness-content workflow |
 | 6 | Planned | Rainfall references, centers, and provenance |
 | 7 | Planned | Audit, permissions, accessibility, integration, and release QA |
@@ -166,8 +166,8 @@ source information, validation state, and layer readiness.
   susceptibility data;
 - draft/review/approved labels backed by stored workflow status, with an explicit
   unavailable state where the current model does not yet support that status;
-- controlled validation/review actions only where the backend model supports
-  them; and
+- read-only review of supported records; no editing, validation transitions,
+  imports, approvals, or publication actions in this phase; and
 - map legend and limitations that do not confuse a basemap with assessment data.
 
 ### Restrictions
@@ -177,6 +177,27 @@ source information, validation state, and layer readiness.
 - provisional susceptibility layers, including MGB, must not be published to
   residents; and
 - do not assign demonstration classes to real barangays.
+
+### Verified completion - 18 September 2026
+
+`/management/map-data/` now provides staff-only GET review with database-scoped
+counts, neutral administrative geometry, separate labeled demonstration areas,
+search, synchronized selection/details, and source/status metadata. Missing
+versions and unsupported MGB/approved susceptibility layers have explicit
+unavailable states. The page preserves server-rendered selection without
+JavaScript. No model, migration, public API, or inference change was required.
+
+The 70 focused portal/geography tests and all 141 backend tests passed, including
+the controlled test-database import of 47 barangays and one city. Browser checks
+and visual inspection covered desktop/mobile layouts, keyboard operation,
+selection/search, long values, attribution, empty states, and unavailable
+JavaScript/map assets. Flutter analysis, 91 tests, the debug APK build, and the
+live Flutter API-client check passed. Changed portal code passes Ruff; existing
+unrelated lint findings remain documented. No boundary import ran against the
+developer's application database.
+
+See `ADMIN_FRONTEND_DAY_3_GUIDE.md` for exact filters, counts, commands, test
+evidence, dependency limitations, and the optional authorized local import.
 
 ## Day 4 - Settings and assessment-parameter governance
 
@@ -335,7 +356,7 @@ Before handing off:
 
 ## Parallel-work rule
 
-Day 3 may begin now. Later days may be designed in parallel, but implementation
+Day 4 may begin now. Later days may be designed in parallel, but implementation
 must respect dependencies:
 
 - Day 4 must not finalize parameter editing before governance fields and

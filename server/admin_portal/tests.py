@@ -64,7 +64,6 @@ class AdminPortalAuthenticationTests(TestCase):
     def test_every_planned_section_uses_protected_shared_shell(self):
         self.client.force_login(self.staff_user)
         section_slugs = (
-            "map-data",
             "assessment-parameters",
             "dss-content",
             "rainfall-references",

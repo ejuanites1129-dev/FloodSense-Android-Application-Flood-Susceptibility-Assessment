@@ -11,20 +11,13 @@ from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_GET
+from geography.widgets import OPENLAYERS_CDN_ROOT
 
 from .forms import StaffAuthenticationForm
 from .services.dashboard import get_dashboard_summary
+from .services.map_data import get_map_data
 
 SECTIONS = {
-    "map-data": {
-        "title": "Map data",
-        "eyebrow": "Geographic data",
-        "description": (
-            "Review reference boundaries, provisional layers, validation status, "
-            "and future publication versions."
-        ),
-        "day": "Day 3",
-    },
     "assessment-parameters": {
         "title": "Assessment parameters",
         "eyebrow": "Expert System governance",
@@ -174,6 +167,15 @@ def dashboard(request: HttpRequest) -> HttpResponse:
     context = _portal_context(request, active_section="dashboard")
     context["dashboard"] = get_dashboard_summary()
     return render(request, "admin_portal/dashboard.html", context)
+
+
+@staff_required
+@require_GET
+def map_data(request: HttpRequest) -> HttpResponse:
+    context = _portal_context(request, active_section="map-data")
+    context["map_data"] = get_map_data(selected_id=request.GET.get("area"))
+    context["openlayers_root"] = OPENLAYERS_CDN_ROOT
+    return render(request, "admin_portal/map_data.html", context)
 
 
 @staff_required

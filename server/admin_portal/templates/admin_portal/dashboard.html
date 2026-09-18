@@ -122,14 +122,14 @@
             <li><a href="{% url 'admin_portal:section' section_slug=module.section_slug %}"><span>{{ module.label }}</span><span class="dashboard-review-count">{{ module.count }} <span class="sr-only">pending validation</span></span></a></li>
           {% endfor %}
         </ul>
-        <p class="dashboard-note dashboard-panel-footer">Links open protected module placeholders. Review workflows will arrive on their planned days.</p>
+        <p class="dashboard-note dashboard-panel-footer">Map data opens read-only geographic review. Other module workflows will arrive on their planned days.</p>
       </article>
 
       <aside class="panel dashboard-actions" aria-labelledby="actions-heading">
         <div class="panel__heading"><div><p class="eyebrow">Management modules</p><h2 id="actions-heading">Quick actions</h2></div></div>
-        <p class="dashboard-note">Open a planned section. Editing and publication workflows are not yet available.</p>
+        <p class="dashboard-note">Open geographic review or a planned section. Editing and publication workflows are not yet available.</p>
         <div class="quick-links">
-          <a href="{% url 'admin_portal:section' section_slug='map-data' %}"><span>Open map data</span><small>Planned Day 3</small></a>
+          <a href="{% url 'admin_portal:section' section_slug='map-data' %}"><span>Open map data</span><small>Read-only review</small></a>
           <a href="{% url 'admin_portal:section' section_slug='assessment-parameters' %}"><span>Review assessment parameters</span><small>Planned Day 4</small></a>
           <a href="{% url 'admin_portal:section' section_slug='dss-content' %}"><span>Open DSS content</span><small>Planned Day 5</small></a>
           <a href="{% url 'admin_portal:section' section_slug='sources-content' %}"><span>Manage sources</span><small>Planned Day 6</small></a>

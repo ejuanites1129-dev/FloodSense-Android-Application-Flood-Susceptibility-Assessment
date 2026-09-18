@@ -7,6 +7,7 @@
   <meta name="description" content="FloodSense administration console">
   <title>{% block title %}FloodSense Admin{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'admin_portal/css/admin_portal.css' %}">
+  {% block extra_css %}{% endblock %}
 </head>
 <body class="portal-page">
   <header class="topbar">
@@ -67,5 +68,6 @@
   </div>
   <div class="sidebar-scrim" data-menu-scrim></div>
   <script src="{% static 'admin_portal/js/admin_portal.js' %}" defer></script>
+  {% block extra_js %}{% endblock %}
 </body>
 </html>
