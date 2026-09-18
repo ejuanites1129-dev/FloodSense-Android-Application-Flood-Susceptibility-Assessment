@@ -8,10 +8,10 @@ from django.conf import settings
 from django.contrib.gis.geos import GEOSGeometry, MultiPolygon
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
+from provenance.models import DataSource, PublicationStatus
 
 from geography.constants import BACOOR_REFERENCE_SOURCE_NAME
 from geography.models import GeographicArea
-from provenance.models import DataSource, PublicationStatus
 
 
 class Command(BaseCommand):

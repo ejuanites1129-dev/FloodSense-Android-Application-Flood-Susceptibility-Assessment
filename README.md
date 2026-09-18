@@ -73,16 +73,18 @@ After PostgreSQL/PostGIS, GDAL/GEOS, and `server/.env` are configured, verify th
 powershell -ExecutionPolicy Bypass -File scripts/verify_postgis.ps1
 ```
 
-For an authorized local development database only, the tested Day 6 command
-can create or refresh the fictional demonstration records:
+For an authorized local development database only, the tested setup command can
+create or refresh the fictional demonstration records and the separate
+pending-validation Bacoor City/barangay administrative reference layer:
 
 ```powershell
 server\.venv\Scripts\python.exe server\manage.py seed_demo
 ```
 
-Never run this command against a shared, staging, or deployed database without
-explicit authorization. See `docs/DAY_6_DYNAMIC_MAP_GUIDE.md` for its safety
-checks and the map/API workflow.
+The administrative reference records contain no susceptibility facts and are
+not City-verified. Never run this command against a shared, staging, or deployed
+database without explicit authorization. See
+`docs/DAY_6_DYNAMIC_MAP_GUIDE.md` for its safety checks and the map/API workflow.
 
 ## Administration portal
 

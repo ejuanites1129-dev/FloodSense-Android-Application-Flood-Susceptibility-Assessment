@@ -393,18 +393,21 @@ Skip this when the local account already exists. The custom account uses an
 email address. Local users and passwords are not synchronized by Git and must
 never be committed or included in screenshots.
 
-### Step 4 — Create or refresh the authorized fictional dataset
+### Step 4 — Create or refresh the authorized local seed data
 
 ```powershell
 & ".\server\.venv\Scripts\python.exe" ".\server\manage.py" seed_demo
 ```
 
-Expected output includes the permanent demonstration warning and confirmation
-that four fictional zones and the demonstration knowledge base were prepared.
-Running it again is safe: seed-owned values are refreshed without duplicate
-rows. A `CommandError` for a reserved identity or competing active ruleset is a
-protective rollback. Do not delete or rename data to bypass it without first
-reviewing the record and its source.
+Expected output includes the permanent demonstration warning, confirmation that
+four fictional zones and the demonstration knowledge base were prepared, and
+confirmation that one pending-validation Bacoor City boundary plus 47
+pending-validation barangay boundaries were imported. The administrative layer
+is a separate neutral reference source and contains no susceptibility facts.
+Running the command again is safe: seed/import-owned values are refreshed
+without duplicate rows. A `CommandError` for a reserved identity, source-code
+conflict, or competing active ruleset is a protective rollback. Do not delete or
+rename data to bypass it without first reviewing the record and its source.
 
 Refreshing also restores the command's documented seed-owned defaults. A local
 Admin customization to a seeded fact, rule, level, color, or guidance item will

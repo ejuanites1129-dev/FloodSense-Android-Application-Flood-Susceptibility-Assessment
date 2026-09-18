@@ -137,6 +137,16 @@ from the repository root:
 server\.venv\Scripts\python.exe server\manage.py import_bacoor_boundaries
 ```
 
+For an authorized local development database, the normal combined setup command
+also invokes this importer after refreshing the fictional demonstration data:
+
+```powershell
+server\.venv\Scripts\python.exe server\manage.py seed_demo
+```
+
+The standalone import command remains useful when only the neutral reference
+layer needs to be refreshed.
+
 The command is transactional and idempotent. It creates or refreshes one City
 record and 47 Barangay records in PostGIS under the reserved derived-reference
 source. It refuses to take over a PSGC code owned by another source and checks

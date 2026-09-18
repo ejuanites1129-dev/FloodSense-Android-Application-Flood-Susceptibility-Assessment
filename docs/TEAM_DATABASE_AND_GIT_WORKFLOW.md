@@ -75,20 +75,23 @@ structures match.
 | Load a Django fixture | `python manage.py loaddata file.json` |
 | Start the backend | `python manage.py runserver` |
 
-Django has no mandatory built-in `db:seed` command. FloodSense will use a custom,
-idempotent management command for its shared fictional demonstration data. The
-intended command name is:
+Django has no mandatory built-in `db:seed` command. FloodSense uses a custom,
+idempotent management command for its shared local demonstration dataset and
+checked-in administrative reference layer. The command name is:
 
 ```powershell
 server\.venv\Scripts\python.exe server\manage.py seed_demo
 ```
 
-**Current status:** Day 6 implements and tests `seed_demo`. It creates only the
-reserved fictional demonstration dataset, is transactional and idempotent,
-and stops on unsafe stable-code or active-ruleset conflicts. It must be run only
-against an explicitly authorized local development database. Manually created
-Admin records still remain local unless a reviewed seed/import process owns
-them.
+**Current status:** `seed_demo` creates the reserved fictional demonstration
+dataset and delegates to the reviewed Bacoor boundary importer to create one
+pending-validation City record and 47 pending-validation Barangay records. The
+two sources remain separate: the reference boundaries contain no susceptibility
+facts. The combined operation is transactional and idempotent and stops on
+unsafe stable-code, source-ownership, or active-ruleset conflicts. It must be run
+only against an explicitly authorized local development database. Manually
+created Admin records still remain local unless a reviewed seed/import process
+owns them.
 
 "Idempotent" means that running the command again updates or reuses the same
 demonstration records instead of creating duplicates.

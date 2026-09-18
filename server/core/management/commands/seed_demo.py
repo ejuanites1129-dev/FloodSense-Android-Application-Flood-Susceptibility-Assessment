@@ -1,8 +1,9 @@
-"""Create the fictional, repeatable data required by the Day 6 demonstration."""
+"""Create the repeatable local data required by the FloodSense demonstration."""
 
 from decimal import Decimal
 
 from django.contrib.gis.geos import MultiPolygon, Polygon
+from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from dss.models import GuidanceItem
@@ -87,7 +88,10 @@ GUIDANCE = (
 
 
 class Command(BaseCommand):
-    help = "Create or refresh clearly labeled fictional FloodSense demonstration data."
+    help = (
+        "Create or refresh clearly labeled fictional demonstration data and the "
+        "pending-validation Bacoor administrative reference layer."
+    )
 
     @transaction.atomic
     def handle(self, *args, **options):
@@ -99,19 +103,22 @@ class Command(BaseCommand):
         self._rules(source, levels, ruleset)
         self._guidance(source, levels)
 
+        # Keep the neutral administrative reference layer reproducible for every
+        # teammate without duplicating its validation and ownership safeguards.
+        call_command("import_bacoor_boundaries", stdout=self.stdout)
+
         self.stdout.write(self.style.WARNING(DEMONSTRATION_WARNING))
         self.stdout.write(
             self.style.SUCCESS(
-                f"Prepared {len(areas)} fictional zones and the Day 6 demonstration knowledge base."
+                f"Prepared {len(areas)} fictional zones, the demonstration knowledge "
+                "base, and the Bacoor administrative reference layer."
             )
         )
 
     def _source(self) -> DataSource:
         matches = list(DataSource.objects.filter(name=SOURCE_NAME).order_by("id"))
         if len(matches) > 1:
-            raise CommandError(
-                f"Multiple data sources use the reserved name {SOURCE_NAME!r}."
-            )
+            raise CommandError(f"Multiple data sources use the reserved name {SOURCE_NAME!r}.")
         if matches:
             source = matches[0]
             if (
@@ -132,9 +139,7 @@ class Command(BaseCommand):
         source.permitted_use = "Fictional local development and automated testing only."
         source.status = PublicationStatus.DEMONSTRATION
         source.is_publicly_releasable = False
-        source.notes = (
-            "Seed-owned Day 6 data. Shapes, ranks, rules, and guidance are not official."
-        )
+        source.notes = "Seed-owned Day 6 data. Shapes, ranks, rules, and guidance are not official."
         source.save()
         return source
 
@@ -150,9 +155,7 @@ class Command(BaseCommand):
             level.label = label
             level.display_order = order
             level.map_color = color
-            level.definition = (
-                f"Fictional {label} classification used only to exercise FloodSense."
-            )
+            level.definition = f"Fictional {label} classification used only to exercise FloodSense."
             level.source = source
             level.status = PublicationStatus.DEMONSTRATION
             level.is_enabled = True
@@ -373,9 +376,7 @@ class Command(BaseCommand):
                 ).order_by("id")
             )
             if len(matches) > 1:
-                raise CommandError(
-                    f"Multiple seed-owned guidance rows exist for {level_code}."
-                )
+                raise CommandError(f"Multiple seed-owned guidance rows exist for {level_code}.")
             item = matches[0] if matches else GuidanceItem(title=title)
             item.susceptibility_level = levels[level_code]
             item.title = title

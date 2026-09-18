@@ -13,6 +13,7 @@ from expert.models import (
     ScenarioOption,
     SusceptibilityLevel,
 )
+from geography.constants import BACOOR_REFERENCE_SOURCE_NAME
 from geography.models import AreaFact, GeographicArea
 from provenance.models import DataSource, PublicationStatus
 
@@ -34,10 +35,22 @@ class SeedDemoCommandTests(TestCase):
         output = self._seed()
 
         self.assertIn("DEMONSTRATION DATA—NOT OFFICIAL", output)
+        self.assertIn("Imported 1 Bacoor City boundary and 47 current barangay boundaries", output)
         self.assertEqual(DataSource.objects.filter(name=SOURCE_NAME).count(), 1)
+        self.assertEqual(
+            DataSource.objects.filter(name=BACOOR_REFERENCE_SOURCE_NAME).count(),
+            1,
+        )
         self.assertEqual(SusceptibilityLevel.objects.count(), 4)
         self.assertEqual(ScenarioOption.objects.count(), 10)
-        self.assertEqual(GeographicArea.objects.count(), 4)
+        self.assertEqual(GeographicArea.objects.count(), 52)
+        self.assertEqual(
+            GeographicArea.objects.filter(
+                source__name=BACOOR_REFERENCE_SOURCE_NAME,
+                area_type=GeographicArea.AreaType.BARANGAY,
+            ).count(),
+            47,
+        )
         self.assertEqual(AreaFact.objects.count(), 4)
         self.assertEqual(RuleSet.objects.count(), 1)
         self.assertEqual(ExpertRule.objects.count(), 4)
@@ -71,7 +84,7 @@ class SeedDemoCommandTests(TestCase):
 
     def test_polygons_are_multipolygons_in_4326_and_do_not_overlap(self):
         self._seed()
-        areas = list(GeographicArea.objects.order_by("code"))
+        areas = list(GeographicArea.objects.filter(source__name=SOURCE_NAME).order_by("code"))
 
         self.assertEqual([area.code for area in areas], [f"DEMO_ZONE_{x}" for x in "ABCD"])
         for area in areas:
@@ -148,6 +161,30 @@ class SeedDemoCommandTests(TestCase):
         conflicting.refresh_from_db()
         self.assertEqual(conflicting.name, "Protected conflicting record")
         self.assertFalse(DataSource.objects.filter(name=SOURCE_NAME).exists())
+
+    def test_boundary_code_conflict_rolls_back_the_combined_seed(self):
+        source = DataSource.objects.create(
+            name="Approved boundary conflict source",
+            source_type=DataSource.SourceType.AGENCY_DATASET,
+            status=PublicationStatus.APPROVED,
+            is_publicly_releasable=True,
+        )
+        GeographicArea.objects.create(
+            code="PSGC_0402103000",
+            name="Protected city record",
+            area_type=GeographicArea.AreaType.CITY,
+            geometry=geometry(),
+            source=source,
+            status=PublicationStatus.APPROVED,
+            is_enabled=False,
+        )
+
+        with self.assertRaises(CommandError):
+            self._seed()
+
+        self.assertFalse(DataSource.objects.filter(name=SOURCE_NAME).exists())
+        self.assertFalse(DataSource.objects.filter(name=BACOOR_REFERENCE_SOURCE_NAME).exists())
+        self.assertEqual(GeographicArea.objects.count(), 1)
 
     def test_foreign_demonstration_stable_code_conflict_aborts_atomically(self):
         source = DataSource.objects.create(
