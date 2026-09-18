@@ -1,5 +1,22 @@
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm
+from expert.models import ScenarioOption
+
+
+class SettingsInventoryFilterForm(forms.Form):
+    """GET filters only; this form cannot save or change scenario values."""
+
+    q = forms.CharField(
+        label="Search references",
+        required=False,
+        max_length=120,
+        widget=forms.TextInput(attrs={"type": "search", "placeholder": "Label or code"}),
+    )
+    category = forms.ChoiceField(
+        label="Category",
+        required=False,
+        choices=[("", "All categories"), *ScenarioOption.Category.choices],
+    )
 
 
 class StaffAuthenticationForm(AuthenticationForm):

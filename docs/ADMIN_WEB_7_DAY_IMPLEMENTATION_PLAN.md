@@ -1,6 +1,6 @@
 # FloodSense Admin Web - Seven-Day Implementation Plan
 
-**Plan status:** Active team timeline; Days 1-3 complete, Day 4 next
+**Plan status:** Active team timeline; Days 1-3 complete; Day 4 In progress—awaiting governance decisions
 
 **Updated:** 18 September 2026
 
@@ -51,7 +51,7 @@ All work must also follow:
 | 1 | Complete | Authentication, responsive shell, navigation, Settings placeholder |
 | 2 | Complete | Truthful operational dashboard and limited recorded maintenance activity |
 | 3 | Complete | Read-only map, separate geographic layers, source/status review |
-| 4 | Next | Settings and governed assessment parameters |
+| 4 | In progress—awaiting governance decisions | Read-only Settings and governance proposal; mutation workflow awaits approval |
 | 5 | Planned | DSS preparedness-content workflow |
 | 6 | Planned | Rainfall references, centers, and provenance |
 | 7 | Planned | Audit, permissions, accessibility, integration, and release QA |
@@ -200,6 +200,22 @@ See `ADMIN_FRONTEND_DAY_3_GUIDE.md` for exact filters, counts, commands, test
 evidence, dependency limitations, and the optional authorized local import.
 
 ## Day 4 - Settings and assessment-parameter governance
+
+### Current checkpoint
+
+The read-only Settings foundation and parameter-governance proposal are
+implemented. Settings provides a profile summary, fixed-method explanation,
+per-mode active knowledge-set metadata, source-aware scenario-reference
+inventory, search/filtering, and an unavailable data-exchange state. Existing
+assessment-parameter links redirect to Settings. No schema, permission grants,
+parameter writes, activation, rollback, audit-event model, or preview workflow
+has been introduced.
+
+The team must approve the definitions, sources/units/bounds, owner and validator
+assignments, permission matrix, and proposed revision/workflow/audit design
+before governance migrations or mutation endpoints are created. See
+`ADMIN_DAY_4_PARAMETER_GOVERNANCE_PROPOSAL.md` and
+`ADMIN_FRONTEND_DAY_4_GUIDE.md`. Day 4 is not complete.
 
 ### Goal
 
@@ -356,7 +372,7 @@ Before handing off:
 
 ## Parallel-work rule
 
-Day 4 may begin now. Later days may be designed in parallel, but implementation
+Day 4 is at its governance checkpoint. Later days may be designed in parallel, but implementation
 must respect dependencies:
 
 - Day 4 must not finalize parameter editing before governance fields and

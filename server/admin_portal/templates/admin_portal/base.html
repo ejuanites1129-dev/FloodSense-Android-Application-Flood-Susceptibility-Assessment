@@ -27,7 +27,7 @@
         <span class="sr-only">Open account menu</span>
       </button>
       <div class="account-menu__panel" id="account-menu" data-account-menu role="menu" hidden>
-        <a class="account-menu__item" href="{% url 'admin_portal:section' section_slug='settings' %}" role="menuitem">
+        <a class="account-menu__item" href="{% url 'admin_portal:settings' %}" role="menuitem">
           <span aria-hidden="true">⚙</span><span>Settings</span>
         </a>
         <form method="post" action="{% url 'admin_portal:logout' %}">

@@ -13,21 +13,12 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_GET
 from geography.widgets import OPENLAYERS_CDN_ROOT
 
-from .forms import StaffAuthenticationForm
+from .forms import SettingsInventoryFilterForm, StaffAuthenticationForm
 from .services.dashboard import get_dashboard_summary
 from .services.map_data import get_map_data
+from .services.settings_data import get_settings_data
 
 SECTIONS = {
-    "assessment-parameters": {
-        "title": "Assessment parameters",
-        "eyebrow": "Expert System governance",
-        "description": (
-            "Inspect the fixed inference method and manage only authorized, "
-            "versioned parameters. Raw rule authoring is not available to ordinary "
-            "administrators."
-        ),
-        "day": "Day 4",
-    },
     "dss-content": {
         "title": "DSS content",
         "eyebrow": "Preparedness guidance",
@@ -73,15 +64,6 @@ SECTIONS = {
         ),
         "day": "Day 7",
     },
-    "settings": {
-        "title": "Settings",
-        "eyebrow": "Administration settings",
-        "description": (
-            "A protected home for account preferences and future authorized "
-            "assessment-parameter controls."
-        ),
-        "day": "a later phase",
-    },
 }
 
 
@@ -113,7 +95,7 @@ def _portal_context(request: HttpRequest, *, active_section: str) -> dict[str, A
         "navigation": [
             ("dashboard", "Overview", "▦"),
             ("map-data", "Map data", "◇"),
-            ("assessment-parameters", "Assessment parameters", "◎"),
+            ("settings", "Settings", "◎"),
             ("dss-content", "DSS content", "?"),
             ("rainfall-references", "Rainfall references", "≈"),
             ("evacuation-centers", "Evacuation centers", "⌂"),
@@ -176,6 +158,30 @@ def map_data(request: HttpRequest) -> HttpResponse:
     context["map_data"] = get_map_data(selected_id=request.GET.get("area"))
     context["openlayers_root"] = OPENLAYERS_CDN_ROOT
     return render(request, "admin_portal/map_data.html", context)
+
+
+@staff_required
+@require_GET
+def settings_view(request: HttpRequest) -> HttpResponse:
+    context = _portal_context(request, active_section="settings")
+    filters = SettingsInventoryFilterForm(request.GET)
+    valid = filters.is_valid()
+    context["inventory_filters"] = filters
+    context["settings_data"] = get_settings_data(
+        query=filters.cleaned_data.get("q", "") if valid else "",
+        category=filters.cleaned_data.get("category", "") if valid else "",
+    )
+    context["profile"] = {
+        "display_name": request.user.display_name,
+        "email": request.user.email,
+    }
+    return render(request, "admin_portal/settings.html", context)
+
+
+@staff_required
+@require_GET
+def assessment_parameters(request: HttpRequest) -> HttpResponse:
+    return redirect(f"{reverse_lazy('admin_portal:settings')}#parameters")
 
 
 @staff_required

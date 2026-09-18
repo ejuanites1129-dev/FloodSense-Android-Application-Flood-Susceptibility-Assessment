@@ -303,18 +303,20 @@ class OperationalDashboardTests(TestCase):
         html = DashboardHTML(self.client.get(self.url))
         for label, slug in (
             ("Open map data", "map-data"),
-            ("Review assessment parameters", "assessment-parameters"),
+            ("Review assessment parameters", "settings"),
             ("Open DSS content", "dss-content"),
             ("Manage sources", "sources-content"),
         ):
             with self.subTest(link=label):
                 url = reverse("admin_portal:section", kwargs={"section_slug": slug})
+                link_url = f"{url}#parameters" if slug == "settings" else url
                 self.assertTrue(
-                    any(label in html.text(link) for link in html.select("a", href=url))
+                    any(label in html.text(link) for link in html.select("a", href=link_url))
                 )
                 self.assertContains(
                     self.client.get(url),
-                    "Map and geographic data" if slug == "map-data" else "Planned",
+                    {"map-data": "Map and geographic data", "settings": "Settings"}
+                    .get(slug, "Planned"),
                 )
                 self.assertRedirects(
                     Client().get(url),

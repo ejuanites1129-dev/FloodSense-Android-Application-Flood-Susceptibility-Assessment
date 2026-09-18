@@ -1,0 +1,142 @@
+{% extends "admin_portal/base.html" %}
+{% load static %}
+
+{% block title %}Settings | FloodSense Admin{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'admin_portal/css/settings.css' %}">{% endblock %}
+
+{% block content %}
+<div class="settings-page">
+  <section class="page-heading">
+    <div><p class="eyebrow">Administration settings</p><h1>Settings</h1><p>Review your profile, the fixed assessment method, and current scenario references.</p></div>
+    <span class="status-pill status-pill--development">Read-only foundation</span>
+  </section>
+
+  <section class="notice notice--warning" aria-label="Parameter governance notice">
+    <strong>Parameter changes await governance approval</strong>
+    <p>Existing records are not automatically authorized for editing. Changes require an approved definition and source, validation, versioning, review, approval, audit recording, and rollback. These workflows are awaiting research-team decisions.</p>
+  </section>
+
+  <nav class="settings-nav" aria-label="Settings sections">
+    <a href="#settings-overview">Overview</a>
+    <a href="#account">Account</a>
+    <a href="#methodology">Methodology and versions</a>
+    <a href="#parameters">Assessment references</a>
+    <a href="#data-exchange">Data exchange</a>
+  </nav>
+
+  <section class="panel" id="settings-overview" aria-labelledby="overview-heading">
+    <p class="eyebrow">Scope and responsibility</p>
+    <h2 id="overview-heading">Review current configuration</h2>
+    <p>Staff may inspect the permitted records below. The inference algorithm is fixed and is not an administrator-editable setting. Parameter editing, approval, activation, rollback, and demonstration preview are unavailable pending the approved governance workflow.</p>
+    <p class="settings-note">Publication status describes data eligibility. It does not establish permission to edit a parameter or record its review history.</p>
+  </section>
+
+  <section class="panel" id="account" aria-labelledby="account-heading">
+    <p class="eyebrow">Your account</p><h2 id="account-heading">Profile summary</h2>
+    <dl class="settings-fields">
+      <div><dt>Display name</dt><dd>{{ profile.display_name|default:"Not recorded" }}</dd></div>
+      <div><dt>Email</dt><dd>{{ profile.email }}</dd></div>
+    </dl>
+    <p class="settings-note">Read-only profile. Account preference changes have not been authorized for this module.</p>
+  </section>
+
+  <section class="panel" id="methodology" aria-labelledby="methodology-heading">
+    <p class="eyebrow">Fixed methodology</p><h2 id="methodology-heading">Scenario assessment method</h2>
+    <p>FloodSense uses deterministic rule-based inference: a user triggers an assessment using a chosen scenario and stored inputs subject to source and operating-mode policies. The parameter-governance workflow is still pending.</p>
+    <p>No machine-learning model, real-time rainfall monitoring, or background forecasting is used. This page does not change the algorithm.</p>
+    <h3>Active knowledge-set versions</h3>
+    <p class="settings-note">These are stored knowledge-set versions, not the software algorithm version or authorization to edit parameters. Each operating mode has its own active record. Effective dates are metadata; they do not schedule activation.</p>
+    {% if settings_data.unknown_active_mode %}
+      <p class="notice notice--warning" role="status">An active record has an unsupported operating mode. Version information for that record is unavailable.</p>
+    {% endif %}
+    <div class="settings-version-grid">
+      {% for version in settings_data.active_versions %}
+      <article class="settings-version" aria-labelledby="version-{{ version.mode }}">
+        <h3 id="version-{{ version.mode }}">{{ version.label }} mode</h3>
+        {% if version.mode == 'DEMONSTRATION' %}<p class="settings-badge">Demonstration only — not official</p>{% endif %}
+        {% if version.state == 'available' %}
+          <dl class="settings-fields settings-fields--single">
+            <div><dt>Name</dt><dd>{{ version.record.name }}</dd></div>
+            <div><dt>Version</dt><dd>{{ version.record.version }}</dd></div>
+            <div><dt>Publication status</dt><dd>{{ version.record.status }}</dd></div>
+            <div><dt>Effective date</dt><dd>{{ version.record.effective_on|date:"M j, Y"|default:"Not recorded" }}</dd></div>
+            <div><dt>Active state</dt><dd>{{ version.record.is_active|yesno:"Active,Inactive" }}</dd></div>
+            <div><dt>Source</dt><dd>{{ version.record.source.name|default:"Not recorded" }}</dd></div>
+            <div><dt>Organization</dt><dd>{{ version.record.source.organization|default:"Not recorded" }}</dd></div>
+            <div><dt>Source type</dt><dd>{{ version.record.source.type }}</dd></div>
+            <div><dt>Source status</dt><dd>{{ version.record.source.status }}</dd></div>
+            <div><dt>Source publicly releasable</dt><dd>{{ version.record.source.publicly_releasable|yesno:"Yes,No" }}</dd></div>
+          </dl>
+          <p class="settings-note">Active metadata alone does not establish that a scenario has sufficient approved inputs for assessment.</p>
+        {% elif version.state == 'unavailable' %}
+          <p class="notice notice--warning">Active version unavailable. Records are inconsistent or do not meet the source and mode policy. Version details are withheld until reviewed.</p>
+        {% else %}
+          <p class="settings-empty">No active rule set is recorded for this mode.</p>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="panel" id="parameters" aria-labelledby="parameters-heading">
+    <p class="eyebrow">Assessment-parameter inventory</p><h2 id="parameters-heading">Current scenario references</h2>
+    <p>These are recorded rainfall intensity and duration options. They are read-only references, not an approved editable-parameter catalog. Changing a derived value can affect inference.</p>
+    <p class="settings-note">Parameter revision, rationale, and effective date: not recorded in the current data model. A knowledge-set version does not version these values.</p>
+    <p class="settings-note">Only permitted demonstration references and non-restricted, publicly releasable source references appear. Restricted, retired, and other non-public records are withheld. Counts apply to this reviewable inventory.</p>
+    {% if inventory_filters.errors %}
+      <div class="notice notice--warning" role="alert" id="filter-errors">
+        <strong>Filters were not applied. Showing all reviewable records.</strong>
+        <ul>{% for field in inventory_filters %}{% for error in field.errors %}<li><a href="#{{ field.id_for_label }}">{{ field.label }}: {{ error }}</a></li>{% endfor %}{% endfor %}</ul>
+      </div>
+    {% endif %}
+    <form class="settings-filters" method="get" action="{% url 'admin_portal:settings' %}#parameters" aria-label="Filter scenario references">
+      {% for field in inventory_filters %}
+        <div class="field-group"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.errors %}<div class="field-error">{{ field.errors }}</div>{% endif %}</div>
+      {% endfor %}
+      <button class="button button--primary" type="submit">Apply filters</button>
+      <a class="button button--secondary" href="{% url 'admin_portal:settings' %}#parameters">Clear filters</a>
+    </form>
+    <p class="settings-results" role="status">{{ settings_data.matching }} matching of {{ settings_data.total }} reviewable references.</p>
+    {% if not settings_data.total %}
+      <p class="settings-empty">No reviewable scenario references are available in this database. No authorized parameter definitions have been established. No data is imported automatically.</p>
+    {% elif not settings_data.matching %}
+      <p class="settings-empty">No references match these filters. Try another label or code, or clear the filters.</p>
+    {% endif %}
+    {% for group in settings_data.groups %}
+      <section class="settings-group" aria-labelledby="group-{{ group.key }}">
+        <h3 id="group-{{ group.key }}">{{ group.label }} <span class="settings-count">{{ group.total }} recorded</span></h3>
+        <p class="settings-note">{{ group.description }}</p>
+        {% for record in group.records %}
+        <article class="settings-record">
+          <h4>{{ record.label|default:"Label not recorded" }}</h4>
+          <p class="settings-badge">{{ group.label }}</p>
+          <dl class="settings-fields">
+            <div><dt>Code</dt><dd>{{ record.code }}</dd></div>
+            <div><dt>Category</dt><dd>{{ record.category }}</dd></div>
+            <div><dt>Recorded minimum</dt><dd>{{ record.minimum|default_if_none:"Not recorded" }}</dd></div>
+            <div><dt>Recorded maximum</dt><dd>{{ record.maximum|default_if_none:"Not recorded" }}</dd></div>
+            <div><dt>Recorded derived value</dt><dd>{{ record.derived_value|default_if_none:"Not recorded" }}</dd></div>
+            <div><dt>Unit</dt><dd>{{ record.unit|default:"Not recorded" }}</dd></div>
+            <div><dt>Publication status</dt><dd>{{ record.status }}</dd></div>
+            <div><dt>Enabled</dt><dd>{{ record.enabled|yesno:"Yes,No" }}</dd></div>
+            <div><dt>Display order</dt><dd>{{ record.display_order }}</dd></div>
+            <div><dt>Source-policy mode</dt><dd>{{ record.eligible_mode }}</dd></div>
+            <div><dt>Source</dt><dd>{{ record.source.name|default:"Not recorded" }}</dd></div>
+            <div><dt>Organization</dt><dd>{{ record.source.organization|default:"Not recorded" }}</dd></div>
+            <div><dt>Source type</dt><dd>{{ record.source.type }}</dd></div>
+            <div><dt>Source status</dt><dd>{{ record.source.status }}</dd></div>
+            <div><dt>Source publicly releasable</dt><dd>{{ record.source.publicly_releasable|yesno:"Yes,No" }}</dd></div>
+          </dl>
+          <p class="settings-note">Enabled does not mean approved. Source eligibility alone does not establish a complete assessment or permission to edit.</p>
+        </article>
+        {% empty %}<p class="settings-note">No matching references in this group.</p>{% endfor %}
+      </section>
+    {% endfor %}
+  </section>
+
+  <section class="panel" id="data-exchange" aria-labelledby="exchange-heading">
+    <p class="eyebrow">Data exchange</p><h2 id="exchange-heading">Awaiting confirmed requirements</h2>
+    <p>Import/export is unavailable. Direction, formats, schema, permissions, source restrictions, and validation rules must be confirmed before this workflow is built.</p>
+  </section>
+</div>
+{% endblock %}
