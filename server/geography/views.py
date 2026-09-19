@@ -12,9 +12,11 @@ from provenance.policies import (
     warnings_for_mode,
 )
 from rest_framework import serializers
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, parser_classes, permission_classes
+from rest_framework.parsers import JSONParser
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework.status import HTTP_500_INTERNAL_SERVER_ERROR
 
 from .constants import (
     BACOOR_REFERENCE_LIMITATION,
@@ -22,8 +24,16 @@ from .constants import (
     BACOOR_REFERENCE_WARNING,
 )
 from .models import GeographicArea
-from .serializers import PointResolutionRequestSerializer
-from .services import PointResolutionInputError, resolve_area_for_point
+from .serializers import (
+    BarangayResolutionRequestSerializer,
+    PointResolutionRequestSerializer,
+    make_barangay_resolution_response,
+)
+from .services import (
+    PointResolutionInputError,
+    resolve_area_for_point,
+    resolve_bacoor_barangay,
+)
 
 
 @api_view(["GET"])
@@ -97,6 +107,34 @@ def resolve_point(request):
         detail = getattr(error, "message_dict", {"non_field_errors": error.messages})
         raise serializers.ValidationError(detail) from error
     return Response(result)
+
+
+@api_view(["POST"])
+@parser_classes([JSONParser])
+@permission_classes([AllowAny])
+def resolve_barangay(request):
+    """Resolve one temporary coordinate against the controlled Bacoor layer."""
+
+    serializer = BarangayResolutionRequestSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    inputs = serializer.validated_data
+    try:
+        result = resolve_bacoor_barangay(
+            latitude=inputs["latitude"],
+            longitude=inputs["longitude"],
+        )
+        payload = make_barangay_resolution_response(
+            state=result.state,
+            latitude=inputs["latitude"],
+            longitude=inputs["longitude"],
+            barangay=result.barangay,
+        )
+    except Exception:  # noqa: BLE001 - public response must not expose internals
+        return Response(
+            {"detail": "The resolver is temporarily unavailable."},
+            status=HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+    return Response(payload)
 
 
 def _serialize_area_feature(area: GeographicArea) -> dict:

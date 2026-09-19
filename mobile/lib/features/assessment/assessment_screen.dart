@@ -4,6 +4,9 @@ import '../../app/theme/app_colors.dart';
 import '../../data/api/api_exception.dart';
 import '../../data/api/floodsense_api_client.dart';
 import '../../data/models/assessment_result.dart';
+import '../location/location_card.dart';
+import '../location/location_controller.dart';
+import '../location/location_service.dart';
 import 'assessment_controller.dart';
 import 'widgets/assessment_result_card.dart';
 import 'widgets/demonstration_warning.dart';
@@ -17,11 +20,13 @@ import 'widgets/zone_selector.dart';
 class AssessmentScreen extends StatefulWidget {
   const AssessmentScreen({
     required this.api,
+    this.locationService,
     this.showBasemap = true,
     super.key,
   });
 
   final FloodSenseApi api;
+  final LocationService? locationService;
   final bool showBasemap;
 
   @override
@@ -30,17 +35,23 @@ class AssessmentScreen extends StatefulWidget {
 
 class _AssessmentScreenState extends State<AssessmentScreen> {
   late final AssessmentController _controller;
+  LocationController? _locationController;
 
   @override
   void initState() {
     super.initState();
     _controller = AssessmentController(widget.api);
+    final locationService = widget.locationService;
+    if (locationService != null) {
+      _locationController = LocationController(locationService);
+    }
     _controller.load();
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _locationController?.dispose();
     super.dispose();
   }
 
@@ -147,6 +158,10 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
           ),
         ),
         const SizedBox(height: 14),
+        if (_locationController case final locationController?) ...[
+          LocationCard(controller: locationController),
+          const SizedBox(height: 14),
+        ],
         DynamicMapCard(
           controller: _controller,
           showBasemap: widget.showBasemap,

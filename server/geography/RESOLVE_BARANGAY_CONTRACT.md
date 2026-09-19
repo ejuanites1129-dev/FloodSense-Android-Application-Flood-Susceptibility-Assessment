@@ -1,7 +1,8 @@
 # Proposed `resolve-barangay` contract for team freeze
 
-**Status:** Day 1 Stream B proposal; both programmers must approve before Day 2  
-**Route (not active on Day 1):** `POST /api/v1/geography/resolve-barangay/`
+**Status:** Implemented on Day 2 against the Day 1 proposal; team contract
+approval remains pending.
+**Active route:** `POST /api/v1/geography/resolve-barangay/`
 
 This endpoint will identify an administrative barangay from one temporary
 coordinate. It will not calculate susceptibility, determine an official
@@ -154,7 +155,7 @@ reproducible derivative pending institutional validation, not City-verified.
 
 ## Privacy and no-write proof
 
-The future view may perform request validation and `SELECT` queries only. It
+The view performs request validation and `SELECT` queries only. It
 must not call `save`, `create`, `update`, audit/event APIs, analytics, or logging
 with a request body. Current middleware is standard Django/WhiteNoise/session/
 authentication middleware; no repository middleware was found that logs

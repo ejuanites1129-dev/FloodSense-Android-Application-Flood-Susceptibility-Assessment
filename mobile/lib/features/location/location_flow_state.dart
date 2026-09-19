@@ -9,7 +9,10 @@ enum LocationFlowPhase {
   permissionDeniedPermanently,
   acquiring,
   acquired,
+  timeout,
   inaccurateOrUnavailable,
+  platformError,
+  cancelled,
   resolverFailure,
   malformedResponse,
   recoverableError,
@@ -54,8 +57,11 @@ class LocationFlowState {
       LocationCopy.permissionDeniedPermanently,
     LocationFlowPhase.acquiring => 'Getting one temporary foreground location. You can cancel and select manually.',
     LocationFlowPhase.acquired => 'A temporary location is ready for barangay lookup. It is not a susceptibility result.',
+    LocationFlowPhase.timeout => 'FloodSense stopped waiting for a location. Try again or choose a location manually.',
     LocationFlowPhase.inaccurateOrUnavailable =>
       LocationCopy.inaccurateOrUnavailable,
+    LocationFlowPhase.platformError => 'Android could not provide a location. Try again or choose a location manually.',
+    LocationFlowPhase.cancelled => 'The location request was cancelled. Manual location selection remains available.',
     LocationFlowPhase.resolverFailure => LocationCopy.resolverFailure,
     LocationFlowPhase.malformedResponse => LocationCopy.malformedResponse,
     LocationFlowPhase.recoverableError => 'The location step could not finish. Retry or choose a location manually.',
@@ -63,7 +69,9 @@ class LocationFlowState {
   };
 
   Set<LocationFlowAction> get allowedActions => switch (phase) {
-    LocationFlowPhase.initial || LocationFlowPhase.cleared => const {
+    LocationFlowPhase.initial ||
+    LocationFlowPhase.cleared ||
+    LocationFlowPhase.cancelled => const {
       LocationFlowAction.showPurpose,
       LocationFlowAction.placeManualPin,
       LocationFlowAction.selectBarangay,
@@ -101,7 +109,9 @@ class LocationFlowState {
       LocationFlowAction.placeManualPin,
       LocationFlowAction.selectBarangay,
     },
-    LocationFlowPhase.inaccurateOrUnavailable => const {
+    LocationFlowPhase.timeout ||
+    LocationFlowPhase.inaccurateOrUnavailable ||
+    LocationFlowPhase.platformError => const {
       LocationFlowAction.retry,
       LocationFlowAction.placeManualPin,
       LocationFlowAction.selectBarangay,
