@@ -4,6 +4,7 @@
 import json
 
 from core.serializers import OperatingModeQuerySerializer
+from provenance.models import DataSource, PublicationStatus
 from provenance.policies import (
     DEMONSTRATION_MODE,
     data_status_for_mode,
@@ -14,14 +15,13 @@ from rest_framework import serializers
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from provenance.models import DataSource, PublicationStatus
 
-from .models import GeographicArea
 from .constants import (
     BACOOR_REFERENCE_LIMITATION,
     BACOOR_REFERENCE_SOURCE_NAME,
     BACOOR_REFERENCE_WARNING,
 )
+from .models import GeographicArea
 from .serializers import PointResolutionRequestSerializer
 from .services import PointResolutionInputError, resolve_area_for_point
 

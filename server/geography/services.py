@@ -6,12 +6,32 @@ from typing import Any
 from django.contrib.gis.geos import Point
 from django.core.exceptions import ValidationError
 from provenance import policies
+from provenance.models import DataSource, PublicationStatus
 
+from .constants import BACOOR_REFERENCE_SOURCE_NAME
 from .models import GeographicArea
 
 
 class PointResolutionInputError(ValidationError):
     """Raised when a coordinate or operating mode cannot be resolved safely."""
+
+
+def eligible_bacoor_reference_barangays():
+    """Return only the controlled pending-validation Bacoor reference rows.
+
+    This selector is the Day 1 eligibility foundation. It deliberately performs
+    no spatial lookup and does not decide whether the layer is complete.
+    """
+
+    return GeographicArea.objects.select_related("source").filter(
+        area_type=GeographicArea.AreaType.BARANGAY,
+        is_enabled=True,
+        status=PublicationStatus.PENDING_VALIDATION,
+        source__name=BACOOR_REFERENCE_SOURCE_NAME,
+        source__source_type=DataSource.SourceType.AGENCY_DATASET,
+        source__status=PublicationStatus.PENDING_VALIDATION,
+        source__is_publicly_releasable=True,
+    )
 
 
 def resolve_area_for_point(

@@ -6,3 +6,5 @@ BACOOR_REFERENCE_LIMITATION = (
     "Administrative boundaries only; they do not indicate flood susceptibility "
     "or current conditions."
 )
+BACOOR_CITY_CODE = "PSGC_0402103000"
+BACOOR_REFERENCE_BARANGAY_COUNT = 47

@@ -5,7 +5,6 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
 from django.urls import reverse
-
 from provenance.models import DataSource, PublicationStatus
 
 from .constants import (
