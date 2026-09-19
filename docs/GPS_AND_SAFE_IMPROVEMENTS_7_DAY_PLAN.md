@@ -1,7 +1,9 @@
 # FloodSense GPS and Safe Improvements — Seven-Day Parallel Plan
 
-**Prepared:** 19 September 2026  
-**Status:** Working implementation plan for team review  
+**Prepared:** 19 September 2026
+
+**Status:** Working implementation plan for team review
+
 **Scope:** Foreground GPS, barangay detection, nearest verified evacuation-center discovery, and safe improvements that do not change the research algorithm
 
 ## 1. Purpose
