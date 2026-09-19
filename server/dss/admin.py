@@ -12,10 +12,17 @@ class GuidanceItemAdmin(admin.ModelAdmin):
         "category",
         "display_order",
         "status",
+        "workflow_status",
         "is_enabled",
     )
-    list_filter = ("susceptibility_level", "category", "status", "is_enabled")
+    list_filter = (
+        "susceptibility_level",
+        "category",
+        "status",
+        "workflow_status",
+        "is_enabled",
+    )
     search_fields = ("title", "instruction")
     autocomplete_fields = ("susceptibility_level", "source")
     list_select_related = ("susceptibility_level", "source")
-    readonly_fields = ("created_at", "updated_at")
+    readonly_fields = ("workflow_status", "is_enabled", "created_at", "updated_at")

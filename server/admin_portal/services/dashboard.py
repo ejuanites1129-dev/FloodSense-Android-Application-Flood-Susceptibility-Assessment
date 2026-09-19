@@ -45,9 +45,7 @@ def _recent_activity():
     action_labels = {ADDITION: "Added", CHANGE: "Changed", DELETION: "Deleted"}
     relevant_models = Q()
     for app_label, model_name in module_labels:
-        relevant_models |= Q(
-            content_type__app_label=app_label, content_type__model=model_name
-        )
+        relevant_models |= Q(content_type__app_label=app_label, content_type__model=model_name)
 
     # Joining by metadata avoids ContentType.get_for_model(), which may write
     # when its cached content type is missing. No object text or change payload
@@ -104,7 +102,19 @@ def get_dashboard_summary():
             ),
         },
     )
-    guidance_items = _record_summary(GuidanceItem, include_enabled=True)
+    guidance_items = _record_summary(
+        GuidanceItem,
+        include_enabled=True,
+        extra_counts={
+            "needs_review": Count(
+                "pk",
+                filter=(
+                    Q(status=PublicationStatus.PENDING_VALIDATION)
+                    | Q(workflow_status=GuidanceItem.WorkflowStatus.IN_REVIEW)
+                ),
+            )
+        },
+    )
     scenario_options = _record_summary(
         ScenarioOption,
         include_enabled=True,
@@ -122,13 +132,25 @@ def get_dashboard_summary():
         {
             "label": label,
             "section_slug": section_slug,
-            "count": summary["status_counts"][PublicationStatus.PENDING_VALIDATION],
+            "count": count,
         }
-        for label, section_slug, summary in (
-            ("Geographic areas", "map-data", geographic_areas),
-            ("Data sources", "sources-content", data_sources),
-            ("DSS guidance", "dss-content", guidance_items),
-            ("Scenario options", "assessment-parameters", scenario_options),
+        for label, section_slug, count in (
+            (
+                "Geographic areas",
+                "map-data",
+                geographic_areas["status_counts"][PublicationStatus.PENDING_VALIDATION],
+            ),
+            (
+                "Data sources",
+                "sources-content",
+                data_sources["status_counts"][PublicationStatus.PENDING_VALIDATION],
+            ),
+            ("DSS guidance", "dss-content", guidance_items["needs_review"]),
+            (
+                "Scenario options",
+                "assessment-parameters",
+                scenario_options["status_counts"][PublicationStatus.PENDING_VALIDATION],
+            ),
         )
     ]
     return {

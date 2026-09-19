@@ -1,0 +1,14 @@
+{% extends "admin_portal/base.html" %}{% load static %}
+{% block title %}{{ reference.label }} | Rainfall references{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'admin_portal/css/operations.css' %}">{% endblock %}
+{% block content %}<div class="operations-page"><section class="page-heading"><div><p class="eyebrow">{{ reference.get_category_display }}</p><h1>{{ reference.label }}</h1><p>Read-only controlled scenario reference.</p></div><a class="button button--secondary" href="{% url 'admin_portal:rainfall-references' %}">Back to references</a></section>
+<section class="notice notice--warning"><strong>Not a live measurement or forecast</strong><p>This reference changes only when the approved research and governance process authorizes an implementation change.</p></section>
+<section class="panel"><h2>Reference and provenance</h2><dl class="detail-grid">
+<div><dt>Code</dt><dd>{{ reference.code }}</dd></div><div><dt>Status</dt><dd>{{ reference.get_status_display }}</dd></div>
+<div><dt>Minimum</dt><dd>{{ reference.minimum_value|default_if_none:"Not recorded" }} {{ reference.unit }}</dd></div><div><dt>Maximum</dt><dd>{{ reference.maximum_value|default_if_none:"Not recorded" }} {{ reference.unit }}</dd></div>
+<div><dt>Derived inference value</dt><dd>{{ reference.derived_value|default_if_none:"Not recorded" }} {{ reference.unit }}</dd></div><div><dt>Scenario availability</dt><dd>{{ reference.is_enabled|yesno:"Enabled,Disabled" }}</dd></div>
+<div><dt>Source title</dt><dd>{{ reference.source.name }}</dd></div><div><dt>Custodian / organization</dt><dd>{{ reference.source.custodian|default:"Not recorded" }} / {{ reference.source.organization|default:"Not recorded" }}</dd></div>
+<div><dt>Version / reference date</dt><dd>{{ reference.source.version|default:"Not recorded" }} / {{ reference.source.received_or_created_on|default:"Not recorded" }}</dd></div><div><dt>Coverage period</dt><dd>{{ reference.source.record_period_start|default:"Not recorded" }} – {{ reference.source.record_period_end|default:"Not recorded" }}</dd></div>
+<div class="detail-wide"><dt>Coverage and time resolution</dt><dd>{{ reference.source.coverage_description|default:"Not recorded" }}</dd></div><div class="detail-wide"><dt>Validation / review</dt><dd>{{ reference.source.get_status_display }}{% if reference.source.reviewed_on %}; reviewed {{ reference.source.reviewed_on }} by {{ reference.source.reviewed_by|default:"recorded reviewer unavailable" }}{% endif %}</dd></div>
+<div class="detail-wide"><dt>Processing notes</dt><dd>{{ reference.source.processing_notes|default:"Not recorded" }}</dd></div><div class="detail-wide"><dt>Limitations</dt><dd>{{ reference.source.limitations|default:"Not recorded" }}</dd></div>
+</dl></section></div>{% endblock %}

@@ -1,0 +1,67 @@
+{% extends "admin_portal/base.html" %}
+{% load static %}
+
+{% block title %}{% if form_mode == 'create' %}Create{% else %}Edit{% endif %} guidance | FloodSense Admin{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'admin_portal/css/guidance.css' %}">{% endblock %}
+
+{% block content %}
+<div class="guidance-page">
+  <section class="page-heading">
+    <div>
+      <p class="eyebrow">Preparedness guidance</p>
+      <h1>{% if form_mode == 'create' %}Create guidance draft{% else %}Edit guidance draft{% endif %}</h1>
+      <p>Content remains unpublished until it completes review, approval, and a separate publication action.</p>
+    </div>
+    <a class="button button--secondary" href="{% url 'admin_portal:dss-content' %}">Back to guidance</a>
+  </section>
+
+  <div class="guidance-editor-layout">
+    <section class="panel" aria-labelledby="guidance-form-heading">
+      <h2 id="guidance-form-heading">Guidance details</h2>
+      {% if form.non_field_errors %}
+        <div class="notice notice--warning" role="alert">
+          <strong>Review the form.</strong>
+          {{ form.non_field_errors }}
+        </div>
+      {% endif %}
+      <form method="post" class="guidance-form" novalidate>
+        {% csrf_token %}
+        {% for field in form %}
+          <div class="field-group{% if field.errors %} field-group--error{% endif %}">
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}<p class="field-help">{{ field.help_text }}</p>{% endif %}
+            {% for error in field.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+          </div>
+        {% endfor %}
+        <div class="guidance-form-actions">
+          <button class="button button--primary" type="submit">Save draft</button>
+          <a class="button button--secondary" href="{% url 'admin_portal:dss-content' %}">Cancel</a>
+        </div>
+      </form>
+    </section>
+
+    <aside class="panel preview-panel" aria-labelledby="mobile-preview-heading">
+      <p class="eyebrow">Staff-only preview</p>
+      <h2 id="mobile-preview-heading">Mobile preview</h2>
+      <p class="guidance-meta">Preview only. Saving this form does not publish content.</p>
+      <div class="phone-preview" data-guidance-preview>
+        <div class="phone-preview__bar">FloodSense preparedness</div>
+        <div class="phone-preview__content">
+          <span class="phone-preview__label" data-preview-category>{{ form.category.value|default:"Category" }}</span>
+          <h3 data-preview-title>{{ form.title.value|default:"Guidance title" }}</h3>
+          <p data-preview-instruction>{{ form.instruction.value|default:"Preparedness instruction will appear here." }}</p>
+          <div class="phone-preview__source">
+            <strong>Source and attribution</strong>
+            <span data-preview-source>Select a source</span>
+            <span data-preview-attribution>{{ form.attribution.value|default:"No additional attribution recorded." }}</span>
+          </div>
+          <p class="phone-preview__warning">Not an official flood forecast, warning, or evacuation order.</p>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}<script src="{% static 'admin_portal/js/guidance_preview.js' %}" defer></script>{% endblock %}

@@ -100,6 +100,7 @@ class Day4PublicApiTests(TestCase):
             display_order=10,
             source=self.source,
             status=PublicationStatus.DEMONSTRATION,
+            workflow_status=GuidanceItem.WorkflowStatus.PUBLISHED,
             is_enabled=True,
         )
 
@@ -272,6 +273,32 @@ class Day4PublicApiTests(TestCase):
         self.assertEqual(payload["assessment_state"], "INSUFFICIENT_DATA")
         self.assertIsNone(payload["susceptibility"])
         self.assertEqual(payload["guidance"], [])
+
+    def test_guidance_workflow_changes_never_change_the_classification(self):
+        before = self.client.post(
+            reverse("expert:evaluate"),
+            self._assessment_payload(),
+            content_type="application/json",
+        ).json()
+
+        self.guidance.workflow_status = GuidanceItem.WorkflowStatus.APPROVED
+        self.guidance.is_enabled = False
+        self.guidance.save(update_fields=("workflow_status", "is_enabled"))
+        after = self.client.post(
+            reverse("expert:evaluate"),
+            self._assessment_payload(),
+            content_type="application/json",
+        ).json()
+
+        self.assertEqual(after["guidance"], [])
+        for field in (
+            "assessment_state",
+            "susceptibility",
+            "matched_rule_codes",
+            "facts",
+            "scenario",
+        ):
+            self.assertEqual(after[field], before[field])
 
     def test_invalid_assessment_inputs_return_field_specific_400_response(self):
         payload = {**self._assessment_payload(), "rainfall_intensity_code": "UNKNOWN"}

@@ -1,0 +1,16 @@
+{% extends "admin_portal/base.html" %}{% load static %}
+{% block title %}Rainfall references | FloodSense Admin{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'admin_portal/css/operations.css' %}">{% endblock %}
+{% block content %}<div class="operations-page">
+  <section class="page-heading operations-heading"><div><p class="eyebrow">Scenario references</p><h1>Rainfall references</h1><p>Inspect the controlled intensity and duration choices used in scenario-based assessment.</p></div></section>
+  <section class="notice notice--warning"><strong>Scenario inputs—not live rainfall</strong><p>These are selectable references, not observations, forecasts, warnings, background monitoring, or automatic DOST-PAGASA imports. Numeric editing remains unavailable until scientific definitions, units, bounds, authority, and validation workflow are approved.</p></section>
+  <section class="panel"><h2>Find references</h2><form class="operations-filters" method="get">{% for field in filters %}<div class="field-group"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<p class="field-error">{{ error }}</p>{% endfor %}</div>{% endfor %}<div class="operations-actions"><button class="button button--primary" type="submit">Apply filters</button><a class="button button--secondary" href="{% url 'admin_portal:rainfall-references' %}">Clear</a></div></form></section>
+  <section class="panel"><h2>{{ reference_page.paginator.count }} matching reference{{ reference_page.paginator.count|pluralize }}</h2>
+  {% if reference_page.object_list %}<div class="operations-table-wrap"><table class="operations-table"><thead><tr><th>Reference</th><th>Controlled values</th><th>Source</th><th>Status</th></tr></thead><tbody>{% for item in reference_page.object_list %}<tr>
+    <td data-label="Reference"><a href="{% url 'admin_portal:rainfall-reference-detail' option_id=item.pk %}"><strong>{{ item.label }}</strong></a><span class="operations-meta">{{ item.get_category_display }} · {{ item.code }}</span></td>
+    <td data-label="Controlled values">{% if item.minimum_value is not None %}{{ item.minimum_value }}{% else %}Not recorded{% endif %}–{% if item.maximum_value is not None %}{{ item.maximum_value }}{% else %}Not recorded{% endif %} {{ item.unit }}<span class="operations-meta">Derived value: {{ item.derived_value|default_if_none:"Not recorded" }}</span></td>
+    <td data-label="Source">{{ item.source.name }}<span class="operations-meta">{{ item.source.organization|default:"Organization not recorded" }}</span></td>
+    <td data-label="Status"><span class="state-badge state-badge--{{ item.status|lower }}">{{ item.get_status_display }}</span><span class="operations-meta">Scenario selection: {{ item.is_enabled|yesno:"enabled,disabled" }}</span></td>
+  </tr>{% endfor %}</tbody></table></div>{% else %}<div class="empty-state empty-compact"><h3>No rainfall references match this view.</h3><p>No values are generated or imported automatically.</p></div>{% endif %}
+  {% include "admin_portal/includes/pagination.html" with page=reference_page %}</section>
+</div>{% endblock %}

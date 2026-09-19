@@ -1,8 +1,8 @@
 # FloodSense Admin Web - Seven-Day Implementation Plan
 
-**Plan status:** Active team timeline; Days 1-3 complete; Day 4 In progress—awaiting governance decisions
+**Plan status:** Days 1-3 and 5-7 implemented; Day 4 mutation remains blocked by governance decisions
 
-**Updated:** 18 September 2026
+**Updated:** 19 September 2026
 
 **Interface:** Custom Django portal under `/management/`
 
@@ -52,9 +52,9 @@ All work must also follow:
 | 2 | Complete | Truthful operational dashboard and limited recorded maintenance activity |
 | 3 | Complete | Read-only map, separate geographic layers, source/status review |
 | 4 | In progress—awaiting governance decisions | Read-only Settings and governance proposal; mutation workflow awaits approval |
-| 5 | Planned | DSS preparedness-content workflow |
-| 6 | Planned | Rainfall references, centers, and provenance |
-| 7 | Planned | Audit, permissions, accessibility, integration, and release QA |
+| 5 | Complete | Permission-controlled DSS preparedness-content workflow |
+| 6 | Complete with documented rainfall-editing boundary | Read-only rainfall references, center verification, and provenance workflow |
+| 7 | Complete | Audit history, permissions, validation, responsive UI, and regression QA |
 
 ## Day 1 - Administration foundation
 
@@ -275,7 +275,51 @@ without affecting susceptibility classification.
 - no wording that impersonates an official warning or evacuation order; and
 - no coupling between guidance edits and rule evaluation.
 
+### Verified completion - 19 September 2026
+
+`/management/dss-content/` now provides a permission-controlled guidance list,
+search and filters, draft create/edit forms, source and attribution fields,
+susceptibility-result association, deterministic display order, responsive
+mobile preview, and explicit draft, in-review, approved, and published states.
+Approval does not publish content. Publication requires the separate
+`dss.publish_guidanceitem` permission, explicit confirmation, and a final
+source/classification eligibility check. Portal mutations create genuine Django
+maintenance log entries; the broader Day 7 audit-history interface remains out
+of scope.
+
+Only enabled items in the explicit `PUBLISHED` workflow state can reach DSS API
+responses. The migration preserves already exposed eligible records as
+published and safely disables legacy enabled rows that do not satisfy the
+existing operating-mode policy. Tests cover model validation, migration,
+permissions, transitions, ordering, API publication filtering, and the
+invariance of Expert System classifications when guidance changes. No official
+or fictional guidance row is created by the migration or portal.
+
+See `ADMIN_FRONTEND_DAY_5_GUIDE.md` for the schema, permission assignment,
+verification evidence, and teammate steps.
+
 ## Day 6 - Rainfall references, evacuation centers, and provenance
+
+### Delivered
+
+- permission-controlled rainfall-reference list and detail pages that show
+  existing scenario values and source metadata without changing inference;
+- explicit wording that rainfall options are hypothetical scenario references,
+  not observations, forecasts, monitoring, or automatic agency imports;
+- sourced evacuation-center draft, review, verification, inactive, and
+  re-review workflow with coordinate validation and map preview;
+- capacity recording only during a verified transition and only when an
+  approved source with a responsible organization exists;
+- source/provenance list, detail, create, edit, approval, public-release,
+  unpublish, and restriction flows; and
+- migrations, explicit permissions, confirmations, validation, audit entries,
+  honest empty states, filters, pagination, and focused tests.
+
+Rainfall numeric create/edit remains intentionally unavailable. ScenarioOption
+values feed the Expert System, so ordinary portal mutation would conflict with
+the unresolved Day 4 requirements for approved definitions, units, bounds,
+scientific authority, validation ownership, and role matrix. The current
+implementation exposes evidence for review without changing assessment logic.
 
 ### Rainfall references
 
@@ -306,6 +350,25 @@ without affecting susceptibility classification.
 - prevent restricted source material from being exposed through public output.
 
 ## Day 7 - Audit, security, accessibility, and integration
+
+### Delivered
+
+- read-only audit history for supported modules using genuine Django
+  maintenance log entries;
+- administrator, module, action, and date filters plus 50-row pagination;
+- explicit audit-scope disclosure rather than a fabricated complete history;
+- permission-aware navigation and quick actions, model-permission enforcement,
+  POST-only mutations, CSRF-protected forms, and concurrency-safe transitions;
+- confirmation screens for verification, approval, release, restriction, and
+  deactivation actions;
+- responsive tables/forms/detail views, labeled controls, focus styles,
+  validation errors, forbidden responses, and truthful empty states; and
+- backend regression, Django system, migration consistency, lint, Flutter, and
+  responsive browser verification recorded in the Day 6-7 guide.
+
+The portal does not expose before/after field contents because Django's current
+maintenance log stores safe action summaries rather than complete historical
+snapshots. This limitation is stated in the interface.
 
 ### Implement and verify
 

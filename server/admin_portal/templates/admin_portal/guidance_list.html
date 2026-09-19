@@ -1,0 +1,120 @@
+{% extends "admin_portal/base.html" %}
+{% load static %}
+
+{% block title %}DSS content | FloodSense Admin{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'admin_portal/css/guidance.css' %}">{% endblock %}
+
+{% block content %}
+<div class="guidance-page">
+  <section class="page-heading guidance-heading">
+    <div>
+      <p class="eyebrow">Preparedness guidance</p>
+      <h1>DSS content</h1>
+      <p>Maintain sourced preparedness content separately from susceptibility classification.</p>
+    </div>
+    {% if can_add %}<a class="button button--primary" href="{% url 'admin_portal:guidance-create' %}">Create guidance</a>{% endif %}
+  </section>
+
+  <section class="notice notice--warning" aria-label="DSS safety boundary">
+    <strong>Guidance never changes an assessment result</strong>
+    <p>Only explicitly published, eligible content can appear in resident-facing DSS responses. Approval and publication are separate workflow states.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="guidance-filter-heading">
+    <p class="eyebrow">Search and filter</p>
+    <h2 id="guidance-filter-heading">Find guidance items</h2>
+    {% if filters.errors %}
+      <div class="notice notice--warning" role="alert">
+        <strong>Some filters are invalid. All guidance is shown.</strong>
+        <ul>
+          {% for field in filters %}{% for error in field.errors %}<li><a href="#{{ field.id_for_label }}">{{ field.label }}: {{ error }}</a></li>{% endfor %}{% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+    <form class="guidance-filters" method="get" action="{% url 'admin_portal:dss-content' %}">
+      {% for field in filters %}
+        <div class="field-group">
+          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
+          {% for error in field.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+        </div>
+      {% endfor %}
+      <div class="guidance-filter-actions">
+        <button class="button button--primary" type="submit">Apply filters</button>
+        <a class="button button--secondary" href="{% url 'admin_portal:dss-content' %}">Clear filters</a>
+      </div>
+    </form>
+  </section>
+
+  <section class="panel" aria-labelledby="guidance-list-heading">
+    <div class="guidance-section-heading">
+      <div>
+        <p class="eyebrow">Content inventory</p>
+        <h2 id="guidance-list-heading">{{ guidance_page.paginator.count }} matching item{{ guidance_page.paginator.count|pluralize }}</h2>
+      </div>
+      <p>Ordered by susceptibility result, display order, then record ID.</p>
+    </div>
+
+    {% if guidance_page.object_list %}
+      <div class="guidance-table-wrap">
+        <table class="guidance-table">
+          <thead>
+            <tr>
+              <th scope="col">Guidance</th>
+              <th scope="col">Association</th>
+              <th scope="col">Source and status</th>
+              <th scope="col">Workflow</th>
+              <th scope="col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in guidance_page.object_list %}
+              <tr>
+                <td data-label="Guidance">
+                  <strong>{{ item.title }}</strong>
+                  <p>{{ item.instruction|truncatechars:150 }}</p>
+                  <span class="guidance-meta">{{ item.get_category_display }} · order {{ item.display_order }} · ID {{ item.pk }}</span>
+                </td>
+                <td data-label="Association">{{ item.susceptibility_level.label }}</td>
+                <td data-label="Source and status">
+                  <strong>{{ item.source.name }}</strong>
+                  <span class="guidance-meta">{{ item.get_status_display }}</span>
+                  {% if item.attribution %}<span class="guidance-meta">Attribution: {{ item.attribution|truncatechars:90 }}</span>{% endif %}
+                </td>
+                <td data-label="Workflow">
+                  <span class="workflow-badge workflow-badge--{{ item.workflow_status|lower }}">{{ item.get_workflow_status_display }}</span>
+                  <span class="guidance-meta">Resident output: {{ item.is_enabled|yesno:"enabled,not enabled" }}</span>
+                </td>
+                <td data-label="Actions">
+                  <div class="guidance-actions">
+                    {% if can_change and item.workflow_status == 'DRAFT' %}<a href="{% url 'admin_portal:guidance-edit' item_id=item.pk %}">Edit draft</a>{% endif %}
+                    {% for transition in item.portal_transitions %}
+                      <a href="{% url 'admin_portal:guidance-transition' item_id=item.pk action=transition.action %}">{{ transition.label }}</a>
+                    {% empty %}
+                      {% if not can_change %}<span class="guidance-meta">View only</span>{% endif %}
+                    {% endfor %}
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state guidance-empty">
+        <span class="empty-state__icon" aria-hidden="true">◇</span>
+        <h3>No guidance items match this view.</h3>
+        <p>No records are generated automatically. Clear filters or create sourced guidance if you have authorization.</p>
+      </div>
+    {% endif %}
+
+    {% if guidance_page.paginator.num_pages > 1 %}
+      <nav class="pagination" aria-label="Guidance pages">
+        {% if guidance_page.has_previous %}<a href="?{% if query_without_page %}{{ query_without_page }}&amp;{% endif %}page={{ guidance_page.previous_page_number }}">Previous</a>{% endif %}
+        <span>Page {{ guidance_page.number }} of {{ guidance_page.paginator.num_pages }}</span>
+        {% if guidance_page.has_next %}<a href="?{% if query_without_page %}{{ query_without_page }}&amp;{% endif %}page={{ guidance_page.next_page_number }}">Next</a>{% endif %}
+      </nav>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

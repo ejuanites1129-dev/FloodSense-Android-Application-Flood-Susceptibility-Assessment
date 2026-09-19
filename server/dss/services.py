@@ -80,6 +80,7 @@ def select_guidance_for_level(
         GuidanceItem.objects.select_related("source").filter(
             susceptibility_level=level,
             is_enabled=True,
+            workflow_status=GuidanceItem.WorkflowStatus.PUBLISHED,
         ),
         normalized_mode,
     ).order_by("display_order", "id")
@@ -95,6 +96,7 @@ def _serialize_guidance_item(item: GuidanceItem) -> dict[str, Any]:
         "category": item.category,
         "display_order": item.display_order,
         "data_status": item.status,
+        "attribution": item.attribution,
         "source": {
             "id": item.source_id,
             "name": item.source.name,

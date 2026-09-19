@@ -117,6 +117,7 @@ class OperationalDashboardTests(TestCase):
             susceptibility_level=level,
             source=source,
             status=status,
+            workflow_status=GuidanceItem.WorkflowStatus.PUBLISHED,
             is_enabled=True,
         )
         option = ScenarioOption.objects.create(
@@ -171,7 +172,7 @@ class OperationalDashboardTests(TestCase):
         self.assertEqual(response.context["dashboard"]["review_attention"]["total"], 0)
         for message in self.approved_empty_messages:
             self.assertContains(response, message)
-        self.assertContains(response, "No records are currently marked Pending validation.")
+        self.assertContains(response, "No records currently need validation or content review.")
         self.assertContains(response, "No recorded maintenance activity is available.")
         self.assertContains(response, "current local database")
         self.assertNotContains(response, "Everything is approved")
@@ -188,7 +189,7 @@ class OperationalDashboardTests(TestCase):
         for message in self.approved_empty_messages:
             self.assertContains(response, message)
         self.assertContains(response, PublicationStatus.DEMONSTRATION.label)
-        self.assertContains(response, "No records are currently marked Pending validation.")
+        self.assertContains(response, "No records currently need validation or content review.")
         self.assertContains(response, "No recorded maintenance activity is available.")
         self.assertEqual(response.context["dashboard"]["recent_activity"], [])
 
@@ -217,10 +218,21 @@ class OperationalDashboardTests(TestCase):
             )
         response = self.client.get(self.url)
         self.assertEqual(response.context["dashboard"]["review_attention"]["total"], 4)
-        self.assertNotContains(response, "No records are currently marked Pending validation.")
+        self.assertNotContains(response, "No records currently need validation or content review.")
         self.assertContains(response, PublicationStatus.PENDING_VALIDATION.label)
         self.assertContains(response, PublicationStatus.RESTRICTED.label)
         self.assertContains(response, PublicationStatus.RETIRED.label)
+
+    def test_guidance_in_review_populates_attention_without_pending_data_status(self):
+        _, _, guidance, _ = self.create_records()
+        guidance.workflow_status = GuidanceItem.WorkflowStatus.IN_REVIEW
+        guidance.is_enabled = False
+        guidance.save(update_fields=("workflow_status", "is_enabled"))
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.context["dashboard"]["review_attention"]["total"], 1)
+        self.assertContains(response, "Records needing review by module")
 
     def test_dashboard_get_is_read_only_and_does_not_query_raw_rule_tables(self):
         self.create_records()
@@ -304,8 +316,6 @@ class OperationalDashboardTests(TestCase):
         for label, slug in (
             ("Open map data", "map-data"),
             ("Review assessment parameters", "settings"),
-            ("Open DSS content", "dss-content"),
-            ("Manage sources", "sources-content"),
         ):
             with self.subTest(link=label):
                 url = reverse("admin_portal:section", kwargs={"section_slug": slug})
@@ -313,16 +323,20 @@ class OperationalDashboardTests(TestCase):
                 self.assertTrue(
                     any(label in html.text(link) for link in html.select("a", href=link_url))
                 )
+                protected_response = self.client.get(url)
                 self.assertContains(
-                    self.client.get(url),
-                    {"map-data": "Map and geographic data", "settings": "Settings"}
-                    .get(slug, "Planned"),
+                    protected_response,
+                    {"map-data": "Map and geographic data", "settings": "Settings"}[slug],
                 )
                 self.assertRedirects(
                     Client().get(url),
                     f"{reverse('admin_portal:login')}?next={url}",
                     fetch_redirect_response=False,
                 )
+        self.assertFalse(
+            any("Open DSS content" in html.text(link) for link in html.select("a"))
+        )
+        self.assertFalse(any("Manage sources" in html.text(link) for link in html.select("a")))
 
     def test_dashboard_retains_accessible_safety_and_removes_foundation_and_rule_controls(self):
         response = self.client.get(self.url)

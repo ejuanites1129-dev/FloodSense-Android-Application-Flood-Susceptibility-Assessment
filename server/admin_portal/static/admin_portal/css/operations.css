@@ -1,0 +1,60 @@
+.operations-page { display: grid; gap: 22px; }
+.operations-heading { align-items: end; }
+.operations-filters, .operations-form { display: grid; gap: 16px; margin-top: 18px; }
+.operations-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; }
+.operations-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.operations-form .field-group--wide { grid-column: 1 / -1; }
+.operations-filters input, .operations-filters select,
+.operations-form input, .operations-form select, .operations-form textarea,
+.confirm-form input, .confirm-form select {
+  width: 100%; min-height: 46px; padding: 10px 12px; border: 1px solid #cbd5e1;
+  border-radius: var(--radius-sm); background: #fff; color: var(--text); font: inherit;
+}
+.operations-form textarea { min-height: 100px; resize: vertical; }
+.operations-filters input:focus, .operations-filters select:focus,
+.operations-form input:focus, .operations-form select:focus, .operations-form textarea:focus {
+  border-color: var(--brand); outline: 0; box-shadow: 0 0 0 4px rgba(26, 148, 213, .14);
+}
+.operations-actions { display: flex; grid-column: 1 / -1; flex-wrap: wrap; gap: 10px; }
+.operations-table-wrap { overflow-x: auto; }
+.operations-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.operations-table th, .operations-table td { padding: 14px 12px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.operations-table th { color: #40577a; font-size: .75rem; letter-spacing: .06em; text-transform: uppercase; }
+.operations-table p { margin: 5px 0 0; color: var(--muted); line-height: 1.45; }
+.operations-meta { display: block; margin-top: 5px; color: var(--muted); font-size: .82rem; line-height: 1.4; }
+.state-badge { display: inline-flex; padding: 5px 9px; border-radius: 999px; color: #344054; background: #eef2f6; font-size: .78rem; font-weight: 800; }
+.state-badge--verified, .state-badge--approved { color: #216e43; background: #e8f5ec; }
+.state-badge--in_review, .state-badge--pending_validation { color: #725b00; background: #fff5ce; }
+.state-badge--restricted, .state-badge--inactive { color: #8b2420; background: #fce8e6; }
+.record-actions { display: grid; gap: 8px; }
+.record-actions a { font-weight: 700; }
+.detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 18px 0 0; }
+.detail-grid > div { min-width: 0; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.detail-grid dt { color: var(--muted); font-size: .76rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.detail-grid dd { margin: 6px 0 0; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; }
+.detail-grid .detail-wide { grid-column: 1 / -1; }
+.map-preview { min-height: 310px; margin-top: 16px; border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; background: #eef2f6; }
+.map-preview__fallback { display: grid; min-height: 310px; place-items: center; padding: 24px; color: var(--muted); text-align: center; }
+.confirm-page { max-width: 800px; }
+.confirm-form { display: grid; gap: 16px; margin-top: 20px; }
+.checkbox-confirm { display: flex; align-items: flex-start; gap: 10px; }
+.checkbox-confirm input { width: 20px; min-height: 20px; flex: 0 0 auto; }
+.empty-compact { min-height: 260px; }
+
+@media (max-width: 900px) {
+  .operations-filters, .operations-form { grid-template-columns: 1fr; }
+  .operations-form .field-group--wide { grid-column: auto; }
+}
+@media (max-width: 760px) {
+  .operations-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
+  .operations-table, .operations-table tbody, .operations-table tr, .operations-table td { display: block; width: 100%; }
+  .operations-table tr { margin-bottom: 14px; border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+  .operations-table td { display: grid; grid-template-columns: minmax(105px, 34%) 1fr; gap: 12px; }
+  .operations-table td::before { content: attr(data-label); color: #40577a; font-size: .72rem; font-weight: 800; text-transform: uppercase; }
+  .detail-grid { grid-template-columns: 1fr; }
+  .detail-grid .detail-wide { grid-column: auto; }
+}
+@media (max-width: 420px) {
+  .operations-table td { grid-template-columns: 1fr; }
+  .operations-actions .button { width: 100%; }
+}

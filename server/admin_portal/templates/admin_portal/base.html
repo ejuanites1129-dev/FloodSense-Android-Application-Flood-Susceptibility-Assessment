@@ -51,6 +51,20 @@
             <li>
               {% if slug == 'dashboard' %}
                 <a class="nav-link{% if active_section == slug %} nav-link--active{% endif %}" href="{% url 'admin_portal:dashboard' %}"{% if active_section == slug %} aria-current="page"{% endif %}>
+              {% elif slug == 'map-data' %}
+                <a class="nav-link{% if active_section == slug %} nav-link--active{% endif %}" href="{% url 'admin_portal:map-data' %}"{% if active_section == slug %} aria-current="page"{% endif %}>
+              {% elif slug == 'settings' %}
+                <a class="nav-link{% if active_section == slug %} nav-link--active{% endif %}" href="{% url 'admin_portal:settings' %}"{% if active_section == slug %} aria-current="page"{% endif %}>
+              {% elif slug == 'dss-content' %}
+                <a class="nav-link{% if active_section == slug %} nav-link--active{% endif %}" href="{% url 'admin_portal:dss-content' %}"{% if active_section == slug %} aria-current="page"{% endif %}>
+              {% elif slug == 'rainfall-references' %}
+                <a class="nav-link{% if active_section == slug %} nav-link--active{% endif %}" href="{% url 'admin_portal:rainfall-references' %}"{% if active_section == slug %} aria-current="page"{% endif %}>
+              {% elif slug == 'evacuation-centers' %}
+                <a class="nav-link{% if active_section == slug %} nav-link--active{% endif %}" href="{% url 'admin_portal:evacuation-centers' %}"{% if active_section == slug %} aria-current="page"{% endif %}>
+              {% elif slug == 'sources-content' %}
+                <a class="nav-link{% if active_section == slug %} nav-link--active{% endif %}" href="{% url 'admin_portal:sources-content' %}"{% if active_section == slug %} aria-current="page"{% endif %}>
+              {% elif slug == 'audit-history' %}
+                <a class="nav-link{% if active_section == slug %} nav-link--active{% endif %}" href="{% url 'admin_portal:audit-history' %}"{% if active_section == slug %} aria-current="page"{% endif %}>
               {% else %}
                 <a class="nav-link{% if active_section == slug %} nav-link--active{% endif %}" href="{% url 'admin_portal:section' section_slug=slug %}"{% if active_section == slug %} aria-current="page"{% endif %}>
               {% endif %}
@@ -63,6 +77,13 @@
     </aside>
 
     <main class="portal-main" id="main-content">
+      {% if messages %}
+        <div class="portal-messages" aria-live="polite">
+          {% for message in messages %}
+            <div class="notice{% if message.tags == 'error' %} notice--warning{% endif %}" role="status">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
       {% block content %}{% endblock %}
     </main>
   </div>

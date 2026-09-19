@@ -1,4 +1,3 @@
-
 from django.contrib import admin
 
 from .models import DataSource
@@ -22,7 +21,7 @@ class DataSourceAdmin(admin.ModelAdmin):
     fieldsets = (
         (
             "Source identity",
-            {"fields": ("name", "organization", "source_type")},
+            {"fields": ("name", "organization", "custodian", "source_type", "version")},
         ),
         (
             "Coverage",
@@ -47,6 +46,16 @@ class DataSourceAdmin(admin.ModelAdmin):
                 )
             },
         ),
-        ("Notes", {"fields": ("notes",)}),
+        (
+            "Documentation",
+            {
+                "fields": (
+                    "processing_notes",
+                    "limitations",
+                    "citation_url",
+                    "notes",
+                )
+            },
+        ),
         ("Audit", {"fields": ("created_at", "updated_at")}),
     )

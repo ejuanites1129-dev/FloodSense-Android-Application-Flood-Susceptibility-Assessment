@@ -366,7 +366,8 @@ h2 { margin-bottom: 8px; font-size: 1.25rem; }
 .dashboard-activity-mark { display: grid; flex: 0 0 30px; height: 30px; place-items: center; border-radius: 50%; color: var(--brand-dark); background: var(--brand-soft); }
 .dashboard .dashboard-empty-state { min-height: 0; padding: 26px 0 12px; }
 .dashboard-empty-state > p { margin-bottom: 8px; font-size: 0.88rem; }
-.dashboard-review-list a { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; font-weight: 700; text-decoration: none; }
+.dashboard-review-list a,
+.dashboard-review-list li > span { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; font-weight: 700; text-decoration: none; }
 .dashboard-review-list a:hover { text-decoration: underline; }
 .dashboard-review-count { min-width: 30px; padding: 2px 8px; border-radius: 5px; color: #344054; background: #eef2f6; text-align: center; font-variant-numeric: tabular-nums; }
 .dashboard .dashboard-panel-footer { margin-top: 14px; }

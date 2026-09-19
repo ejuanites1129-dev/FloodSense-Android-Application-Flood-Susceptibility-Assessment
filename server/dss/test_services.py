@@ -55,6 +55,7 @@ class GuidanceSelectionServiceTests(TestCase):
             "display_order": 0,
             "source": self.source,
             "status": PublicationStatus.DEMONSTRATION,
+            "workflow_status": GuidanceItem.WorkflowStatus.PUBLISHED,
             "is_enabled": True,
         }
         values.update(overrides)
@@ -105,6 +106,7 @@ class GuidanceSelectionServiceTests(TestCase):
             category=GuidanceItem.Category.MONITOR,
             source=self.source,
             status=PublicationStatus.DEMONSTRATION,
+            workflow_status=GuidanceItem.WorkflowStatus.PUBLISHED,
             is_enabled=True,
         )
 
@@ -126,6 +128,15 @@ class GuidanceSelectionServiceTests(TestCase):
             )
 
         self.assertEqual(select_guidance(self.assessment), [])
+
+    def test_only_explicitly_published_guidance_is_selected(self):
+        self.first.workflow_status = GuidanceItem.WorkflowStatus.APPROVED
+        self.first.is_enabled = False
+        self.first.save(update_fields=("workflow_status", "is_enabled"))
+
+        guidance = select_guidance(self.assessment)
+
+        self.assertEqual([item["id"] for item in guidance], [self.second.id])
 
     def test_demonstration_and_official_guidance_are_not_mixed(self):
         approved_source = DataSource.objects.create(
@@ -151,6 +162,7 @@ class GuidanceSelectionServiceTests(TestCase):
             category=GuidanceItem.Category.MONITOR,
             source=approved_source,
             status=PublicationStatus.APPROVED,
+            workflow_status=GuidanceItem.WorkflowStatus.PUBLISHED,
             is_enabled=True,
         )
 

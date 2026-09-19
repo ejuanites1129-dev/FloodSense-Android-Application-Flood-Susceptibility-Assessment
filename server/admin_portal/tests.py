@@ -61,10 +61,9 @@ class AdminPortalAuthenticationTests(TestCase):
 
         self.assertEqual(response.status_code, 403)
 
-    def test_every_planned_section_uses_protected_shared_shell(self):
+    def test_operational_sections_require_explicit_model_permissions(self):
         self.client.force_login(self.staff_user)
         section_slugs = (
-            "dss-content",
             "rainfall-references",
             "evacuation-centers",
             "sources-content",
@@ -76,8 +75,7 @@ class AdminPortalAuthenticationTests(TestCase):
                 response = self.client.get(
                     reverse("admin_portal:section", kwargs={"section_slug": slug})
                 )
-                self.assertEqual(response.status_code, 200)
-                self.assertContains(response, "Planned")
+                self.assertEqual(response.status_code, 403)
 
     def test_dashboard_uses_account_menu_instead_of_sidebar_footer(self):
         self.client.force_login(self.staff_user)

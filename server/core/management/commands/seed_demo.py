@@ -384,7 +384,9 @@ class Command(BaseCommand):
             item.category = GuidanceItem.Category.PREPARE
             item.display_order = order * 10
             item.source = source
+            item.attribution = "FloodSense fictional demonstration content"
             item.status = PublicationStatus.DEMONSTRATION
+            item.workflow_status = GuidanceItem.WorkflowStatus.PUBLISHED
             item.is_enabled = True
             item.full_clean()
             item.save()

@@ -1,0 +1,45 @@
+{% extends "admin_portal/base.html" %}
+{% load static %}
+
+{% block title %}Confirm {{ transition.label }} | FloodSense Admin{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'admin_portal/css/guidance.css' %}">{% endblock %}
+
+{% block content %}
+<div class="guidance-page guidance-confirm-page">
+  <section class="page-heading">
+    <div>
+      <p class="eyebrow">Sensitive workflow change</p>
+      <h1>{{ transition.label }}</h1>
+      <p>Review the content and consequence before confirming.</p>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="confirm-guidance-title">
+    <p class="eyebrow">{{ guidance_item.get_workflow_status_display }} → {{ transition.target_status|title }}</p>
+    <h2 id="confirm-guidance-title">{{ guidance_item.title }}</h2>
+    <dl class="guidance-confirm-details">
+      <div><dt>Susceptibility result</dt><dd>{{ guidance_item.susceptibility_level.label }}</dd></div>
+      <div><dt>Category</dt><dd>{{ guidance_item.get_category_display }}</dd></div>
+      <div><dt>Data status</dt><dd>{{ guidance_item.get_status_display }}</dd></div>
+      <div><dt>Source</dt><dd>{{ guidance_item.source.name }}</dd></div>
+      <div><dt>Display order</dt><dd>{{ guidance_item.display_order }}</dd></div>
+    </dl>
+    <div class="notice notice--warning"><strong>Effect of this action</strong><p>{{ transition.confirmation }}</p></div>
+
+    {% if form.non_field_errors %}<div class="notice notice--warning" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+    <form method="post" class="guidance-confirm-form">
+      {% csrf_token %}
+      {{ form.expected_status }}
+      <div class="checkbox-row{% if form.confirm.errors %} field-group--error{% endif %}">
+        {{ form.confirm }}
+        <label for="{{ form.confirm.id_for_label }}">{{ form.confirm.label }}</label>
+      </div>
+      {% for error in form.confirm.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+      <div class="guidance-form-actions">
+        <button class="button button--primary" type="submit">Confirm {{ transition.label|lower }}</button>
+        <a class="button button--secondary" href="{% url 'admin_portal:dss-content' %}">Cancel</a>
+      </div>
+    </form>
+  </section>
+</div>
+{% endblock %}

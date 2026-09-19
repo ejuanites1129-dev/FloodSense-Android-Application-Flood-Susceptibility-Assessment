@@ -22,7 +22,7 @@ Django's `/admin/` remains a separate technical maintenance interface.
 | Area | Day 1 behavior | Delivered in Day 2 |
 | --- | --- | --- |
 | Overview | Foundation badge, development checklist, and next-module presentation | Personalized operational overview labeled database-backed and read-only |
-| Summary cards | Static descriptions of the administration foundation | Real counts for geographic areas, sources, DSS guidance, scenario options, and pending validation |
+| Summary cards | Static descriptions of the administration foundation | Real counts for geographic areas, sources, DSS guidance, scenario options, and records needing review |
 | Data status | General development-data warnings | Per-card counts for every actual publication status, with distinct text/color labels and separate enablement counts |
 | Geographic summary | Protected Map data placeholder only | Geographic totals and an expandable area-type breakdown, without treating boundaries as flood classifications |
 | Scenario summary | Protected assessment-parameter placeholder only | Stored scenario totals and enabled rainfall-intensity/duration counts, without exposing scientific values or editing controls |
@@ -89,8 +89,8 @@ resident availability, map publication, or a complete assessment-ready dataset.
 | Enabled rainfall intensity | Enabled scenario rows with `category=INTENSITY` |
 | Enabled rainfall duration | Enabled scenario rows with `category=DURATION` |
 | Each card's status breakdown | Rows of that card's model with the exact displayed `status` value |
-| Pending validation: total | Sum of `PENDING_VALIDATION` counts across GeographicArea, DataSource, GuidanceItem, and ScenarioOption |
-| Pending validation by module | The corresponding model's `PENDING_VALIDATION` count; no other status is included |
+| Review attention: total | Sum of `PENDING_VALIDATION` records across the four modules, with DSS guidance also counting the union of items in its Day 5 `IN_REVIEW` workflow state |
+| Review attention by module | The model's `PENDING_VALIDATION` count; for DSS guidance, the union with `workflow_status=IN_REVIEW` avoids double-counting one item |
 
 Status labels come from the actual model choices: `DEMONSTRATION`,
 `PENDING_VALIDATION`, `APPROVED`, `RESTRICTED`, and `RETIRED`. Each has a text
@@ -102,8 +102,8 @@ Every card continues to show actual totals and demonstration counts when
 approved data are absent. Geographic, guidance, and scenario cards show their
 approved-data empty state when their approved count is zero. The source card's
 empty state depends on the approved-and-publicly-releasable intersection. A zero
-pending count says no records are marked Pending validation; it does not say
-everything is approved.
+review-attention count says no records are pending validation and no DSS item is
+in review; it does not say everything is approved.
 
 Geographic counts describe administrative or demonstration records, not flood
 zones or susceptibility assignments. Scenario options are hypothetical inputs,

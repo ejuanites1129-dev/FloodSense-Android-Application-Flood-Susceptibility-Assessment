@@ -109,6 +109,11 @@ class DashboardRecordSummaryTests(TestCase):
                     susceptibility_level=level,
                     source=cls.source,
                     status=status,
+                    workflow_status=(
+                        GuidanceItem.WorkflowStatus.PUBLISHED
+                        if enabled
+                        else GuidanceItem.WorkflowStatus.DRAFT
+                    ),
                     is_enabled=enabled,
                 )
                 for category in ScenarioOption.Category.values:
@@ -199,16 +204,20 @@ class DashboardRecordSummaryTests(TestCase):
             },
         )
 
-    def test_pending_total_includes_only_four_modules_pending_status(self):
+    def test_review_total_includes_pending_status_and_guidance_review_workflow(self):
+        GuidanceItem.objects.filter(
+            status=PublicationStatus.DEMONSTRATION,
+            is_enabled=False,
+        ).update(workflow_status=GuidanceItem.WorkflowStatus.IN_REVIEW)
         attention = get_dashboard_summary()["review_attention"]
 
-        self.assertEqual(attention["total"], 12)
+        self.assertEqual(attention["total"], 13)
         self.assertEqual(
             attention["modules"],
             [
                 {"label": "Geographic areas", "section_slug": "map-data", "count": 4},
                 {"label": "Data sources", "section_slug": "sources-content", "count": 2},
-                {"label": "DSS guidance", "section_slug": "dss-content", "count": 2},
+                {"label": "DSS guidance", "section_slug": "dss-content", "count": 3},
                 {"label": "Scenario options", "section_slug": "assessment-parameters", "count": 4},
             ],
         )

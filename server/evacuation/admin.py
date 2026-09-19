@@ -1,2 +1,18 @@
+from django.contrib import admin
 
-# Register your models here.
+from .models import EvacuationCenter
+
+
+@admin.register(EvacuationCenter)
+class EvacuationCenterAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "geographic_area",
+        "verification_status",
+        "publication_status",
+        "verified_on",
+    )
+    list_filter = ("verification_status", "publication_status")
+    search_fields = ("name", "address", "source__name")
+    autocomplete_fields = ("geographic_area", "source")
+    readonly_fields = ("created_at", "updated_at")
