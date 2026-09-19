@@ -4,16 +4,20 @@ import 'package:flutter_map/flutter_map.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../data/models/geojson_geometry.dart';
 import '../../../data/models/geographic_area.dart';
+import '../../../data/models/point_resolution.dart';
+import '../../location/location_controller.dart';
 import '../assessment_controller.dart';
 
 class ReferenceBoundaryMapCard extends StatefulWidget {
   const ReferenceBoundaryMapCard({
     required this.controller,
+    this.locationController,
     this.showBasemap = true,
     super.key,
   });
 
   final AssessmentController controller;
+  final LocationController? locationController;
   final bool showBasemap;
 
   @override
@@ -24,6 +28,8 @@ class ReferenceBoundaryMapCard extends StatefulWidget {
 class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
   final MapController _mapController = MapController();
   bool _mapReady = false;
+  double? _lastCenteredLatitude;
+  double? _lastCenteredLongitude;
 
   @override
   void dispose() {
@@ -53,9 +59,34 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
     );
   }
 
+  void _centerOnTemporaryPoint() {
+    final coordinate = widget.locationController?.lookupCoordinate;
+    if (!_mapReady || coordinate == null) return;
+    if (_lastCenteredLatitude == coordinate.latitude &&
+        _lastCenteredLongitude == coordinate.longitude) {
+      return;
+    }
+    _lastCenteredLatitude = coordinate.latitude;
+    _lastCenteredLongitude = coordinate.longitude;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_mapReady) return;
+      _mapController.move(coordinate.latLng, 16);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final locationController = widget.locationController;
+    if (locationController == null) return _buildCard(context);
+    return AnimatedBuilder(
+      animation: locationController,
+      builder: (context, _) => _buildCard(context),
+    );
+  }
+
+  Widget _buildCard(BuildContext context) {
     final controller = widget.controller;
+    _centerOnTemporaryPoint();
     return Card(
       key: const Key('reference-boundary-card'),
       child: Padding(
@@ -142,7 +173,19 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
                               minZoom: 2,
                               maxZoom: 18,
                               keepAlive: true,
-                              onMapReady: () => _mapReady = true,
+                              onMapReady: () {
+                                _mapReady = true;
+                                _centerOnTemporaryPoint();
+                              },
+                              onTap: widget.locationController == null
+                                  ? null
+                                  : (_, point) => widget.locationController!
+                                        .resolveManualPin(
+                                          MapCoordinate(
+                                            latitude: point.latitude,
+                                            longitude: point.longitude,
+                                          ),
+                                        ),
                             ),
                             children: [
                               if (widget.showBasemap)
@@ -156,6 +199,60 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
                                 key: const Key('reference-boundary-polygons'),
                                 polygons: _polygons(controller.referenceAreas),
                               ),
+                              if (widget.locationController?.temporaryLocation
+                                  case final temporary?)
+                                CircleLayer<String>(
+                                  key: const Key(
+                                    'temporary-location-accuracy-circle',
+                                  ),
+                                  circles: [
+                                    CircleMarker<String>(
+                                      key: const Key(
+                                        'temporary-location-accuracy-circle',
+                                      ),
+                                      point: widget
+                                          .locationController!
+                                          .lookupCoordinate!
+                                          .latLng,
+                                      radius: temporary.accuracyMeters,
+                                      useRadiusInMeter: true,
+                                      color: AppColors.primary.withValues(
+                                        alpha: 0.14,
+                                      ),
+                                      borderColor: AppColors.primary,
+                                      borderStrokeWidth: 1.5,
+                                    ),
+                                  ],
+                                ),
+                              if (widget.locationController?.lookupCoordinate
+                                  case final coordinate?)
+                                MarkerLayer(
+                                  markers: [
+                                    Marker(
+                                      key: const Key(
+                                        'temporary-location-map-marker',
+                                      ),
+                                      point: coordinate.latLng,
+                                      width: 48,
+                                      height: 48,
+                                      alignment: Alignment.topCenter,
+                                      child: Semantics(
+                                        label: 'Temporary location marker. Accuracy is approximate.',
+                                        child: const Icon(
+                                          Icons.my_location,
+                                          size: 40,
+                                          color: AppColors.error,
+                                          shadows: [
+                                            Shadow(
+                                              blurRadius: 4,
+                                              color: Colors.white,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               const Align(
                                 alignment: Alignment.bottomRight,
                                 child: ColoredBox(
@@ -218,15 +315,20 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
 
   List<Polygon<int>> _polygons(List<GeographicArea> areas) {
     final polygons = <Polygon<int>>[];
+    final confirmedCode =
+        widget.locationController?.confirmedBarangay?.geographicAreaCode;
     for (final area in areas) {
+      final isConfirmed = area.code == confirmedCode;
       for (final polygon in area.geometry.polygons) {
         polygons.add(
           Polygon<int>(
             points: polygon.exterior,
             holePointsList: polygon.holes.isEmpty ? null : polygon.holes,
-            color: AppColors.primary.withValues(alpha: 0.12),
-            borderColor: AppColors.primary,
-            borderStrokeWidth: 1.4,
+            color: AppColors.primary.withValues(
+              alpha: isConfirmed ? 0.3 : 0.12,
+            ),
+            borderColor: isConfirmed ? AppColors.error : AppColors.primary,
+            borderStrokeWidth: isConfirmed ? 3 : 1.4,
             hitValue: area.id,
           ),
         );

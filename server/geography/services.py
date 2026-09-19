@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from math import isfinite
 from typing import Any
 
+from django.contrib.gis.db.models.functions import IsEmpty, IsValid
 from django.contrib.gis.geos import Point
 from django.core.exceptions import ValidationError
 from provenance import policies
@@ -148,31 +149,58 @@ def resolve_bacoor_barangay(
 
     source = sources[0]
     barangays = eligible_bacoor_reference_barangays().filter(source=source)
-    identities = list(barangays.values_list("code", "name"))
-    if len(identities) != BACOOR_REFERENCE_BARANGAY_COUNT or any(
-        _public_psgc_code(code) is None or not name.strip()
-        for code, name in identities
+    identities = list(
+        barangays.annotate(
+            geometry_is_empty=IsEmpty("geometry"),
+            geometry_is_valid=IsValid("geometry"),
+        ).values_list("code", "name", "geometry_is_empty", "geometry_is_valid")
+    )
+    public_codes = [_public_psgc_code(code) for code, *_ in identities]
+    normalized_names = [name.strip().casefold() for _, name, *_ in identities]
+    if (
+        len(identities) != BACOOR_REFERENCE_BARANGAY_COUNT
+        or any(
+            public_code is None
+            or not name.strip()
+            or geometry_is_empty
+            or not geometry_is_valid
+            for public_code, (_, name, geometry_is_empty, geometry_is_valid) in zip(
+                public_codes, identities, strict=True
+            )
+        )
+        or len(set(public_codes)) != BACOOR_REFERENCE_BARANGAY_COUNT
+        or len(set(normalized_names)) != BACOOR_REFERENCE_BARANGAY_COUNT
     ):
         return BarangayResolutionResult(BarangayResolutionState.UNAVAILABLE)
 
-    cities = GeographicArea.objects.filter(
-        code=BACOOR_CITY_CODE,
-        area_type=GeographicArea.AreaType.CITY,
-        is_enabled=True,
-        status=PublicationStatus.PENDING_VALIDATION,
-        source=source,
+    city_rows = list(
+        GeographicArea.objects.filter(
+            code=BACOOR_CITY_CODE,
+            area_type=GeographicArea.AreaType.CITY,
+            is_enabled=True,
+            status=PublicationStatus.PENDING_VALIDATION,
+            source=source,
+        )
+        .annotate(
+            geometry_is_empty=IsEmpty("geometry"),
+            geometry_is_valid=IsValid("geometry"),
+        )
+        .values_list("id", "geometry_is_empty", "geometry_is_valid")[:2]
     )
-    if cities.count() != 1:
+    if (
+        len(city_rows) != 1
+        or city_rows[0][1]
+        or not city_rows[0][2]
+    ):
         return BarangayResolutionResult(BarangayResolutionState.UNAVAILABLE)
+    city_id = city_rows[0][0]
 
     matches = list(
         barangays.filter(geometry__covers=point)
         .values_list("code", "name")
         .order_by("code", "id")
     )
-    matched_identities = {
-        (_public_psgc_code(code), name) for code, name in matches
-    }
+    matched_identities = _normalized_barangay_matches(matches)
     if len(matched_identities) == 1:
         psgc_code, name = matched_identities.pop()
         if psgc_code is None:
@@ -187,7 +215,10 @@ def resolve_bacoor_barangay(
             BarangayResolutionState.AMBIGUOUS_BOUNDARY
         )
 
-    if cities.filter(geometry__covers=point).exists():
+    if GeographicArea.objects.filter(
+        id=city_id,
+        geometry__covers=point,
+    ).exists():
         # A City-covered point that is not covered by a current barangay is an
         # apparent data gap; it must not be mislabeled as outside Bacoor.
         return BarangayResolutionResult(BarangayResolutionState.UNAVAILABLE)
@@ -197,6 +228,14 @@ def resolve_bacoor_barangay(
 def _public_psgc_code(area_code: str) -> str | None:
     match = re.fullmatch(r"PSGC_(\d{10})", area_code)
     return match.group(1) if match else None
+
+
+def _normalized_barangay_matches(
+    matches: list[tuple[str, str]],
+) -> set[tuple[str | None, str]]:
+    """Collapse repeated geometry matches for one stable barangay identity."""
+
+    return {(_public_psgc_code(code), name.strip()) for code, name in matches}
 
 
 def _normalize_mode(mode: str) -> str:

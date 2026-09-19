@@ -10,7 +10,10 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from provenance.models import DataSource, PublicationStatus
 
-from geography.constants import BACOOR_REFERENCE_SOURCE_NAME
+from geography.constants import (
+    BACOOR_REFERENCE_SOURCE_NAME,
+    BACOOR_REFERENCE_SOURCE_VERSION,
+)
 from geography.models import GeographicArea
 
 
@@ -131,6 +134,7 @@ class Command(BaseCommand):
 
         source.organization = "OCHA HDX; source agencies NAMRIA and PSA"
         source.source_type = DataSource.SourceType.AGENCY_DATASET
+        source.version = BACOOR_REFERENCE_SOURCE_VERSION
         source.coverage_description = (
             "Bacoor City and its 47 current barangays. Geometry was derived from "
             "COD-AB legacy polygons using the PSA 2023 barangay-merger mapping."

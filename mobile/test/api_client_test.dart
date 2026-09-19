@@ -167,7 +167,7 @@ void main() {
           isA<ApiException>().having(
             (error) => error.kind,
             'kind',
-            ApiFailureKind.connectivity,
+            ApiFailureKind.timeout,
           ),
         ),
       );
@@ -313,6 +313,55 @@ void main() {
           durationCode: 'DEMO_1_HOUR',
         ),
         throwsA(isA<ApiException>()),
+      );
+    });
+
+    test(
+      'barangay resolver uses POST body without coordinate query parameters',
+      () async {
+        late http.Request captured;
+        final api = FloodSenseApiClient(
+          baseUrl: 'http://example.test/api/v1',
+          client: MockClient((request) async {
+            captured = request;
+            return jsonResponse(barangayResolutionJson());
+          }),
+        );
+
+        final result = await api.resolveBarangay(
+          latitude: 14.405,
+          longitude: 120.965,
+        );
+
+        expect(captured.method, 'POST');
+        expect(captured.url.path, '/api/v1/geography/resolve-barangay/');
+        expect(captured.url.query, isEmpty);
+        expect(jsonDecode(captured.body), {
+          'latitude': 14.405,
+          'longitude': 120.965,
+        });
+        expect(result.barangay?.psgcCode, '0402103004');
+      },
+    );
+
+    test('unknown barangay resolver state is a typed malformed response', () {
+      final api = FloodSenseApiClient(
+        baseUrl: 'http://example.test/api/v1',
+        client: MockClient(
+          (_) async =>
+              jsonResponse(barangayResolutionJson(state: 'UNSUPPORTED_STATE')),
+        ),
+      );
+
+      expect(
+        api.resolveBarangay(latitude: 14.4, longitude: 120.9),
+        throwsA(
+          isA<ApiException>().having(
+            (error) => error.kind,
+            'kind',
+            ApiFailureKind.malformedResponse,
+          ),
+        ),
       );
     });
   });

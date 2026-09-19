@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
@@ -33,6 +34,12 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- Geolocator binds this helper when its plugin attaches. FloodSense
+             only requests one foreground position and never promotes the
+             helper to a foreground service, so remove that optional capability. -->
+        <service
+            android:name="com.baseflow.geolocator.GeolocatorLocationService"
+            tools:remove="android:foregroundServiceType" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

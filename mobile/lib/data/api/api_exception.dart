@@ -1,4 +1,10 @@
-enum ApiFailureKind { validation, connectivity, service, malformedResponse }
+enum ApiFailureKind {
+  validation,
+  connectivity,
+  timeout,
+  service,
+  malformedResponse,
+}
 
 class ApiException implements Exception {
   const ApiException(

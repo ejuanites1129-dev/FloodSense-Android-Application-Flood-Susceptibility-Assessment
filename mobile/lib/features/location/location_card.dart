@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
 
 import '../../app/theme/app_colors.dart';
+import '../../data/models/barangay_resolution.dart';
+import '../../data/models/geographic_area.dart';
 import 'location_controller.dart';
 import 'location_copy.dart';
 import 'location_flow_state.dart';
 
 class LocationCard extends StatelessWidget {
-  const LocationCard({required this.controller, super.key});
+  const LocationCard({
+    required this.controller,
+    this.barangays = const [],
+    super.key,
+  });
 
   final LocationController controller;
+  final List<GeographicArea> barangays;
 
   @override
   Widget build(BuildContext context) {
@@ -32,18 +39,33 @@ class LocationCard extends StatelessWidget {
                   'Use one temporary foreground reading, or continue with the map pin and selector.',
                 ),
                 const SizedBox(height: 12),
-                if (state.phase == LocationFlowPhase.acquired)
-                  _TemporaryLocationIndicator(controller: controller)
-                else ...[
-                  Semantics(
-                    liveRegion: state.phase != LocationFlowPhase.initial,
-                    child: Text(
-                      state.message,
-                      key: const Key('location-state-message'),
-                    ),
-                  ),
+                if (controller.hasTemporaryLocation) ...[
+                  _TemporaryLocationIndicator(controller: controller),
                   const SizedBox(height: 12),
-                  _LocationActions(controller: controller),
+                ],
+                Semantics(
+                  liveRegion: state.phase != LocationFlowPhase.initial,
+                  child: Text(
+                    state.message,
+                    key: const Key('location-state-message'),
+                  ),
+                ),
+                if (state.phase == LocationFlowPhase.resolvedCandidate) ...[
+                  const SizedBox(height: 12),
+                  _CandidateDetails(controller: controller),
+                ],
+                if (state.phase == LocationFlowPhase.confirmed) ...[
+                  const SizedBox(height: 12),
+                  _ConfirmedBarangay(controller: controller),
+                ],
+                const SizedBox(height: 12),
+                _LocationActions(controller: controller),
+                if (barangays.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _ManualBarangaySelector(
+                    controller: controller,
+                    barangays: barangays,
+                  ),
                 ],
                 const SizedBox(height: 10),
                 Text(
@@ -100,7 +122,8 @@ class _LocationActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final phase = controller.state.phase;
-    if (phase == LocationFlowPhase.acquiring) {
+    if (phase == LocationFlowPhase.acquiring ||
+        phase == LocationFlowPhase.resolvingBarangay) {
       return Row(
         children: [
           const SizedBox(
@@ -109,7 +132,13 @@ class _LocationActions extends StatelessWidget {
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
           const SizedBox(width: 10),
-          const Expanded(child: Text('Getting one temporary location...')),
+          Expanded(
+            child: Text(
+              phase == LocationFlowPhase.acquiring
+                  ? 'Getting one temporary location...'
+                  : 'Checking the barangay boundary...',
+            ),
+          ),
           TextButton(
             key: const Key('location-cancel-button'),
             onPressed: controller.cancel,
@@ -120,6 +149,22 @@ class _LocationActions extends StatelessWidget {
     }
 
     final actions = <Widget>[];
+    if (phase == LocationFlowPhase.resolvedCandidate) {
+      actions.addAll([
+        FilledButton.icon(
+          key: const Key('confirm-detected-barangay-button'),
+          onPressed: controller.confirmCandidate,
+          icon: const Icon(Icons.check_circle_outline),
+          label: const Text('Confirm barangay'),
+        ),
+        OutlinedButton.icon(
+          key: const Key('reject-detected-barangay-button'),
+          onPressed: controller.rejectCandidate,
+          icon: const Icon(Icons.edit_location_alt_outlined),
+          label: const Text('Correct manually'),
+        ),
+      ]);
+    }
     if (phase == LocationFlowPhase.initial ||
         phase == LocationFlowPhase.cleared ||
         phase == LocationFlowPhase.cancelled) {
@@ -160,7 +205,142 @@ class _LocationActions extends StatelessWidget {
         ),
       );
     }
+    if (!controller.hasTemporaryLocation &&
+        (phase == LocationFlowPhase.confirmed ||
+            phase == LocationFlowPhase.rejected ||
+            phase == LocationFlowPhase.outsideBacoor ||
+            phase == LocationFlowPhase.ambiguousBoundary ||
+            phase == LocationFlowPhase.resolverUnavailable ||
+            phase == LocationFlowPhase.resolverTimeout ||
+            phase == LocationFlowPhase.resolverFailure ||
+            phase == LocationFlowPhase.malformedResponse)) {
+      actions.add(
+        TextButton.icon(
+          key: const Key('clear-location-button'),
+          onPressed: controller.clearLocation,
+          icon: const Icon(Icons.location_off_outlined),
+          label: const Text('Clear location choice'),
+        ),
+      );
+    }
     return Wrap(spacing: 8, runSpacing: 8, children: actions);
+  }
+}
+
+class _CandidateDetails extends StatelessWidget {
+  const _CandidateDetails({required this.controller});
+
+  final LocationController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final resolution = controller.resolution!;
+    final barangay = resolution.barangay!;
+    return Container(
+      key: const Key('detected-barangay-candidate'),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.warningSurface,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Proposed barangay—confirmation required',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 5),
+          Text('${barangay.name} (${barangay.psgcCode})'),
+          const SizedBox(height: 5),
+          const Text(
+            'Matched using the derived administrative reference. It is pending validation and not City-verified.',
+          ),
+          ...resolution.limitations.map(
+            (limitation) => Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                limitation,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ConfirmedBarangay extends StatelessWidget {
+  const _ConfirmedBarangay({required this.controller});
+
+  final LocationController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final barangay = controller.confirmedBarangay!;
+    return Container(
+      key: const Key('confirmed-barangay'),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.activeBackground,
+        border: Border.all(color: AppColors.primary),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        '${barangay.name} (${barangay.psgcCode}) is the confirmed administrative location. No susceptibility assessment was started automatically.',
+      ),
+    );
+  }
+}
+
+class _ManualBarangaySelector extends StatelessWidget {
+  const _ManualBarangaySelector({
+    required this.controller,
+    required this.barangays,
+  });
+
+  final LocationController controller;
+  final List<GeographicArea> barangays;
+
+  @override
+  Widget build(BuildContext context) {
+    final eligible = barangays
+        .where((area) => RegExp(r'^PSGC_\d{10}$').hasMatch(area.code))
+        .toList(growable: false);
+    if (eligible.isEmpty) return const SizedBox.shrink();
+    final confirmedCode = controller.confirmedBarangay?.geographicAreaCode;
+    final selected = eligible.where((area) => area.code == confirmedCode);
+    return KeyedSubtree(
+      key: const Key('manual-barangay-selector'),
+      child: DropdownButtonFormField<GeographicArea>(
+        key: ValueKey(confirmedCode),
+        initialValue: selected.length == 1 ? selected.single : null,
+        decoration: const InputDecoration(
+          labelText: 'Choose a barangay manually',
+          helperText: 'Manual selection remains available if GPS or boundaries are uncertain.',
+          border: OutlineInputBorder(),
+        ),
+        isExpanded: true,
+        items: eligible
+            .map(
+              (area) => DropdownMenuItem(
+                value: area,
+                child: Text(area.name, overflow: TextOverflow.ellipsis),
+              ),
+            )
+            .toList(growable: false),
+        onChanged: (area) {
+          if (area == null) return;
+          controller.selectManualBarangay(
+            BarangayIdentity(
+              psgcCode: area.code.substring('PSGC_'.length),
+              name: area.name,
+            ),
+          );
+        },
+      ),
+    );
   }
 }
 

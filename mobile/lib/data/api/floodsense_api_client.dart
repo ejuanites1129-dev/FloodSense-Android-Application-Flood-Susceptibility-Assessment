@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import '../../config/api_config.dart';
 import '../models/assessment_request.dart';
 import '../models/assessment_result.dart';
+import '../models/barangay_resolution.dart';
 import '../models/geographic_area.dart';
 import '../models/json_parsing.dart';
 import '../models/map_assessment_result.dart';
@@ -14,12 +15,24 @@ import '../models/point_resolution.dart';
 import '../models/scenario_option.dart';
 import 'api_exception.dart';
 
-abstract interface class FloodSenseApi {
+abstract interface class BarangayResolver {
+  Future<BarangayResolution> resolveBarangay({
+    required double latitude,
+    required double longitude,
+  });
+}
+
+abstract interface class FloodSenseApi implements BarangayResolver {
   Future<AssessmentOptions> fetchAssessmentOptions();
   Future<List<GeographicArea>> fetchDemonstrationAreas();
   Future<List<GeographicArea>> fetchReferenceBoundaries();
   Future<AssessmentResult> evaluateAssessment(AssessmentRequest request);
   Future<PointResolution> resolvePoint({
+    required double latitude,
+    required double longitude,
+  });
+  @override
+  Future<BarangayResolution> resolveBarangay({
     required double latitude,
     required double longitude,
   });
@@ -100,6 +113,28 @@ class FloodSenseApiClient implements FloodSenseApi {
   }
 
   @override
+  Future<BarangayResolution> resolveBarangay({
+    required double latitude,
+    required double longitude,
+  }) async {
+    final json = await _postJson('geography/resolve-barangay/', {
+      'latitude': latitude,
+      'longitude': longitude,
+    });
+    final result = _parse(() => BarangayResolution.fromJson(json));
+    const maximumEchoDifference = 0.0000051;
+    if ((result.coordinate.latitude - latitude).abs() > maximumEchoDifference ||
+        (result.coordinate.longitude - longitude).abs() >
+            maximumEchoDifference) {
+      throw const ApiException(
+        'FloodSense received an inconsistent location response from the server.',
+        kind: ApiFailureKind.malformedResponse,
+      );
+    }
+    return result;
+  }
+
+  @override
   Future<MapAssessmentResult> evaluateMapScenario({
     required String intensityCode,
     required String durationCode,
@@ -157,7 +192,7 @@ class FloodSenseApiClient implements FloodSenseApi {
     } on TimeoutException {
       throw const ApiException(
         'The request timed out. Check your connection and try again.',
-        kind: ApiFailureKind.connectivity,
+        kind: ApiFailureKind.timeout,
       );
     } on SocketException {
       throw const ApiException(

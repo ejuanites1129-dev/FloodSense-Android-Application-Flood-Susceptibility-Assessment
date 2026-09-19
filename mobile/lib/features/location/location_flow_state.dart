@@ -9,6 +9,14 @@ enum LocationFlowPhase {
   permissionDeniedPermanently,
   acquiring,
   acquired,
+  resolvingBarangay,
+  resolvedCandidate,
+  confirmed,
+  rejected,
+  outsideBacoor,
+  ambiguousBoundary,
+  resolverUnavailable,
+  resolverTimeout,
   timeout,
   inaccurateOrUnavailable,
   platformError,
@@ -57,6 +65,14 @@ class LocationFlowState {
       LocationCopy.permissionDeniedPermanently,
     LocationFlowPhase.acquiring => 'Getting one temporary foreground location. You can cancel and select manually.',
     LocationFlowPhase.acquired => 'A temporary location is ready for barangay lookup. It is not a susceptibility result.',
+    LocationFlowPhase.resolvingBarangay => 'Checking the temporary point against the pending-validation Bacoor boundary reference.',
+    LocationFlowPhase.resolvedCandidate => 'Review and confirm the proposed barangay. It is an administrative location, not a susceptibility result.',
+    LocationFlowPhase.confirmed => 'The barangay was confirmed as the location input. The boundary remains pending validation.',
+    LocationFlowPhase.rejected => 'The proposed barangay was not selected. Move the map pin or choose a barangay manually.',
+    LocationFlowPhase.outsideBacoor => 'The temporary point did not match a Bacoor barangay. Move the pin or choose a barangay manually.',
+    LocationFlowPhase.ambiguousBoundary => 'The temporary point is on or near a shared barangay boundary. Confirm the location manually.',
+    LocationFlowPhase.resolverUnavailable => 'The controlled boundary layer cannot resolve this point right now. This does not mean the point is outside Bacoor.',
+    LocationFlowPhase.resolverTimeout => 'The boundary lookup timed out. Retry this point or choose a barangay manually.',
     LocationFlowPhase.timeout => 'FloodSense stopped waiting for a location. Try again or choose a location manually.',
     LocationFlowPhase.inaccurateOrUnavailable =>
       LocationCopy.inaccurateOrUnavailable,
@@ -109,6 +125,28 @@ class LocationFlowState {
       LocationFlowAction.placeManualPin,
       LocationFlowAction.selectBarangay,
     },
+    LocationFlowPhase.resolvingBarangay => const {
+      LocationFlowAction.cancel,
+      LocationFlowAction.clearLocation,
+      LocationFlowAction.placeManualPin,
+      LocationFlowAction.selectBarangay,
+    },
+    LocationFlowPhase.resolvedCandidate ||
+    LocationFlowPhase.confirmed ||
+    LocationFlowPhase.rejected ||
+    LocationFlowPhase.outsideBacoor ||
+    LocationFlowPhase.ambiguousBoundary => const {
+      LocationFlowAction.clearLocation,
+      LocationFlowAction.placeManualPin,
+      LocationFlowAction.selectBarangay,
+    },
+    LocationFlowPhase.resolverUnavailable ||
+    LocationFlowPhase.resolverTimeout => const {
+      LocationFlowAction.retry,
+      LocationFlowAction.clearLocation,
+      LocationFlowAction.placeManualPin,
+      LocationFlowAction.selectBarangay,
+    },
     LocationFlowPhase.timeout ||
     LocationFlowPhase.inaccurateOrUnavailable ||
     LocationFlowPhase.platformError => const {
@@ -134,6 +172,14 @@ class LocationFlowState {
 
   bool get coordinateMayExist => switch (phase) {
     LocationFlowPhase.acquired ||
+    LocationFlowPhase.resolvingBarangay ||
+    LocationFlowPhase.resolvedCandidate ||
+    LocationFlowPhase.confirmed ||
+    LocationFlowPhase.rejected ||
+    LocationFlowPhase.outsideBacoor ||
+    LocationFlowPhase.ambiguousBoundary ||
+    LocationFlowPhase.resolverUnavailable ||
+    LocationFlowPhase.resolverTimeout ||
     LocationFlowPhase.resolverFailure ||
     LocationFlowPhase.malformedResponse ||
     LocationFlowPhase.recoverableError => true,

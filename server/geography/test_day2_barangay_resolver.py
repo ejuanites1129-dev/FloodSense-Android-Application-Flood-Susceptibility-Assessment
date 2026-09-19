@@ -135,6 +135,23 @@ class BarangayResolutionServiceTests(BarangayResolverTestData, TestCase):
         self.assertEqual(result.state, BarangayResolutionState.AMBIGUOUS_BOUNDARY)
         self.assertIsNone(result.barangay)
 
+    def test_shared_vertex_returns_ambiguous_instead_of_arbitrary_match(self):
+        self.make_ready_layer(
+            target_geometry=multipolygon(rectangle(0, 0, 1)),
+            second_geometry=multipolygon(rectangle(1, 1, 1)),
+        )
+
+        result = resolve_bacoor_barangay(latitude=1, longitude=1)
+
+        self.assertEqual(result.state, BarangayResolutionState.AMBIGUOUS_BOUNDARY)
+
+    def test_point_just_outside_city_is_outside_bacoor(self):
+        self.make_ready_layer()
+
+        result = resolve_bacoor_barangay(latitude=5, longitude=11.000001)
+
+        self.assertEqual(result.state, BarangayResolutionState.OUTSIDE_BACOOR)
+
     def test_overlapping_polygons_return_ambiguous(self):
         overlapping = multipolygon(rectangle(0, 0, 1))
         self.make_ready_layer(

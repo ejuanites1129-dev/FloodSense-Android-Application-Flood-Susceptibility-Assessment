@@ -3,9 +3,9 @@
 **Audience:** FloodSense integration lead, Programmer 2, or a coding agent
 assigned to the shared Flutter dependency files.
 
-**Status:** Dependency-independent controller, UI, manifest, and fake-service
-tests implemented. Production package adapter and default app activation remain
-blocked on the integration-owned dependency files.
+**Status:** Completed on 19 September 2026. The dependency, production adapter,
+focused tests, and default application activation are implemented. The notes
+below remain as the review and teammate setup record.
 
 This guide is stored under `mobile/` because it concerns one Flutter dependency
 handoff and should stay close to the code that consumes it. It deliberately
@@ -41,14 +41,14 @@ another developer's work automatically.
   platform error, cancellation, clearing, reset, and disposal.
 - Coordinates exist only in `TemporaryLocationSession`. The UI displays an
   approximate accuracy value but not the latitude or longitude.
-- `LocationCard` keeps the existing map pin and selector visible and does not
-  call the barangay resolver. That mobile/backend integration remains Day 3.
+- `LocationCard` keeps the existing map pin and selector visible. The completed
+  Day 3 integration resolves one successful coordinate to a barangay candidate
+  but never runs a susceptibility assessment automatically.
 - Fake-service unit and widget tests require no physical GPS.
 
-## Exact integration-lead dependency change
+## Completed dependency change
 
-The integration lead owns `mobile/pubspec.yaml` and `mobile/pubspec.lock`. Add
-this direct dependency under `dependencies`:
+The direct dependency added under `dependencies` is:
 
 ```yaml
   geolocator: ^14.0.3
@@ -81,8 +81,7 @@ Review both shared-file diffs and the merged Android manifest. It must not
 contain `ACCESS_BACKGROUND_LOCATION`, `FOREGROUND_SERVICE_LOCATION`, a location
 foreground service, boot receiver, or scheduled worker.
 
-After the dependency commit is available, Stream A must add the production
-`LocationService` implementation using only:
+The production `LocationService` implementation uses only:
 
 - `Geolocator.isLocationServiceEnabled()`;
 - `Geolocator.checkPermission()`;
@@ -111,12 +110,11 @@ Suggested package-to-project mapping:
 Return only a project-owned `TemporaryLocation`. Do not expose package types to
 controllers or widgets, and do not place coordinates in exception messages.
 
-Do not call `getLastKnownPosition()` or `getPositionStream()`. Once that adapter
-exists, pass it to `FloodSenseApp(locationService: ...)`; until then the app
-does not show a broken GPS control by default. Tests inject a fake service and
-exercise the complete controller/widget flow.
+The adapter does not call `getLastKnownPosition()` or `getPositionStream()`.
+The normal app now receives it through `FloodSenseApp(locationService: ...)`,
+while tests can still inject a fake service.
 
-## Adapter activation rule
+## Adapter activation
 
 The production adapter belongs at:
 
@@ -124,8 +122,8 @@ The production adapter belongs at:
 mobile/lib/features/location/geolocator_location_service.dart
 ```
 
-After its focused tests pass, instantiate it at the normal application
-composition point and pass it through the existing injection hook:
+It is instantiated at the normal application composition point and passed
+through the existing injection hook:
 
 ```dart
 FloodSenseApp(locationService: GeolocatorLocationService())
@@ -165,7 +163,8 @@ Use emulator coordinates, never real user coordinates, and verify:
 8. Disabled services do not produce repeated prompts.
 9. Success shows the temporary indicator without exact coordinates.
 10. Clear, reset, flow exit, and app restart remove the coordinate.
-11. No resolver request is performed automatically on Day 2.
+11. One resolver request follows a successful fresh position, with no automatic
+    susceptibility assessment.
 12. Rainfall/scenario selections remain unchanged.
 
 ## Privacy and security review

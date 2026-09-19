@@ -134,6 +134,14 @@ void main() {
           phase,
           temporaryLocation: switch (phase) {
             LocationFlowPhase.acquired ||
+            LocationFlowPhase.resolvingBarangay ||
+            LocationFlowPhase.resolvedCandidate ||
+            LocationFlowPhase.confirmed ||
+            LocationFlowPhase.rejected ||
+            LocationFlowPhase.outsideBacoor ||
+            LocationFlowPhase.ambiguousBoundary ||
+            LocationFlowPhase.resolverUnavailable ||
+            LocationFlowPhase.resolverTimeout ||
             LocationFlowPhase.resolverFailure ||
             LocationFlowPhase.malformedResponse ||
             LocationFlowPhase.recoverableError => location(),
@@ -149,6 +157,14 @@ void main() {
     test('only post-acquisition states may retain a coordinate', () {
       for (final phase in LocationFlowPhase.values) {
         if (phase == LocationFlowPhase.acquired ||
+            phase == LocationFlowPhase.resolvingBarangay ||
+            phase == LocationFlowPhase.resolvedCandidate ||
+            phase == LocationFlowPhase.confirmed ||
+            phase == LocationFlowPhase.rejected ||
+            phase == LocationFlowPhase.outsideBacoor ||
+            phase == LocationFlowPhase.ambiguousBoundary ||
+            phase == LocationFlowPhase.resolverUnavailable ||
+            phase == LocationFlowPhase.resolverTimeout ||
             phase == LocationFlowPhase.resolverFailure ||
             phase == LocationFlowPhase.malformedResponse ||
             phase == LocationFlowPhase.recoverableError) {

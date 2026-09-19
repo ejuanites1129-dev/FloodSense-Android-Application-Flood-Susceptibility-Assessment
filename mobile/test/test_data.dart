@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:floodsense/data/api/floodsense_api_client.dart';
 import 'package:floodsense/data/models/assessment_request.dart';
 import 'package:floodsense/data/models/assessment_result.dart';
+import 'package:floodsense/data/models/barangay_resolution.dart';
 import 'package:floodsense/data/models/geographic_area.dart';
 import 'package:floodsense/data/models/map_assessment_result.dart';
 import 'package:floodsense/data/models/point_resolution.dart';
@@ -302,6 +303,35 @@ Map<String, dynamic> mapAssessmentJson({
 PointResolution samplePointResolution({String state = 'RESOLVED'}) =>
     PointResolution.fromJson(pointResolutionJson(state: state));
 
+Map<String, dynamic> barangayResolutionJson({
+  String state = 'RESOLVED',
+  double latitude = 14.405,
+  double longitude = 120.965,
+}) => {
+  'resolution_state': state,
+  'coordinate': {
+    'latitude': latitude,
+    'longitude': longitude,
+    'precision_decimal_places': 5,
+  },
+  'barangay': state == 'RESOLVED'
+      ? {'psgc_code': '0402103004', 'name': 'Bayanan'}
+      : null,
+  'boundary': {
+    'layer_kind': 'ADMINISTRATIVE_REFERENCE',
+    'data_status': 'PENDING_VALIDATION',
+    'source_status': 'PENDING_VALIDATION',
+    'city_verified': false,
+  },
+  'limitations': [
+    'DERIVED ADMINISTRATIVE REFERENCE—NOT CITY-VERIFIED',
+    'Administrative boundaries only; they do not indicate flood susceptibility or current conditions.',
+  ],
+};
+
+BarangayResolution sampleBarangayResolution({String state = 'RESOLVED'}) =>
+    BarangayResolution.fromJson(barangayResolutionJson(state: state));
+
 MapAssessmentResult sampleMapAssessment({
   String intensityCode = 'DEMO_HEAVY',
   String durationCode = 'DEMO_6_HOURS',
@@ -331,6 +361,9 @@ class FakeFloodSenseApi implements FloodSenseApi {
     this.pointError,
     this.mapHandler,
     this.pointHandler,
+    this.barangayResult,
+    this.barangayError,
+    this.barangayHandler,
   }) : options = options ?? sampleOptions(),
        areas = areas ?? sampleAreas(),
        referenceAreas = referenceAreas ?? sampleReferenceAreas(),
@@ -353,18 +386,25 @@ class FakeFloodSenseApi implements FloodSenseApi {
   mapHandler;
   Future<PointResolution> Function(double latitude, double longitude)?
   pointHandler;
+  BarangayResolution? barangayResult;
+  Object? barangayError;
+  Future<BarangayResolution> Function(double latitude, double longitude)?
+  barangayHandler;
   int optionsCalls = 0;
   int areasCalls = 0;
   int referenceAreasCalls = 0;
   int evaluateCalls = 0;
   int mapCalls = 0;
   int pointCalls = 0;
+  int barangayCalls = 0;
   bool closed = false;
   AssessmentRequest? lastRequest;
   String? lastMapIntensity;
   String? lastMapDuration;
   double? lastLatitude;
   double? lastLongitude;
+  double? lastBarangayLatitude;
+  double? lastBarangayLongitude;
 
   @override
   Future<AssessmentOptions> fetchAssessmentOptions() async {
@@ -423,6 +463,21 @@ class FakeFloodSenseApi implements FloodSenseApi {
     if (pointError != null) throw pointError!;
     if (pointHandler != null) return pointHandler!(latitude, longitude);
     return pointResult ?? samplePointResolution();
+  }
+
+  @override
+  Future<BarangayResolution> resolveBarangay({
+    required double latitude,
+    required double longitude,
+  }) async {
+    barangayCalls++;
+    lastBarangayLatitude = latitude;
+    lastBarangayLongitude = longitude;
+    if (barangayError != null) throw barangayError!;
+    if (barangayHandler != null) {
+      return barangayHandler!(latitude, longitude);
+    }
+    return barangayResult ?? sampleBarangayResolution();
   }
 
   @override

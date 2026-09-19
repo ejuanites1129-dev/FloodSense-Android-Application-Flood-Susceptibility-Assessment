@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:floodsense/app/floodsense_app.dart';
-import 'package:floodsense/data/models/geographic_area.dart';
 import 'package:floodsense/features/location/location_card.dart';
 import 'package:floodsense/features/location/location_controller.dart';
 import 'package:floodsense/features/location/location_flow_state.dart';
@@ -381,10 +380,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('dynamic-map')), findsOneWidget);
-      expect(
-        find.byType(DropdownButtonFormField<GeographicArea>),
-        findsOneWidget,
-      );
+      expect(find.byKey(const Key('manual-barangay-selector')), findsOneWidget);
+      expect(find.byKey(const Key('zone-none')), findsOneWidget);
       expect(find.bySemanticsLabel(RegExp('Light, selected')), findsOneWidget);
       expect(find.textContaining('choose a location manually'), findsWidgets);
     });

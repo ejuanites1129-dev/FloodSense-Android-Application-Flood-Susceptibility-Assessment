@@ -43,7 +43,10 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
     _controller = AssessmentController(widget.api);
     final locationService = widget.locationService;
     if (locationService != null) {
-      _locationController = LocationController(locationService);
+      _locationController = LocationController(
+        locationService,
+        resolver: widget.api,
+      );
     }
     _controller.load();
   }
@@ -121,6 +124,7 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
       children: [
         ReferenceBoundaryMapCard(
           controller: _controller,
+          locationController: _locationController,
           showBasemap: widget.showBasemap,
         ),
         const SizedBox(height: 14),
@@ -159,7 +163,10 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
         ),
         const SizedBox(height: 14),
         if (_locationController case final locationController?) ...[
-          LocationCard(controller: locationController),
+          LocationCard(
+            controller: locationController,
+            barangays: _controller.referenceAreas,
+          ),
           const SizedBox(height: 14),
         ],
         DynamicMapCard(
@@ -318,6 +325,7 @@ class _ErrorCard extends StatelessWidget {
   String get _title => switch (error.kind) {
     ApiFailureKind.validation => 'Check your selections',
     ApiFailureKind.connectivity => 'Cannot connect to FloodSense',
+    ApiFailureKind.timeout => 'FloodSense request timed out',
     ApiFailureKind.service => 'FloodSense is unavailable',
     ApiFailureKind.malformedResponse => 'Unexpected server response',
   };
