@@ -15,7 +15,10 @@ Before changing thesis-facing behavior, read:
 - `docs/TA_CONSULTATION_SYSTEM_DECISIONS.md` for the decisions distilled from
   the adviser consultation and the team's later scenario-based scope decision;
 - `docs/ADMIN_WEB_7_DAY_IMPLEMENTATION_PLAN.md` for the current Admin web
-  sequence, acceptance criteria, and ownership boundaries; and
+  sequence, acceptance criteria, and ownership boundaries;
+- `docs/GPS_AND_SAFE_IMPROVEMENTS_7_DAY_PLAN.md` for the foreground-GPS,
+  barangay-resolution, nearest-center, three-member workload, and integration
+  plan; and
 - `docs/TEAM_DATABASE_AND_GIT_WORKFLOW.md` for shared-code and local-database
   responsibilities.
 

@@ -46,6 +46,40 @@ proposal is implied.
 No permission grants, migration, mutation endpoint, or demonstration preview
 will be implemented on the basis of this proposal alone.
 
+## Working recommendation held for team review
+
+Recorded 19 September 2026 at the researcher's request while the other team
+members were unavailable. This preserves a possible direction for later
+discussion; it is **not team approval, adviser approval, or implementation
+authorization**.
+
+- Start with existing rainfall-intensity and rainfall-duration
+  `ScenarioOption` records in demonstration mode only.
+- Keep official-mode parameters read-only until their definitions and values
+  have an authoritative, validated source.
+- Permit a proposal to carry a numeric value, source, rationale, and effective
+  date. Keep the parameter code, category, algorithm, raw rules, conditions,
+  priorities, and susceptibility vocabulary outside ordinary administrator
+  editing.
+- Use explicit Draft, Validation, Review, Approval, and manual Activation
+  stages. Do not schedule or automatically activate a revision.
+- Do not allow a proposer to approve their own revision. The team must still
+  assign the actual proposer, validator, approver, and activator roles.
+- Preserve every prior revision. Rollback is a new audited activation of an
+  eligible historical revision, never an overwrite or deletion.
+- Limit effect preview to fictional demonstration zones and do not persist or
+  publish preview results.
+- Keep CSV/Excel import and export deferred until direction and schema are
+  confirmed.
+- Before governance goes live, prevent technical Admin, seed commands, bulk
+  updates, and other direct write paths from bypassing the approved workflow.
+- Make both the public option API and inference engine resolve the same active,
+  eligible revision, and include parameter events in the audit-history design.
+
+The team must later confirm the scientific meaning, canonical unit, allowed
+range or choices, source evidence, role assignments, activation-date policy,
+and preview scenarios for each parameter definition.
+
 ## Authorized definitions: proposed narrow scope
 
 There are **no authorized editable parameter definitions yet**. The following
