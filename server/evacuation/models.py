@@ -1,3 +1,5 @@
+import uuid
+
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
@@ -14,6 +16,7 @@ class EvacuationCenter(models.Model):
         VERIFIED = "VERIFIED", "Verified"
         INACTIVE = "INACTIVE", "Inactive"
 
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     name = models.CharField(max_length=180)
     address = models.TextField()
     geographic_area = models.ForeignKey(

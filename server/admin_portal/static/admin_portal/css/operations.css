@@ -1,4 +1,7 @@
 .operations-page { display: grid; gap: 22px; }
+.operations-page > *, .operations-page .field-group { min-width: 0; }
+.operations-page p, .operations-page h2, .operations-page h3,
+.operations-page label, .operations-page .notice { overflow-wrap: anywhere; }
 .operations-heading { align-items: end; }
 .operations-filters, .operations-form { display: grid; gap: 16px; margin-top: 18px; }
 .operations-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; }
@@ -11,6 +14,7 @@
   border-radius: var(--radius-sm); background: #fff; color: var(--text); font: inherit;
 }
 .operations-form textarea { min-height: 100px; resize: vertical; }
+.operations-form select { max-width: 100%; }
 .operations-filters input:focus, .operations-filters select:focus,
 .operations-form input:focus, .operations-form select:focus, .operations-form textarea:focus {
   border-color: var(--brand); outline: 0; box-shadow: 0 0 0 4px rgba(26, 148, 213, .14);
@@ -40,6 +44,12 @@
 .checkbox-confirm { display: flex; align-items: flex-start; gap: 10px; }
 .checkbox-confirm input { width: 20px; min-height: 20px; flex: 0 0 auto; }
 .empty-compact { min-height: 260px; }
+.operations-page :is(input, select, textarea, a, button):focus-visible {
+  outline: 3px solid var(--brand-dark); outline-offset: 3px;
+}
+.form-error-summary ul { padding-left: 22px; }
+.form-error-summary a { text-decoration: underline; }
+.public-identifier { font-family: monospace; overflow-wrap: anywhere; }
 
 @media (max-width: 900px) {
   .operations-filters, .operations-form { grid-template-columns: 1fr; }

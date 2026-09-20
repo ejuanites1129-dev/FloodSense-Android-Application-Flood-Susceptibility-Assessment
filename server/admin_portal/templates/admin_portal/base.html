@@ -7,9 +7,11 @@
   <meta name="description" content="FloodSense administration console">
   <title>{% block title %}FloodSense Admin{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'admin_portal/css/admin_portal.css' %}">
+  <noscript><link rel="stylesheet" href="{% static 'admin_portal/css/no_script.css' %}"></noscript>
   {% block extra_css %}{% endblock %}
 </head>
 <body class="portal-page">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
   <header class="topbar">
     <button class="mobile-menu-button" type="button" data-menu-toggle aria-controls="portal-sidebar" aria-expanded="false">
       <span aria-hidden="true">☰</span><span class="sr-only">Open navigation</span>
@@ -74,9 +76,10 @@
           {% endfor %}
         </ul>
       </nav>
+      <noscript><form method="post" action="{% url 'admin_portal:logout' %}">{% csrf_token %}<button class="button button--secondary" type="submit">Sign out</button></form></noscript>
     </aside>
 
-    <main class="portal-main" id="main-content">
+    <main class="portal-main" id="main-content" tabindex="-1">
       {% if messages %}
         <div class="portal-messages" aria-live="polite">
           {% for message in messages %}

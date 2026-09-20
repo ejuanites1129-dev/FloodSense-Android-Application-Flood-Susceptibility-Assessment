@@ -6,11 +6,38 @@
 
 **Scope:** Foreground GPS, barangay detection, nearest verified evacuation-center discovery, and safe improvements that do not change the research algorithm
 
-**Implementation checkpoint (20 September 2026):** Streams A and B are complete
+**Implementation checkpoint (21 September 2026):** Streams A and B are complete
 through their independent Day 4 work, but live nearest-center integration remains
-blocked by the missing Stream C contract/service/endpoint and related Stream D
-contract/privacy evidence. See `GPS_STREAMS_A_B_DEPENDENCY_BLOCKERS.md` for the
-cross-day inventory and exact handoff.
+blocked by the missing endpoint and production mobile adapter,
+and remaining Stream D deployment/privacy/integration evidence. See
+`GPS_STREAMS_A_B_DEPENDENCY_BLOCKERS.md` for the cross-day inventory and exact handoff.
+
+**Team B Day 1 checkpoint (20 September 2026):** Streams C/D contract, repository
+privacy review, ownership, and baseline foundation are complete. The frozen
+contract and strict wire serializers have 153 passing database-independent tests;
+Flutter analysis and 164 tests passed. Full backend regression was blocked locally
+by missing PostGIS in the test database (183 passed, 227 setup errors); this
+historical blocker is resolved in the Day 2 checkpoint below. See
+`server/evacuation/NEAREST_CENTER_CONTRACT.md` from the repository root and
+`GPS_STREAM_C_D_DAY_1_BASELINE.md` / `GPS_STREAM_C_D_DAY_1_PRIVACY_REVIEW.md` here.
+No model/migration, service, endpoint, URL registration, mobile adapter, or live
+integration was added. Foreground GPS remains the safe team implementation
+direction, not a claim of adviser approval; final GPS requirements remain unresolved.
+
+**Team B Day 2 checkpoint (21 September 2026): Streams C/D Day 2 complete.**
+The public UUID migration,
+internal eligibility/PostGIS distance service, safe response assembly, and targeted
+Admin improvements are written. Database-backed migration, eligibility, distance,
+no-write and permission tests now pass. The full backend suite has 511 passes and
+127 warnings after correcting two NaN test fixtures; the provisioning blocker
+is resolved. The prior Flutter baseline remains clean with 164 tests passed.
+The user confirmed all manual browser accessibility/layout checks passed. A
+read-only migration check confirms the UUID migration is applied locally.
+See `GPS_STREAM_C_D_DAY_2_GUIDE.md` for the exact tests, evidence attribution,
+migration steps, and remaining work. Day 1 frozen contract files are unchanged;
+no public route, mobile adapter, or official data import was added.
+
+Repeatable walkthrough: [Streams C/D Days 1–2 manual test guide](GPS_STREAM_C_D_DAYS_1_2_MANUAL_TEST_GUIDE.md).
 
 ## 1. Purpose
 

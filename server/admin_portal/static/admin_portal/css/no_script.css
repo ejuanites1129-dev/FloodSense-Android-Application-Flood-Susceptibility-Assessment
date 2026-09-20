@@ -1,0 +1,6 @@
+/* Keep server-rendered navigation and sign-out usable without scripting. */
+.mobile-menu-button, .account-menu__toggle { display: none; }
+@media (max-width: 760px) {
+  .sidebar { position: static; width: auto; transform: none; visibility: visible; box-shadow: none; }
+  .sidebar__brand { min-height: 48px; }
+}

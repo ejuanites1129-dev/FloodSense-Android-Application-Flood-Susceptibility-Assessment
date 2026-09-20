@@ -290,6 +290,8 @@ h2 { margin-bottom: 8px; font-size: 1.25rem; }
 .nav-link__icon { width: 20px; flex: 0 0 20px; text-align: center; }
 .nav-link > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
+.skip-link { position: fixed; top: 8px; left: 8px; z-index: 1000; padding: 12px 18px; background: #fff; color: #075985; transform: translateY(-200%); }
+.skip-link:focus { transform: translateY(0); }
 .portal-main { min-height: calc(100vh - 68px); margin-left: var(--sidebar-width); padding: 30px clamp(24px, 4vw, 52px) 60px; }
 .page-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
 .page-heading > div { min-width: 0; }
@@ -388,8 +390,8 @@ h2 { margin-bottom: 8px; font-size: 1.25rem; }
   .mobile-brand { display: inline-flex; font-size: 1rem; }
   .mobile-brand .brand__mark { width: 32px; height: 32px; }
   .environment-pill, .system-state, .account-summary__name { display: none; }
-  .sidebar { z-index: 50; transform: translateX(-105%); transition: transform 180ms ease; box-shadow: 12px 0 40px rgba(15, 23, 42, 0.24); }
-  .sidebar--open { transform: translateX(0); }
+  .sidebar { z-index: 50; visibility: hidden; transform: translateX(-105%); transition: transform 180ms ease; box-shadow: 12px 0 40px rgba(15, 23, 42, 0.24); }
+  .sidebar--open { visibility: visible; transform: translateX(0); }
   .menu-open { overflow: hidden; }
   .menu-open .sidebar-scrim { position: fixed; z-index: 45; inset: 0; display: block; background: rgba(15, 23, 42, 0.42); }
   .portal-main { margin-left: 0; padding: 24px 16px 48px; }

@@ -1,0 +1,11 @@
+{% if form.errors %}
+<div class="notice notice--error form-error-summary" role="alert" aria-labelledby="form-errors-heading" tabindex="-1">
+  <h2 id="form-errors-heading">Review the form errors</h2>
+  {{ form.non_field_errors }}
+  <ul>
+    {% for field in form %}{% for error in field.errors %}
+    <li>{% if field.is_hidden %}{{ error }}{% else %}<a href="#{{ field.id_for_label }}">{{ field.label }}: {{ error }}</a>{% endif %}</li>
+    {% endfor %}{% endfor %}
+  </ul>
+</div>
+{% endif %}
