@@ -318,23 +318,26 @@ void main() {
       },
     );
 
-    test('duplicate public identifiers reject the complete result set', () async {
-      final duplicate = sampleCenters().first;
-      final provider = FakeNearestCenterProvider()
-        ..handler = (_, _) async => [duplicate, duplicate];
-      final location = LocationController(
-        Day4LocationService(),
-        resolver: Day4Resolver(),
-      );
-      final centers = NearestCenterController(location, provider: provider);
+    test(
+      'duplicate public identifiers reject the complete result set',
+      () async {
+        final duplicate = sampleCenters().first;
+        final provider = FakeNearestCenterProvider()
+          ..handler = (_, _) async => [duplicate, duplicate];
+        final location = LocationController(
+          Day4LocationService(),
+          resolver: Day4Resolver(),
+        );
+        final centers = NearestCenterController(location, provider: provider);
 
-      await acquireAndConfirm(location);
+        await acquireAndConfirm(location);
 
-      expect(centers.phase, NearestCenterPhase.malformedResponse);
-      expect(centers.centers, isEmpty);
-      centers.dispose();
-      location.dispose();
-    });
+        expect(centers.phase, NearestCenterPhase.malformedResponse);
+        expect(centers.centers, isEmpty);
+        centers.dispose();
+        location.dispose();
+      },
+    );
   });
 
   testWidgets(

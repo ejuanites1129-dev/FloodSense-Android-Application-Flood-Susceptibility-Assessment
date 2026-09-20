@@ -33,7 +33,6 @@ enum LocationFlowAction {
   cancel,
   retry,
   openAppSettings,
-  openLocationSettings,
   resolveBarangay,
   clearLocation,
   placeManualPin,
@@ -100,7 +99,6 @@ class LocationFlowState {
     },
     LocationFlowPhase.serviceDisabled => const {
       LocationFlowAction.retry,
-      LocationFlowAction.openLocationSettings,
       LocationFlowAction.placeManualPin,
       LocationFlowAction.selectBarangay,
     },

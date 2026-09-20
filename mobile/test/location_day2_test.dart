@@ -31,6 +31,7 @@ class FakeDay2LocationService implements LocationService {
   int clearCalls = 0;
   int appSettingsCalls = 0;
   int locationSettingsCalls = 0;
+  bool locationSettingsOpened = true;
   bool disposed = false;
 
   @override
@@ -74,7 +75,7 @@ class FakeDay2LocationService implements LocationService {
   @override
   Future<bool> openLocationSettings() async {
     locationSettingsCalls++;
-    return true;
+    return locationSettingsOpened;
   }
 
   @override
@@ -182,6 +183,57 @@ void main() {
         }
       },
     );
+
+    test(
+      'disabled-service retry opens settings and retries once on return',
+      () async {
+        final service = FakeDay2LocationService()..serviceEnabled = false;
+        final controller = LocationController(service);
+        controller.showPurposeExplanation();
+        await controller.continueAfterPurposeExplanation();
+
+        expect(controller.state.phase, LocationFlowPhase.serviceDisabled);
+        expect(service.serviceChecks, 1);
+
+        await controller.retry();
+        await controller.retry();
+        expect(service.locationSettingsCalls, 1);
+        expect(service.serviceChecks, 1);
+
+        service
+          ..serviceEnabled = true
+          ..checkedPermission = LocationPermissionState.foregroundGranted;
+        await controller.resumeAfterLocationSettings();
+
+        expect(service.serviceChecks, 2);
+        expect(service.acquisitions, 1);
+        expect(controller.state.phase, LocationFlowPhase.acquired);
+
+        await controller.resumeAfterLocationSettings();
+        expect(service.serviceChecks, 2);
+        expect(service.acquisitions, 1);
+        controller.dispose();
+      },
+    );
+
+    test('failed settings launch does not arm a later retry', () async {
+      final service = FakeDay2LocationService()
+        ..serviceEnabled = false
+        ..locationSettingsOpened = false;
+      final controller = LocationController(service);
+      controller.showPurposeExplanation();
+      await controller.continueAfterPurposeExplanation();
+
+      await controller.retry();
+      service.serviceEnabled = true;
+      await controller.resumeAfterLocationSettings();
+
+      expect(service.locationSettingsCalls, 1);
+      expect(service.serviceChecks, 1);
+      expect(service.acquisitions, 0);
+      expect(controller.state.phase, LocationFlowPhase.serviceDisabled);
+      controller.dispose();
+    });
 
     test('typed acquisition failures map to safe states', () async {
       final cases = <(LocationFailureKind, LocationFlowPhase)>[
@@ -353,6 +405,42 @@ void main() {
       expect(service.appSettingsCalls, 1);
       controller.dispose();
     });
+
+    testWidgets(
+      'disabled-service Try again opens settings and resumes one retry',
+      (tester) async {
+        final service = FakeDay2LocationService()..serviceEnabled = false;
+        final controller = LocationController(service);
+        await pumpLocationCard(tester, controller);
+        await beginAndContinue(tester);
+
+        expect(find.byKey(const Key('location-retry-button')), findsOneWidget);
+        expect(
+          find.byKey(const Key('open-location-settings-button')),
+          findsNothing,
+        );
+        expect(find.text('Open location settings'), findsNothing);
+
+        await tester.tap(find.byKey(const Key('location-retry-button')));
+        await tester.pumpAndSettle();
+        expect(service.locationSettingsCalls, 1);
+        expect(service.serviceChecks, 1);
+
+        service
+          ..serviceEnabled = true
+          ..checkedPermission = LocationPermissionState.foregroundGranted;
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pumpAndSettle();
+
+        expect(service.serviceChecks, 2);
+        expect(service.acquisitions, 1);
+        expect(controller.state.phase, LocationFlowPhase.acquired);
+        controller.dispose();
+      },
+    );
 
     testWidgets('manual controls and rainfall selection survive denied GPS', (
       tester,

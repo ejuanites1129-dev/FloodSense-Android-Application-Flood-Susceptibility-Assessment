@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../app/theme/app_colors.dart';
@@ -7,7 +9,7 @@ import 'location_controller.dart';
 import 'location_copy.dart';
 import 'location_flow_state.dart';
 
-class LocationCard extends StatelessWidget {
+class LocationCard extends StatefulWidget {
   const LocationCard({
     required this.controller,
     this.barangays = const [],
@@ -16,6 +18,33 @@ class LocationCard extends StatelessWidget {
 
   final LocationController controller;
   final List<GeographicArea> barangays;
+
+  @override
+  State<LocationCard> createState() => _LocationCardState();
+}
+
+class _LocationCardState extends State<LocationCard>
+    with WidgetsBindingObserver {
+  LocationController get controller => widget.controller;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(controller.resumeAfterLocationSettings());
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -60,11 +89,11 @@ class LocationCard extends StatelessWidget {
                 ],
                 const SizedBox(height: 12),
                 _LocationActions(controller: controller),
-                if (barangays.isNotEmpty) ...[
+                if (widget.barangays.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   _ManualBarangaySelector(
                     controller: controller,
-                    barangays: barangays,
+                    barangays: widget.barangays,
                   ),
                 ],
                 const SizedBox(height: 10),
@@ -185,15 +214,6 @@ class _LocationActions extends StatelessWidget {
           onPressed: controller.retry,
           icon: const Icon(Icons.refresh),
           label: const Text('Try again'),
-        ),
-      );
-    }
-    if (phase == LocationFlowPhase.serviceDisabled) {
-      actions.add(
-        OutlinedButton(
-          key: const Key('open-location-settings-button'),
-          onPressed: controller.openLocationSettings,
-          child: const Text('Open location settings'),
         ),
       );
     }

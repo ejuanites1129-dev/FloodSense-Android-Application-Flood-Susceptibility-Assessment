@@ -28,6 +28,7 @@ class LocationController extends ChangeNotifier {
   LocationFlowState _state = LocationFlowState(LocationFlowPhase.initial);
   int _generation = 0;
   bool _disposed = false;
+  bool _awaitingLocationSettingsReturn = false;
   MapCoordinate? _lookupCoordinate;
   BarangayResolution? _resolution;
   BarangayIdentity? _confirmedBarangay;
@@ -62,10 +63,33 @@ class LocationController extends ChangeNotifier {
 
   Future<void> retry() async {
     if (_disposed || !_state.retryAllowed) return;
+    if (_state.phase == LocationFlowPhase.serviceDisabled) {
+      if (_awaitingLocationSettingsReturn) return;
+      _awaitingLocationSettingsReturn = true;
+      var opened = false;
+      try {
+        opened = await _service.openLocationSettings();
+      } catch (_) {
+        opened = false;
+      }
+      if (!opened) _awaitingLocationSettingsReturn = false;
+      return;
+    }
     if (_lookupCoordinate case final coordinate?) {
       await _resolveCoordinate(coordinate);
       return;
     }
+    await _attemptAcquisition(mayRequestPermission: true);
+  }
+
+  /// Retries once after an explicit trip to Android Location Settings.
+  ///
+  /// App lifecycle resumes that are unrelated to the service-disabled recovery
+  /// are ignored, so this cannot create background polling or a retry loop.
+  Future<void> resumeAfterLocationSettings() async {
+    if (_disposed || !_awaitingLocationSettingsReturn) return;
+    _awaitingLocationSettingsReturn = false;
+    if (_state.phase != LocationFlowPhase.serviceDisabled) return;
     await _attemptAcquisition(mayRequestPermission: true);
   }
 
@@ -168,6 +192,7 @@ class LocationController extends ChangeNotifier {
 
   Future<void> cancel() async {
     if (_disposed) return;
+    _awaitingLocationSettingsReturn = false;
     final generation = ++_generation;
     _session.clear();
     _lookupCoordinate = null;
@@ -179,6 +204,7 @@ class LocationController extends ChangeNotifier {
 
   Future<void> clearLocation() async {
     if (_disposed) return;
+    _awaitingLocationSettingsReturn = false;
     final generation = ++_generation;
     _session.clear();
     _lookupCoordinate = null;
@@ -190,6 +216,7 @@ class LocationController extends ChangeNotifier {
 
   Future<void> reset() async {
     if (_disposed) return;
+    _awaitingLocationSettingsReturn = false;
     final generation = ++_generation;
     _session.reset();
     _lookupCoordinate = null;
@@ -211,17 +238,6 @@ class LocationController extends ChangeNotifier {
     }
   }
 
-  Future<bool> openLocationSettings() async {
-    if (_disposed || _state.phase != LocationFlowPhase.serviceDisabled) {
-      return false;
-    }
-    try {
-      return await _service.openLocationSettings();
-    } catch (_) {
-      return false;
-    }
-  }
-
   Future<void> _clearAdapterState() async {
     try {
       await _service.clearTemporaryState();
@@ -232,6 +248,7 @@ class LocationController extends ChangeNotifier {
 
   Future<void> resolveManualPin(MapCoordinate coordinate) async {
     if (_disposed || isBusy) return;
+    _awaitingLocationSettingsReturn = false;
     final generation = ++_generation;
     _session.clear();
     _lookupCoordinate = coordinate;
@@ -335,6 +352,7 @@ class LocationController extends ChangeNotifier {
 
   Future<void> selectManualBarangay(BarangayIdentity barangay) async {
     if (_disposed) return;
+    _awaitingLocationSettingsReturn = false;
     final generation = ++_generation;
     _session.clear();
     _lookupCoordinate = null;
@@ -371,6 +389,7 @@ class LocationController extends ChangeNotifier {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
+    _awaitingLocationSettingsReturn = false;
     _generation++;
     _session.dispose();
     _lookupCoordinate = null;
