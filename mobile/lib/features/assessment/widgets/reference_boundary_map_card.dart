@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../app/theme/app_colors.dart';
 import '../../../data/models/geojson_geometry.dart';
 import '../../../data/models/geographic_area.dart';
 import '../../../data/models/point_resolution.dart';
+import '../../../data/models/verified_center.dart';
+import '../../evacuation/nearest_center_controller.dart';
 import '../../location/location_controller.dart';
 import '../assessment_controller.dart';
 
@@ -12,12 +15,14 @@ class ReferenceBoundaryMapCard extends StatefulWidget {
   const ReferenceBoundaryMapCard({
     required this.controller,
     this.locationController,
+    this.nearestCenterController,
     this.showBasemap = true,
     super.key,
   });
 
   final AssessmentController controller;
   final LocationController? locationController;
+  final NearestCenterController? nearestCenterController;
   final bool showBasemap;
 
   @override
@@ -30,6 +35,10 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
   bool _mapReady = false;
   double? _lastCenteredLatitude;
   double? _lastCenteredLongitude;
+  String? _lastCenteredCenterIdentifier;
+  List<GeographicArea>? _cachedPolygonAreas;
+  String? _cachedConfirmedAreaCode;
+  List<Polygon<int>> _cachedPolygons = const [];
 
   @override
   void dispose() {
@@ -74,19 +83,49 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
     });
   }
 
+  void _centerOnSelectedCenter() {
+    final centers = widget.nearestCenterController;
+    final selectedIdentifier = centers?.selectedCenterIdentifier;
+    if (!_mapReady ||
+        centers == null ||
+        selectedIdentifier == null ||
+        _lastCenteredCenterIdentifier == selectedIdentifier) {
+      return;
+    }
+    final matches = centers.centers.where(
+      (center) => center.publicIdentifier == selectedIdentifier,
+    );
+    if (matches.length != 1) return;
+    final center = matches.single;
+    _lastCenteredCenterIdentifier = selectedIdentifier;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_mapReady) return;
+      _mapController.move(
+        LatLng(center.latitude, center.longitude),
+        _mapController.camera.zoom < 15 ? 15 : _mapController.camera.zoom,
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final locationController = widget.locationController;
-    if (locationController == null) return _buildCard(context);
+    final centerController = widget.nearestCenterController;
+    if (locationController == null && centerController == null) {
+      return _buildCard(context);
+    }
     return AnimatedBuilder(
-      animation: locationController,
+      animation: Listenable.merge([?locationController, ?centerController]),
       builder: (context, _) => _buildCard(context),
     );
   }
 
   Widget _buildCard(BuildContext context) {
     final controller = widget.controller;
+    final centerController = widget.nearestCenterController;
+    final centers = centerController?.centers ?? const <VerifiedCenter>[];
     _centerOnTemporaryPoint();
+    _centerOnSelectedCenter();
     return Card(
       key: const Key('reference-boundary-card'),
       child: Padding(
@@ -199,6 +238,59 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
                                 key: const Key('reference-boundary-polygons'),
                                 polygons: _polygons(controller.referenceAreas),
                               ),
+                              if (centerController
+                                  case final activeCenterController?
+                                  when centers.isNotEmpty)
+                                MarkerLayer(
+                                  key: const Key('nearest-center-markers'),
+                                  markers: [
+                                    for (final center in centers)
+                                      Marker(
+                                        key: Key(
+                                          'nearest-center-marker-${center.publicIdentifier}',
+                                        ),
+                                        point: LatLng(
+                                          center.latitude,
+                                          center.longitude,
+                                        ),
+                                        width: 52,
+                                        height: 52,
+                                        alignment: Alignment.topCenter,
+                                        child: Semantics(
+                                          button: true,
+                                          selected:
+                                              activeCenterController
+                                                  .selectedCenterIdentifier ==
+                                              center.publicIdentifier,
+                                          label:
+                                              'Center marker for ${center.name}. ${center.distanceLabel}.',
+                                          child: GestureDetector(
+                                            behavior: HitTestBehavior.opaque,
+                                            onTap: () => activeCenterController
+                                                .selectCenter(
+                                                  center.publicIdentifier,
+                                                ),
+                                            child: Icon(
+                                              Icons.home_work,
+                                              size:
+                                                  activeCenterController
+                                                          .selectedCenterIdentifier ==
+                                                      center.publicIdentifier
+                                                  ? 46
+                                                  : 38,
+                                              color: const Color(0xFF6A1B9A),
+                                              shadows: const [
+                                                Shadow(
+                                                  blurRadius: 4,
+                                                  color: Colors.white,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
                               if (widget.locationController?.temporaryLocation
                                   case final temporary?)
                                 CircleLayer<String>(
@@ -314,9 +406,13 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
   }
 
   List<Polygon<int>> _polygons(List<GeographicArea> areas) {
-    final polygons = <Polygon<int>>[];
     final confirmedCode =
         widget.locationController?.confirmedBarangay?.geographicAreaCode;
+    if (identical(areas, _cachedPolygonAreas) &&
+        confirmedCode == _cachedConfirmedAreaCode) {
+      return _cachedPolygons;
+    }
+    final polygons = <Polygon<int>>[];
     for (final area in areas) {
       final isConfirmed = area.code == confirmedCode;
       for (final polygon in area.geometry.polygons) {
@@ -334,7 +430,9 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
         );
       }
     }
-    return polygons;
+    _cachedPolygonAreas = areas;
+    _cachedConfirmedAreaCode = confirmedCode;
+    return _cachedPolygons = List.unmodifiable(polygons);
   }
 }
 

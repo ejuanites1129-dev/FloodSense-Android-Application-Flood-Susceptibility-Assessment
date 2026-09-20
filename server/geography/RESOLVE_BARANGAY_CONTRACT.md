@@ -25,6 +25,27 @@ address, report current conditions, or persist location.
 Both fields are required and non-null. Values must be finite. Latitude is in
 `-90..90`; longitude is in `-180..180`. Unknown request fields should be
 ignored by the serializer but must never influence the query or response.
+The request body is capped at 1,024 bytes before JSON parsing; larger declared
+bodies return HTTP 413 with a generic detail message.
+
+## Day 6 performance evidence
+
+On 20 September 2026, a read-only measurement against the local PostgreSQL /
+PostGIS development reference layer used a barangay point-on-surface and 50
+warm resolver calls. A resolved request used four `SELECT` statements, returned
+490 bytes, and averaged 5.756 ms in that local environment. This is development
+evidence, not a production service-level guarantee.
+
+Regression tests bound representative requests as follows: `RESOLVED` and
+`AMBIGUOUS_BOUNDARY` use four selects, `OUTSIDE_BACOOR` uses five because it
+performs the final City-coverage check, `UNAVAILABLE` with no controlled source
+uses one, and invalid input uses none. Every response remains below 1,024 bytes.
+The local query plan uses the existing spatial index
+`geography_geographicarea_geometry_db390c89_id` before applying `ST_Covers`;
+no new index is justified by the measured result.
+
+Candidate GeoJSON files can be inspected without import or activation by the
+read-only workflow in `GEOGRAPHIC_DATA_VALIDATION.md`.
 
 Field-validation errors use the repository's existing DRF shape and HTTP 400:
 

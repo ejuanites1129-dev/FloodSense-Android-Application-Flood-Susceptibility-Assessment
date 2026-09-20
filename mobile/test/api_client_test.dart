@@ -364,5 +364,35 @@ void main() {
         ),
       );
     });
+
+    test(
+      'barangay validation failure does not retain raw server details',
+      () async {
+        final api = FloodSenseApiClient(
+          baseUrl: 'http://example.test/api/v1',
+          client: MockClient(
+            (_) async => jsonResponse({
+              'latitude': ['Rejected 14.412345 at /private/server/path.'],
+              'longitude': ['Rejected 120.976543.'],
+            }, status: 400),
+          ),
+        );
+
+        try {
+          await api.resolveBarangay(latitude: 14.412345, longitude: 120.976543);
+          fail('Expected a typed validation failure.');
+        } on ApiException catch (error) {
+          expect(error.kind, ApiFailureKind.validation);
+          expect(
+            error.message,
+            'The location lookup request was not accepted.',
+          );
+          expect(error.message, isNot(contains('14.412345')));
+          expect(error.message, isNot(contains('120.976543')));
+          expect(error.message, isNot(contains('/private/server/path')));
+          expect(error.fieldErrors, isEmpty);
+        }
+      },
+    );
   });
 }

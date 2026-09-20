@@ -1,4 +1,3 @@
-
 """Public GeoJSON views for supported FloodSense areas."""
 
 import json
@@ -16,7 +15,10 @@ from rest_framework.decorators import api_view, parser_classes, permission_class
 from rest_framework.parsers import JSONParser
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from rest_framework.status import HTTP_500_INTERNAL_SERVER_ERROR
+from rest_framework.status import (
+    HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+    HTTP_500_INTERNAL_SERVER_ERROR,
+)
 
 from .constants import (
     BACOOR_REFERENCE_LIMITATION,
@@ -25,6 +27,7 @@ from .constants import (
 )
 from .models import GeographicArea
 from .serializers import (
+    RESOLVER_MAX_REQUEST_BYTES,
     BarangayResolutionRequestSerializer,
     PointResolutionRequestSerializer,
     make_barangay_resolution_response,
@@ -115,6 +118,11 @@ def resolve_point(request):
 def resolve_barangay(request):
     """Resolve one temporary coordinate against the controlled Bacoor layer."""
 
+    if _request_content_length(request) > RESOLVER_MAX_REQUEST_BYTES:
+        return Response(
+            {"detail": "The resolver request is too large."},
+            status=HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+        )
     serializer = BarangayResolutionRequestSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     inputs = serializer.validated_data
@@ -135,6 +143,15 @@ def resolve_barangay(request):
             status=HTTP_500_INTERNAL_SERVER_ERROR,
         )
     return Response(payload)
+
+
+def _request_content_length(request) -> int:
+    """Return a safe declared body size without reading or logging the body."""
+
+    try:
+        return max(0, int(request.META.get("CONTENT_LENGTH") or 0))
+    except (TypeError, ValueError):
+        return RESOLVER_MAX_REQUEST_BYTES + 1
 
 
 def _serialize_area_feature(area: GeographicArea) -> dict:

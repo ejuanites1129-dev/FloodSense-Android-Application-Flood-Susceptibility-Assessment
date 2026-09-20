@@ -4,6 +4,9 @@ import '../../app/theme/app_colors.dart';
 import '../../data/api/api_exception.dart';
 import '../../data/api/floodsense_api_client.dart';
 import '../../data/models/assessment_result.dart';
+import '../evacuation/nearest_center_controller.dart';
+import '../evacuation/nearest_center_provider.dart';
+import '../evacuation/nearest_centers_section.dart';
 import '../location/location_card.dart';
 import '../location/location_controller.dart';
 import '../location/location_service.dart';
@@ -21,12 +24,14 @@ class AssessmentScreen extends StatefulWidget {
   const AssessmentScreen({
     required this.api,
     this.locationService,
+    this.nearestCenterProvider,
     this.showBasemap = true,
     super.key,
   });
 
   final FloodSenseApi api;
   final LocationService? locationService;
+  final NearestCenterProvider? nearestCenterProvider;
   final bool showBasemap;
 
   @override
@@ -36,6 +41,7 @@ class AssessmentScreen extends StatefulWidget {
 class _AssessmentScreenState extends State<AssessmentScreen> {
   late final AssessmentController _controller;
   LocationController? _locationController;
+  NearestCenterController? _nearestCenterController;
 
   @override
   void initState() {
@@ -47,6 +53,10 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
         locationService,
         resolver: widget.api,
       );
+      _nearestCenterController = NearestCenterController(
+        _locationController!,
+        provider: widget.nearestCenterProvider,
+      );
     }
     _controller.load();
   }
@@ -54,6 +64,7 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
   @override
   void dispose() {
     _controller.dispose();
+    _nearestCenterController?.dispose();
     _locationController?.dispose();
     super.dispose();
   }
@@ -122,12 +133,6 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        ReferenceBoundaryMapCard(
-          controller: _controller,
-          locationController: _locationController,
-          showBasemap: widget.showBasemap,
-        ),
-        const SizedBox(height: 14),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -169,6 +174,13 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
           ),
           const SizedBox(height: 14),
         ],
+        ReferenceBoundaryMapCard(
+          controller: _controller,
+          locationController: _locationController,
+          nearestCenterController: _nearestCenterController,
+          showBasemap: widget.showBasemap,
+        ),
+        const SizedBox(height: 14),
         DynamicMapCard(
           controller: _controller,
           showBasemap: widget.showBasemap,
@@ -251,6 +263,10 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
             )
           else
             LimitationResultCard(result: result),
+        ],
+        if (_nearestCenterController case final nearestCenterController?) ...[
+          const SizedBox(height: 14),
+          NearestCentersSection(controller: nearestCenterController),
         ],
       ],
     );

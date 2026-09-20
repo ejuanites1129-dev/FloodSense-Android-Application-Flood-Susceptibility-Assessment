@@ -78,7 +78,9 @@ class LocationController extends ChangeNotifier {
     _confirmedBarangay = null;
     _setIfCurrent(generation, LocationFlowState(LocationFlowPhase.acquiring));
     try {
-      if (!await _service.isLocationServiceEnabled()) {
+      final serviceEnabled = await _service.isLocationServiceEnabled();
+      if (!_isCurrent(generation)) return;
+      if (!serviceEnabled) {
         _setIfCurrent(
           generation,
           LocationFlowState(LocationFlowPhase.serviceDisabled),
@@ -87,6 +89,7 @@ class LocationController extends ChangeNotifier {
       }
 
       var permission = await _service.checkPermission();
+      if (!_isCurrent(generation)) return;
       if (permission == LocationPermissionState.deniedPermanently) {
         _setIfCurrent(
           generation,
@@ -103,6 +106,7 @@ class LocationController extends ChangeNotifier {
           return;
         }
         permission = await _service.requestForegroundPermission();
+        if (!_isCurrent(generation)) return;
         if (permission == LocationPermissionState.deniedPermanently) {
           _setIfCurrent(
             generation,

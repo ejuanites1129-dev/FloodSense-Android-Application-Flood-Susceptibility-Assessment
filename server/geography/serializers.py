@@ -12,6 +12,7 @@ RESOLVER_PATH = "/api/v1/geography/resolve-barangay/"
 RESOLVER_ALLOWED_METHODS = ("POST", "OPTIONS")
 RESOLVER_CONTENT_TYPE = "application/json"
 RESOLVER_COORDINATE_DECIMAL_PLACES = 5
+RESOLVER_MAX_REQUEST_BYTES = 1024
 
 
 class BarangayResolutionState:

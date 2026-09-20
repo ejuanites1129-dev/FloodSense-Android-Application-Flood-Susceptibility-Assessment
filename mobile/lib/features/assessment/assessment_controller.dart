@@ -40,6 +40,7 @@ class AssessmentController extends ChangeNotifier {
   int _mapGeneration = 0;
   int _pointGeneration = 0;
   int _detailGeneration = 0;
+  bool _disposed = false;
   String? _activeMapIdentity;
   String? _completedMapIdentity;
 
@@ -64,7 +65,7 @@ class AssessmentController extends ChangeNotifier {
       selectedArea != null;
 
   Future<void> load() async {
-    if (isLoading) return;
+    if (_disposed || isLoading) return;
     isLoading = true;
     loadError = null;
     notifyListeners();
@@ -74,56 +75,70 @@ class AssessmentController extends ChangeNotifier {
         _api.fetchAssessmentOptions(),
         _api.fetchDemonstrationAreas(),
       ]);
+      if (_disposed) return;
       options = resources[0] as AssessmentOptions;
       areas = List.unmodifiable(resources[1] as List<GeographicArea>);
       _removeInvalidSelections();
       if (hasCompleteScenario) unawaited(refreshMapAssessment());
     } on ApiException catch (error) {
+      if (_disposed) return;
       loadError = error;
     } catch (_) {
+      if (_disposed) return;
       loadError = const ApiException(
         'FloodSense could not load the demonstration data. Please try again.',
         kind: ApiFailureKind.service,
       );
     } finally {
-      isLoading = false;
-      notifyListeners();
+      if (!_disposed) {
+        isLoading = false;
+        notifyListeners();
+      }
     }
   }
 
   Future<void> loadReferenceBoundaries() async {
-    if (isReferenceLoading) return;
+    if (_disposed || isReferenceLoading) return;
     isReferenceLoading = true;
     referenceError = null;
     notifyListeners();
     try {
-      referenceAreas = List.unmodifiable(await _api.fetchReferenceBoundaries());
+      final response = await _api.fetchReferenceBoundaries();
+      if (_disposed) return;
+      referenceAreas = List.unmodifiable(response);
     } on ApiException catch (error) {
+      if (_disposed) return;
       referenceError = error;
     } catch (_) {
+      if (_disposed) return;
       referenceError = const ApiException(
         'FloodSense could not load the Bacoor administrative reference layer.',
         kind: ApiFailureKind.service,
       );
     } finally {
-      isReferenceLoading = false;
-      notifyListeners();
+      if (!_disposed) {
+        isReferenceLoading = false;
+        notifyListeners();
+      }
     }
   }
 
   void selectIntensity(ScenarioOption option) {
+    if (_disposed) return;
     if (selectedIntensity?.code == option.code) return;
     selectedIntensity = option;
     _scenarioChanged();
   }
 
   void selectDuration(ScenarioOption option) {
+    if (_disposed) return;
     if (selectedDuration?.code == option.code) return;
     selectedDuration = option;
     _scenarioChanged();
   }
 
   void selectArea(GeographicArea? area) {
+    if (_disposed) return;
     if (selectedArea?.id == area?.id) return;
     _pointGeneration++;
     isResolvingPoint = false;
@@ -135,7 +150,7 @@ class AssessmentController extends ChangeNotifier {
   }
 
   Future<void> refreshMapAssessment({bool force = false}) async {
-    if (!hasCompleteScenario) return;
+    if (_disposed || !hasCompleteScenario) return;
     final intensity = selectedIntensity!;
     final duration = selectedDuration!;
     final identity = '${intensity.code}|${duration.code}';
@@ -189,6 +204,7 @@ class AssessmentController extends ChangeNotifier {
   }
 
   Future<void> placePin(MapCoordinate coordinate) async {
+    if (_disposed) return;
     final generation = ++_pointGeneration;
     pinCoordinate = coordinate;
     pointResolution = null;
@@ -240,12 +256,13 @@ class AssessmentController extends ChangeNotifier {
   }
 
   Future<void> retryPointResolution() async {
+    if (_disposed) return;
     final coordinate = pinCoordinate;
     if (coordinate != null) await placePin(coordinate);
   }
 
   Future<void> submit() async {
-    if (!canSubmit) return;
+    if (_disposed || !canSubmit) return;
     final intensity = selectedIntensity!;
     final duration = selectedDuration!;
     final area = selectedArea!;
@@ -322,7 +339,24 @@ class AssessmentController extends ChangeNotifier {
   }
 
   @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
+  @override
   void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    _mapGeneration++;
+    _pointGeneration++;
+    _detailGeneration++;
+    isLoading = false;
+    isSubmitting = false;
+    isMapAssessing = false;
+    isResolvingPoint = false;
+    isReferenceLoading = false;
+    pinCoordinate = null;
+    pointResolution = null;
     _api.close();
     super.dispose();
   }

@@ -120,7 +120,7 @@ class FloodSenseApiClient implements FloodSenseApi {
     final json = await _postJson('geography/resolve-barangay/', {
       'latitude': latitude,
       'longitude': longitude,
-    });
+    }, exposeValidationDetails: false);
     final result = _parse(() => BarangayResolution.fromJson(json));
     const maximumEchoDifference = 0.0000051;
     if ((result.coordinate.latitude - latitude).abs() > maximumEchoDifference ||
@@ -149,8 +149,9 @@ class FloodSenseApiClient implements FloodSenseApi {
 
   Future<Map<String, dynamic>> _postJson(
     String route,
-    Map<String, dynamic> body,
-  ) => _send(
+    Map<String, dynamic> body, {
+    bool exposeValidationDetails = true,
+  }) => _send(
     () => _client.post(
       _uri(route),
       headers: const {
@@ -159,6 +160,7 @@ class FloodSenseApiClient implements FloodSenseApi {
       },
       body: jsonEncode(body),
     ),
+    exposeValidationDetails: exposeValidationDetails,
   );
 
   Future<Map<String, dynamic>> _get(Uri uri) => _send(
@@ -169,13 +171,20 @@ class FloodSenseApiClient implements FloodSenseApi {
   );
 
   Future<Map<String, dynamic>> _send(
-    Future<http.Response> Function() request,
-  ) async {
+    Future<http.Response> Function() request, {
+    bool exposeValidationDetails = true,
+  }) async {
     try {
       final response = await request().timeout(timeout);
       final body = _decodeObject(response.bodyBytes);
       if (response.statusCode >= 200 && response.statusCode < 300) return body;
       if (response.statusCode == 400) {
+        if (!exposeValidationDetails) {
+          throw const ApiException(
+            'The location lookup request was not accepted.',
+            kind: ApiFailureKind.validation,
+          );
+        }
         final errors = _fieldErrors(body);
         throw ApiException(
           errors.values.expand((messages) => messages).join(' '),

@@ -6,6 +6,12 @@
 
 **Scope:** Foreground GPS, barangay detection, nearest verified evacuation-center discovery, and safe improvements that do not change the research algorithm
 
+**Implementation checkpoint (20 September 2026):** Streams A and B are complete
+through their independent Day 4 work, but live nearest-center integration remains
+blocked by the missing Stream C contract/service/endpoint and related Stream D
+contract/privacy evidence. See `GPS_STREAMS_A_B_DEPENDENCY_BLOCKERS.md` for the
+cross-day inventory and exact handoff.
+
 ## 1. Purpose
 
 This plan turns the currently safe and independently actionable work into one

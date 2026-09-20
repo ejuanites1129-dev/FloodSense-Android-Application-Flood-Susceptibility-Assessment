@@ -23,6 +23,7 @@ from .services import (
     BarangayResolutionResult,
     _normalized_barangay_matches,
     eligible_bacoor_reference_barangays,
+    public_psgc_code,
     resolve_bacoor_barangay,
 )
 from .test_day2_barangay_resolver import BarangayResolverTestData
@@ -167,6 +168,11 @@ class ResolverPerformanceAndSeparationTests(BarangayResolverTestData, TestCase):
 
 
 class MatchNormalizationTests(SimpleTestCase):
+    def test_public_identity_accepts_only_the_controlled_psgc_code_shape(self):
+        self.assertEqual(public_psgc_code("PSGC_0402103004"), "0402103004")
+        self.assertIsNone(public_psgc_code("0402103004"))
+        self.assertIsNone(public_psgc_code("PSGC_historical-name"))
+
     def test_repeated_rows_for_one_stable_identity_do_not_create_ambiguity(self):
         matches = [
             ("PSGC_0402103004", "Bayanan"),

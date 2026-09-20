@@ -155,7 +155,7 @@ def resolve_bacoor_barangay(
             geometry_is_valid=IsValid("geometry"),
         ).values_list("code", "name", "geometry_is_empty", "geometry_is_valid")
     )
-    public_codes = [_public_psgc_code(code) for code, *_ in identities]
+    public_codes = [public_psgc_code(code) for code, *_ in identities]
     normalized_names = [name.strip().casefold() for _, name, *_ in identities]
     if (
         len(identities) != BACOOR_REFERENCE_BARANGAY_COUNT
@@ -225,7 +225,13 @@ def resolve_bacoor_barangay(
     return BarangayResolutionResult(BarangayResolutionState.OUTSIDE_BACOOR)
 
 
-def _public_psgc_code(area_code: str) -> str | None:
+def public_psgc_code(area_code: str) -> str | None:
+    """Return the stable public PSGC identity for a controlled area code.
+
+    Keeping this geography-owned avoids treating a database row id or a
+    mutable barangay label as a cross-stream domain identifier.
+    """
+
     match = re.fullmatch(r"PSGC_(\d{10})", area_code)
     return match.group(1) if match else None
 
@@ -235,7 +241,7 @@ def _normalized_barangay_matches(
 ) -> set[tuple[str | None, str]]:
     """Collapse repeated geometry matches for one stable barangay identity."""
 
-    return {(_public_psgc_code(code), name.strip()) for code, name in matches}
+    return {(public_psgc_code(code), name.strip()) for code, name in matches}
 
 
 def _normalize_mode(mode: str) -> str:

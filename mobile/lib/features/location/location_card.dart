@@ -91,6 +91,7 @@ Future<void> _showLocationPurpose(
     barrierDismissible: false,
     builder: (context) => AlertDialog(
       key: const Key('location-purpose-dialog'),
+      scrollable: true,
       title: const Text(LocationCopy.purposeTitle),
       content: const Text('${LocationCopy.purpose}\n\n${LocationCopy.privacy}'),
       actions: [

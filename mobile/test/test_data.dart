@@ -354,6 +354,7 @@ class FakeFloodSenseApi implements FloodSenseApi {
     this.evaluateError,
     this.optionsCompleter,
     this.areasCompleter,
+    this.referenceAreasCompleter,
     this.evaluateCompleter,
     this.mapResult,
     this.pointResult,
@@ -377,6 +378,7 @@ class FakeFloodSenseApi implements FloodSenseApi {
   Object? evaluateError;
   Completer<AssessmentOptions>? optionsCompleter;
   Completer<List<GeographicArea>>? areasCompleter;
+  Completer<List<GeographicArea>>? referenceAreasCompleter;
   Completer<AssessmentResult>? evaluateCompleter;
   MapAssessmentResult? mapResult;
   PointResolution? pointResult;
@@ -424,7 +426,7 @@ class FakeFloodSenseApi implements FloodSenseApi {
   Future<List<GeographicArea>> fetchReferenceBoundaries() async {
     referenceAreasCalls++;
     if (loadError != null) throw loadError!;
-    return referenceAreas;
+    return referenceAreasCompleter?.future ?? referenceAreas;
   }
 
   @override
