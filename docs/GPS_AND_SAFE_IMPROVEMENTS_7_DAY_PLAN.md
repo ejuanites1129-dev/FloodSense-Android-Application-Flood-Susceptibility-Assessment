@@ -8,7 +8,7 @@
 
 **Implementation checkpoint (21 September 2026):** Streams A and B are complete
 through their independent Day 4 work, but live nearest-center integration remains
-blocked by the missing endpoint and production mobile adapter,
+pending the production mobile adapter and mandatory warning-envelope integration,
 and remaining Stream D deployment/privacy/integration evidence. See
 `GPS_STREAMS_A_B_DEPENDENCY_BLOCKERS.md` for the cross-day inventory and exact handoff.
 
@@ -38,6 +38,22 @@ migration steps, and remaining work. Day 1 frozen contract files are unchanged;
 no public route, mobile adapter, or official data import was added.
 
 Repeatable walkthrough: [Streams C/D Days 1–2 manual test guide](GPS_STREAM_C_D_DAYS_1_2_MANUAL_TEST_GUIDE.md).
+
+**Team B Day 3 checkpoint (21 September 2026): Backend verified; fresh browser QA pending.**
+The public `POST /api/v1/evacuation-centers/nearest/` route now calls the preserved
+Day 2 service using the frozen contract. JSON-only parsing, a 1,024-byte body
+limit, scoped 30/min throttling, normalized errors, no-store headers and HTTP
+no-write/privacy checks are implemented. All 599 backend tests pass, including
+85 new endpoint cases and three map-safety regressions; the separate Admin suite
+has 105 passes. Flutter analysis and 167 tests pass with no mobile edits.
+Map code review found no production-code gap; fresh desktop/320px, keyboard and
+JavaScript-disabled browser verification remains pending because no browser was
+connected. Do not mark the full Day 3 C/D acceptance gate complete yet.
+See [Day 3 evidence](GPS_STREAM_C_D_DAY_3_GUIDE.md) and the
+[Stream A handoff](GPS_STREAM_A_NEAREST_CENTER_DAY_3_HANDOFF.md).
+There is no new migration or dependency. Production Flutter integration,
+physical-device results, deployed privacy controls and Day 4 acceptance remain
+unverified; the historical Day 1/2 checkpoints above describe their own scope.
 
 ## 1. Purpose
 

@@ -7,7 +7,7 @@ from decimal import Decimal
 from uuid import UUID
 
 import pytest
-from django.urls import Resolver404, resolve
+from django.urls import resolve
 from geography.constants import BACOOR_REFERENCE_LIMITATION, BACOOR_REFERENCE_WARNING
 from rest_framework.renderers import JSONRenderer
 
@@ -345,6 +345,6 @@ def test_zero_distance_and_literal_text_are_valid(center):
     assert serializer.data["name"] == center["name"]
 
 
-def test_day1_does_not_expose_the_future_endpoint():
-    with pytest.raises(Resolver404):
-        resolve(NEAREST_CENTER_PATH)
+def test_day3_registers_the_frozen_endpoint_path():
+    # Day 3 intentionally replaces the historical route-absence assertion.
+    assert resolve(NEAREST_CENTER_PATH).view_name == "evacuation:nearest-centers"

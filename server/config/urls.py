@@ -9,6 +9,7 @@ urlpatterns = [
     path("api/v1/", include("core.urls")),
     path("api/v1/", include("expert.urls")),
     path("api/v1/geography/", include("geography.urls")),
+    path("api/v1/evacuation-centers/", include("evacuation.urls")),
     path("api/v1/dss/", include("dss.urls")),
 ]
 

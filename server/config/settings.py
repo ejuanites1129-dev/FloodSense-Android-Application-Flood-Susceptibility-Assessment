@@ -1,10 +1,12 @@
 """Django settings for the FloodSense backend."""
 
 import os
+import re
 from datetime import timedelta
 from pathlib import Path
 
 import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -133,6 +135,10 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+NEAREST_CENTER_RATE = os.getenv("FLOODSENSE_NEAREST_CENTER_RATE", "30/min")
+if not re.fullmatch(r"[1-9][0-9]*/(?:s|sec|second|m|min|minute|h|hour|d|day)", NEAREST_CENTER_RATE):
+    raise ImproperlyConfigured("FLOODSENSE_NEAREST_CENTER_RATE must be a positive DRF rate.")
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
@@ -140,6 +146,10 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticated",
     ),
+    # Only views opting into this scope are throttled. No location enters cache.
+    "DEFAULT_THROTTLE_RATES": {
+        "nearest_centers": NEAREST_CENTER_RATE,
+    },
     "DEFAULT_RENDERER_CLASSES": (
         "rest_framework.renderers.JSONRenderer",
         *(

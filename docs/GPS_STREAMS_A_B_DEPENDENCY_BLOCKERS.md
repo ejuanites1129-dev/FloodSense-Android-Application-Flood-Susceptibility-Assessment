@@ -18,10 +18,11 @@ Repository state and tests are authoritative if this note later becomes stale.
 | Stream A Days 1-3 | Complete | Foreground one-shot GPS, manual fallbacks, resolver integration, confirmation, cleanup, retry states, and map behavior are implemented. |
 | Stream B Days 1-4 | Complete | Resolver contract/service/API, controlled boundary filtering, robustness, public PSGC utility, and center-identity/boundary integration tests are implemented. |
 | Stream A Day 4 independent work | Complete | Location-gated center state management, validated presentation types, cards, markers, warnings, failure states, cleanup, and fake-based tests are implemented. |
-| Stream A Day 4 production integration | **Blocked** | The wire contract is frozen and Day 2 service tests pass against PostGIS. The endpoint and production mobile adapter remain absent. |
-| Stream C resident API | **Day 2 service verified; endpoint absent** | UUID migration, eligibility/distance, mapping and no-write tests pass. No view, URL, or live integration exists. |
+| Stream A Day 4 production integration | **Pending Stream A implementation** | The tested backend and exact handoff now exist. Production adapter/parser and warning-envelope integration remain absent. |
+| Stream C resident API | **Day 3 backend verified** | Public JSON POST route, 1,024-byte limit, scoped rate control, normalized errors, no-store and no-write HTTP tests pass. |
 | Stream C/D Day 1 | Complete; former baseline blocker resolved | Frozen contract, repository privacy review, ownership, and baseline evidence exist. Contract and full backend tests now pass locally. |
 | Stream C/D Day 2 | **Complete** | Database-backed distance, eligibility, migration, no-write and Admin permission tests pass. The user confirmed the manual browser checklist passed; the UUID migration is confirmed applied locally. |
+| Stream C/D Day 3 | **Fresh browser QA pending** | Backend, map code review/regression and Android handoff are verified. No connected browser was available for a fresh desktop/320px, keyboard or JavaScript-disabled pass. |
 | Stream D evacuation Admin | Implemented separately | Draft/review/verification/inactive workflows, permission checks, audit entries, forms, and map preview exist. This does not substitute for Stream C's resident API. |
 
 The earlier Day 4 checkpoint reported 148 Flutter tests and 241 backend tests.
@@ -33,11 +34,18 @@ completion or green backend regression claim.
 
 The initial Day 2 run had 204 passes and 307 setup errors. On 21 September,
 PostGIS provisioning was resolved and two NaN test fixtures were corrected.
-The full backend run now has **511 passed and 127 warnings**, including all
+The Day 2 backend run had **511 passed and 127 warnings**, including all
 84 service cases, four UUID/migration cases and 102 Admin cases. The unchanged
 Day 1 suite remains green. The user subsequently confirmed all manual browser
 checks passed, completing Day 2. See `GPS_STREAM_C_D_DAY_2_GUIDE.md` for evidence
 attribution and the confirmed local application migration state.
+
+Day 3 now has **599 backend tests passed**, including 85 new endpoint cases
+and three map-safety cases; the separate Admin run has 105 passes. Flutter
+analysis is clean and 167 tests pass in the current unchanged-mobile checkout.
+See `GPS_STREAM_C_D_DAY_3_GUIDE.md` and
+`GPS_STREAM_A_NEAREST_CENTER_DAY_3_HANDOFF.md`. The route blocker is resolved;
+mobile integration, deployed controls and fresh Day 3 browser evidence are not.
 
 ## Unresolved work by originating day
 
@@ -50,8 +58,8 @@ attribution and the confirmed local application migration state.
   keys, errors, and limit default/bounds are frozen in
   `../server/evacuation/NEAREST_CENTER_CONTRACT.md`.
 - Executable constants and request/response wire serializers are covered by
-  153 passing database-independent contract tests. Service/HTTP tests remain
-  later implementation work; the route is still absent.
+  153 passing database-independent contract tests. Service and HTTP tests were
+  added on Days 2/3; the former route-absence assertion now verifies registration.
 - Repository privacy/logging review is recorded in
   `GPS_STREAM_C_D_DAY_1_PRIVACY_REVIEW.md`, with ownership and baseline evidence
   in `GPS_STREAM_C_D_DAY_1_BASELINE.md`.
@@ -68,8 +76,8 @@ attribution and the confirmed local application migration state.
 
 - Stream A can now plan parser/adapter work against exact field names,
   nullability, bounds, warnings, and errors; the missing contract blocker is resolved.
-- Production integration still waits for the service/endpoint and coordinated
-  handoff. No mobile parser or adapter was implemented by Team B on Day 1.
+- The backend service/endpoint and Day 3 handoff are now available. Stream A
+  still owns production integration; Team B has not implemented a mobile adapter.
 - The Day 1 center contract foundation is complete; this does not establish live
   nearest-center output or deployed privacy controls.
 
@@ -93,14 +101,15 @@ implemented and verified during Days 2-3.
 The current `EvacuationCenter` model and workflow validate several administrative
 states, but they are not a resident eligibility service. In particular, the
 internal implementation now encodes the frozen policy and is service-tested;
-it is not publicly exposed. Existing Admin verification semantics remain unchanged.
+it is now exposed through the Day 3 HTTP boundary. Existing Admin verification
+semantics remain unchanged.
 
 #### Effect on Streams A and B
 
-- Stream A can test its state/UI boundary with fakes but cannot receive real
-  nearest-first results.
-- Service-level ineligible-record exclusions pass; HTTP/mobile integration
-  evidence still depends on the future endpoint and adapter.
+- Stream A can now implement against the tested endpoint. The current local
+  database has no centers, so populated integration needs isolated synthetic
+  fixtures or genuinely approved data, never invented presentation records.
+- Service and HTTP exclusions pass; mobile integration still needs its adapter.
 - Stream B must not create a second eligibility or distance implementation to
   compensate.
 
@@ -112,44 +121,52 @@ changes do not alter GPS/resolver behavior.
 
 ### Day 3 — resident endpoint and frozen serialization
 
-#### Stream C work still missing
+#### Stream C backend verified — 21 September 2026
 
-- `POST /api/v1/evacuation-centers/nearest/` implementation.
-- HTTP integration of the Day 1 request serializer for coordinates and bounded limit.
-- Verify the new service mapping and integrate the Day 1 response serializer at HTTP level.
-- Evacuation URL module and shared URL registration.
-- No-write, stable-order, safe-field, validation, empty-result, and error tests.
-- Application of the test-verified UUID migration in each teammate/deployment
-  target before running the new code. It is confirmed applied on this local
-  application database; a raw database row ID remains forbidden.
+- Exact public POST route, URL registration and frozen request validation.
+- Existing service response validation, ordering and safe field projection
+  preserved; populated and empty HTTP integration tests pass.
+- 1,024-byte actual-stream cap, scoped 30/min rate, safe 400/405/413/415/429/500,
+  no-store headers, no session creation, no coordinate echo or database writes.
+- Local socket smoke checks confirm empty success and HTTP rejection controls;
+  populated output and simulated failures use isolated integration fixtures.
+- The existing UUID migration is applied locally. Each teammate/deployment
+  target must still inspect and apply it before running the application.
+
+#### Stream D remaining evidence
+
+- Fresh desktop/320px browser layout, keyboard and no-script verification is
+  pending; map code review and three new regression tests pass. The earlier
+  user-confirmed Day 2 browser pass is historical evidence only.
+- Shared/upstream production rate control and deployed logging/TLS verification
+  remain later work; process-local throttling is not production certification.
 
 #### Effect on Streams A and B
 
-- Stream A cannot test coordinates-in-POST-body behavior, URL privacy, timeout
-  mapping, limit mapping, or strict live response parsing.
-- The Day 3 acceptance statement that the backend can return a safe empty
-  nearest-center response remains unmet.
+- Stream A can now build/test POST-body behavior, URL privacy, timeout/limit
+  mapping and strict response parsing against the handoff. Its current
+  list-only provider must preserve mandatory envelope warnings explicitly.
+- The backend safe empty response is verified; live mobile parsing is not.
 - Physical-device testing currently verifies GPS/barangay behavior only, not
   live center results.
 
-The relevant Stream D map-safety work does not currently block Streams A/B:
-mobile OpenStreetMap attribution and neutral administrative-layer behavior are
-already covered, and the Admin portal has a map-unavailable fallback.
+The pending fresh Admin browser pass does not prevent Stream A adapter work.
+No new map layer or production map redesign was required by the Day 3 review.
 
 ### Day 4 — live center integration and end-to-end verification
 
-#### Stream C integration still missing
+#### Live mobile integration still missing
 
 The service now verifies eligibility per call, full-precision ordering, display
 rounding, bounded results, strict input, straight-line methodology and honest
-empty results. Day 4 still needs these behaviors verified through the public
-endpoint and mobile adapter, including HTTP abuse controls.
+empty results. These behaviors and HTTP abuse controls now pass backend endpoint
+tests. Day 4 still needs verification through the production mobile adapter.
 
 #### Stream D coordination still needed
 
 - Coordinate Stream A adoption of the frozen Day 1 contract, including public
   UUID and safe provenance/address fields; Stream C owns rollout of the verified UUID migration.
-- Run Admin-to-API-to-Flutter integration checks after the endpoint lands.
+- Run Admin-to-API-to-Flutter integration checks after the adapter lands.
 - Capture release evidence for empty, results, invalid, offline, timeout, and
   unavailable scenarios without adding invented presentation records.
 
@@ -181,7 +198,7 @@ into Stream C's evacuation API implementation.
 
 ## Downstream impact after Day 4
 
-Until Stream C and the relevant Stream D integration work land:
+Until mobile integration and the remaining Stream D evidence land:
 
 - Day 5 can harden the completed in-memory location/controller/UI code, but it
   cannot complete end-to-end privacy, authorization, logging, abuse-limit, and
@@ -196,8 +213,8 @@ Do not interpret these dependencies as permission to start Days 5-7 early.
 ## Required handoff sequence
 
 1. Adopt the completed Stream C/D Day 1 contract and coordinate Stream A's handoff.
-2. Stream C implements and tests eligibility, distance, serializers, endpoint,
-   URL registration, safe empty results, and no-write behavior.
+2. Adopt the completed Day 2/3 service and HTTP implementation plus the exact
+   Day 3 Android handoff; verify each target's existing UUID migration.
 3. Stream D verifies the remaining deployment/privacy controls and integration
    evidence identified by the completed Day 1 repository review.
 4. Stream A adds the production adapter and strict parser without changing the

@@ -1,9 +1,13 @@
 # Nearest verified evacuation centers — frozen Day 1 contract
 
 **Frozen:** 20 September 2026, Team B / Streams C and D, contract version 1.
-**Implementation:** constants, wire serializers, and database-independent tests only.
-The service, model UUID, distance query, view, URL module, and mobile HTTP adapter
-do not exist yet. No route is registered by this change.
+**Original Day 1 implementation:** constants, wire serializers and pure tests.
+**Day 3 checkpoint (21 September 2026):** the Day 2 UUID/service foundation and
+public HTTP route are implemented and tested. The request/response schema below
+is unchanged; reviewed HTTP size/rate additions appear below. Statements about
+future Day 2 implementation are retained as the original design specification.
+The production mobile adapter remains Day 4 work. See
+`../../docs/GPS_STREAM_C_D_DAY_3_GUIDE.md` for evidence and remaining verification.
 
 This is the current safe team implementation direction, not adviser approval of
 optional GPS. The final GPS requirement remains unresolved in
@@ -12,7 +16,7 @@ outside this contract. Contract changes require coordinated C/D/A review and tes
 
 ## Transport and request
 
-Future route: `POST /api/v1/evacuation-centers/nearest/`.
+Implemented route: `POST /api/v1/evacuation-centers/nearest/`.
 Public, JSON-only (`application/json`, including a charset parameter), read-only
 in effect, no authentication required, and no database writes. Day 3 must
 explicitly override the global authentication/permission defaults for this
@@ -157,6 +161,8 @@ affected records; absence of eligible reference data can yield an empty result.
 | Non-object input | 400 | DRF `non_field_errors` list; no supplied values |
 | Unsupported media type | 415 | `{"detail": "Unsupported media type. Use application/json."}` |
 | Unsupported method | 405 | `{"detail": "Method not allowed."}` and `Allow: POST, OPTIONS` |
+| Request body exceeds 1,024 bytes (Day 3 addition) | 413 | `{"detail": "Nearest-center request is too large."}` |
+| Endpoint rate exceeded (Day 3 addition) | 429 | `{"detail": "Too many nearest-center requests. Try again later."}`; preserve `Retry-After` |
 | Unexpected internal failure | 500 | `{"detail": "Nearest-center lookup is temporarily unavailable."}` |
 
 400 field messages/codes use DRF's existing conventions; clients must branch
@@ -166,9 +172,20 @@ allowed. Parse/media/method/internal strings above are frozen for the future
 view; Day 1 does not claim HTTP tests for an absent endpoint. Network timeouts
 are client failures, not an additional wire response. Day 3 must set
 `Cache-Control: no-store` and avoid lookup sessions/audit/analytics writes.
-Request-byte limits and throttling need coordinated C/D review before exposure;
-result-limit validation alone is not an abuse-control implementation. Any added
-413/429 behavior must be documented and handed off before mobile integration.
+Reviewed Day 3 controls enforce a 1,024-byte actual exposed-stream body limit,
+reading at most 1,025 bytes, and reject declared lengths above the cap early.
+The endpoint uses a scoped default 30 POST attempts/minute per remote IP,
+overridable with `FLOODSENSE_NEAREST_CENTER_RATE`. OPTIONS and rejected methods
+do not consume quota. Authentication is disabled explicitly; output is JSON
+even for HTML Accept preferences. All responses from the view include
+`Cache-Control: no-store`, `Pragma: no-cache` and `Allow: POST, OPTIONS`.
+
+Throttle metadata is short-lived IP identity/timestamps, never coordinates or
+responses. Client forwarding headers are not trusted. Local-memory throttling
+is process-local and non-atomic; deployment needs shared/upstream controls,
+correct proxy identity and transport framing/body limits. This does not certify
+production readiness. The exact 413/429 additions and integration requirements
+are handed off in `../../docs/GPS_STREAM_A_NEAREST_CENTER_DAY_3_HANDOFF.md`.
 
 ## Fail-closed eligibility policy for Day 2
 
@@ -286,8 +303,9 @@ before validation; passing arbitrary model objects or calling `.data` without
 validation is not a substitute for the service gates.
 
 `test_day1_nearest_contract.py` uses synthetic in-memory examples with database
-access blocked by pytest-django. It verifies the schema and that the route is
-still absent. Replace the route-absence test with HTTP tests when Day 3 lands.
+access blocked by pytest-django. It verifies the schema; on Day 3 its former
+route-absence assertion was replaced by exact route registration. The new
+`test_day3_nearest_api.py` covers the HTTP boundary and database-backed behavior.
 
 Stream A may use this contract for fakes/planning. Later it owns strict JSON
 parsing and one production `NearestCenterProvider` adapter, including rejecting
@@ -295,7 +313,8 @@ extra fields, preserving UUID/PSGC strings and server ordering, and handling
 top-level warnings. Its current provider returns only a list; the adapter/UI
 handoff must ensure required envelope warnings remain visible. No mobile files
 were edited. The older mobile handoff's missing-contract inventory is superseded
-only for Day 1 by this document; its live-integration blockers still apply.
+for backend availability by this document and the Day 3 handoff; its mobile
+live-integration blockers still apply.
 
 See `../../docs/GPS_STREAM_C_D_DAY_1_PRIVACY_REVIEW.md` and
 `../../docs/GPS_STREAM_C_D_DAY_1_BASELINE.md` for evidence and limits.

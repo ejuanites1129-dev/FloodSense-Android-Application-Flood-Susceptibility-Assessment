@@ -23,3 +23,11 @@ CENTER_LIMITATION = (
     "Verification does not confirm current opening, accessibility, capacity, or route safety."
 )
 INTERNAL_ERROR_DETAIL = "Nearest-center lookup is temporarily unavailable."
+
+# Reviewed Day 3 HTTP controls; the Day 1 request/response schema is unchanged.
+NEAREST_CENTER_MAX_REQUEST_BYTES = 1024
+REQUEST_TOO_LARGE_DETAIL = "Nearest-center request is too large."
+THROTTLED_DETAIL = "Too many nearest-center requests. Try again later."
+MALFORMED_JSON_DETAIL = "Malformed JSON."
+UNSUPPORTED_MEDIA_DETAIL = "Unsupported media type. Use application/json."
+METHOD_NOT_ALLOWED_DETAIL = "Method not allowed."
