@@ -40,7 +40,7 @@ Future<void> chooseZone(WidgetTester tester) async {
 void tapMapCoordinate(WidgetTester tester, LatLng point) {
   final map = tester.widget<FlutterMap>(
     find.descendant(
-      of: find.byKey(const Key('dynamic-map')),
+      of: find.byKey(const Key('reference-boundary-map')),
       matching: find.byType(FlutterMap),
     ),
   );
@@ -52,15 +52,15 @@ List<Polygon<int>> renderedPolygons(WidgetTester tester) => tester
     .polygons;
 
 void main() {
-  group('Day 6 dynamic map', () {
-    testWidgets('renders the administrative reference as a neutral layer', (
+  group('Unified Bacoor map', () {
+    testWidgets('renders barangay boundaries and scenario data in one map', (
       tester,
     ) async {
       await pumpMap(tester, FakeFloodSenseApi());
 
       expect(find.byKey(const Key('reference-boundary-map')), findsOneWidget);
       expect(
-        find.text('1 barangay boundaries loaded from Django/PostGIS.'),
+        find.text('1 Bacoor barangay boundaries loaded from Django/PostGIS.'),
         findsOneWidget,
       );
       final layer = tester.widget<PolygonLayer<int>>(
@@ -68,10 +68,8 @@ void main() {
       );
       expect(layer.polygons, hasLength(1));
       expect(layer.polygons.single.borderColor, AppColors.primary);
-      expect(
-        find.byKey(const Key('reference-boundary-warning')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const Key('bacoor-map-data-note')), findsOneWidget);
+      expect(find.byKey(const Key('dynamic-map')), findsNothing);
     });
 
     testWidgets('renders API polygons neutrally before a complete scenario', (
@@ -138,15 +136,12 @@ void main() {
       ]) {
         expect(find.text(label), findsWidgets);
       }
-      expect(
-        find.byKey(const Key('map-demonstration-warning')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const Key('bacoor-map-data-note')), findsOneWidget);
       expect(find.byKey(const Key('osm-attribution')), findsOneWidget);
-      expect(find.bySemanticsLabel('Zoom in'), findsOneWidget);
-      expect(find.bySemanticsLabel('Zoom out'), findsOneWidget);
+      expect(find.bySemanticsLabel('Zoom in Bacoor map'), findsOneWidget);
+      expect(find.bySemanticsLabel('Zoom out Bacoor map'), findsOneWidget);
       expect(
-        find.bySemanticsLabel('Fit all demonstration areas'),
+        find.bySemanticsLabel('Fit all Bacoor barangays'),
         findsOneWidget,
       );
     });
@@ -294,7 +289,7 @@ void main() {
 
       await pumpMap(tester, FakeFloodSenseApi());
 
-      expect(find.byKey(const Key('dynamic-map')), findsOneWidget);
+      expect(find.byKey(const Key('reference-boundary-map')), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   });

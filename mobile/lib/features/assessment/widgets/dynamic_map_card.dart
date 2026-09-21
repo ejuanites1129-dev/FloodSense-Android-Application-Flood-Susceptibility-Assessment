@@ -256,7 +256,7 @@ class _DynamicMapCardState extends State<DynamicMapCard> {
                             ),
                           ),
                           if (controller.isMapAssessing)
-                            const Positioned.fill(child: _MapLoadingOverlay()),
+                            const Positioned.fill(child: MapLoadingOverlay()),
                         ],
                       ),
                     ),
@@ -266,7 +266,7 @@ class _DynamicMapCardState extends State<DynamicMapCard> {
             ),
             if (controller.mapError case final error?) ...[
               const SizedBox(height: 10),
-              _MapError(
+              MapError(
                 message: error.message,
                 onRetry: () => controller.refreshMapAssessment(force: true),
               ),
@@ -274,7 +274,7 @@ class _DynamicMapCardState extends State<DynamicMapCard> {
             const SizedBox(height: 12),
             MapLegend(results: controller.mapResultsByAreaId.values),
             const SizedBox(height: 12),
-            _PointResolutionStatus(controller: controller),
+            PointResolutionStatus(controller: controller),
           ],
         ),
       ),
@@ -360,8 +360,8 @@ class _MapControl extends StatelessWidget {
   }
 }
 
-class _MapLoadingOverlay extends StatelessWidget {
-  const _MapLoadingOverlay();
+class MapLoadingOverlay extends StatelessWidget {
+  const MapLoadingOverlay({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -398,8 +398,8 @@ class _MapLoadingOverlay extends StatelessWidget {
   }
 }
 
-class _MapError extends StatelessWidget {
-  const _MapError({required this.message, required this.onRetry});
+class MapError extends StatelessWidget {
+  const MapError({required this.message, required this.onRetry, super.key});
 
   final String message;
   final VoidCallback onRetry;
@@ -511,8 +511,8 @@ class MapLegend extends StatelessWidget {
   }
 }
 
-class _PointResolutionStatus extends StatelessWidget {
-  const _PointResolutionStatus({required this.controller});
+class PointResolutionStatus extends StatelessWidget {
+  const PointResolutionStatus({required this.controller, super.key});
 
   final AssessmentController controller;
 

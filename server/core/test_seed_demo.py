@@ -85,11 +85,16 @@ class SeedDemoCommandTests(TestCase):
     def test_polygons_are_multipolygons_in_4326_and_do_not_overlap(self):
         self._seed()
         areas = list(GeographicArea.objects.filter(source__name=SOURCE_NAME).order_by("code"))
+        bacoor = GeographicArea.objects.get(code="PSGC_0402103000")
 
         self.assertEqual([area.code for area in areas], [f"DEMO_ZONE_{x}" for x in "ABCD"])
         for area in areas:
             self.assertEqual(area.geometry.geom_type, "MultiPolygon")
             self.assertEqual(area.geometry.srid, 4326)
+            self.assertTrue(
+                bacoor.geometry.covers(area.geometry),
+                f"{area.code} must stay inside the Bacoor boundary",
+            )
         for index, area in enumerate(areas):
             for other in areas[index + 1 :]:
                 self.assertFalse(area.geometry.intersects(other.geometry))

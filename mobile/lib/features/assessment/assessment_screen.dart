@@ -13,7 +13,7 @@ import '../location/location_service.dart';
 import 'assessment_controller.dart';
 import 'widgets/assessment_result_card.dart';
 import 'widgets/demonstration_warning.dart';
-import 'widgets/dynamic_map_card.dart';
+import 'widgets/dynamic_map_card.dart' show SelectedZonePreview;
 import 'widgets/duration_selector.dart';
 import 'widgets/limitation_result_card.dart';
 import 'widgets/reference_boundary_map_card.dart';
@@ -98,7 +98,7 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Choose a hypothetical rainfall scenario and a fictional demonstration zone.',
+                        'Choose a hypothetical rainfall scenario, then explore it on the Bacoor barangay map.',
                         style: Theme.of(context).textTheme.bodyLarge
                             ?.copyWith(color: AppColors.secondaryText),
                       ),
@@ -181,11 +181,6 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
           showBasemap: widget.showBasemap,
         ),
         const SizedBox(height: 14),
-        DynamicMapCard(
-          controller: _controller,
-          showBasemap: widget.showBasemap,
-        ),
-        const SizedBox(height: 14),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -198,7 +193,7 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'The selector remains available if placing a map pin is difficult.',
+                  'The selector remains available for the four synthetic test sectors. These sectors do not classify an entire barangay.',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 const SizedBox(height: 14),

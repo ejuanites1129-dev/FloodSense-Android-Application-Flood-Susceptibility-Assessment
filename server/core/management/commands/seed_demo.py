@@ -45,12 +45,14 @@ DURATIONS = (
     ("DEMO_24_HOURS", "24 hours", 24),
 )
 
-# These rectangles are synthetic display geometry, not Bacoor barangay boundaries.
+# These rectangles are synthetic display geometry placed inside Bacoor so the
+# mobile client can demonstrate scenario overlays on one map. They remain
+# separate DEMO_ZONE records and are not barangay or MGB susceptibility data.
 ZONES = (
-    ("DEMO_ZONE_A", "Demo Zone A", 1, 120.000, 14.000),
-    ("DEMO_ZONE_B", "Demo Zone B", 2, 120.012, 14.000),
-    ("DEMO_ZONE_C", "Demo Zone C", 3, 120.000, 14.012),
-    ("DEMO_ZONE_D", "Demo Zone D", 4, 120.012, 14.012),
+    ("DEMO_ZONE_A", "Demo Zone A", 1, 120.932, 14.447, 0.008),
+    ("DEMO_ZONE_B", "Demo Zone B", 2, 120.963, 14.438, 0.006),
+    ("DEMO_ZONE_C", "Demo Zone C", 3, 120.961, 14.406, 0.006),
+    ("DEMO_ZONE_D", "Demo Zone D", 4, 120.985, 14.376, 0.008),
 )
 
 RULES = (
@@ -134,12 +136,16 @@ class Command(BaseCommand):
         source.organization = "FloodSense research prototype"
         source.source_type = DataSource.SourceType.DEMONSTRATION
         source.coverage_description = (
-            "Four synthetic map rectangles used only for the FloodSense demonstration."
+            "Four synthetic scenario sectors inside the Bacoor map extent, used only "
+            "for the FloodSense demonstration."
         )
         source.permitted_use = "Fictional local development and automated testing only."
         source.status = PublicationStatus.DEMONSTRATION
         source.is_publicly_releasable = False
-        source.notes = "Seed-owned Day 6 data. Shapes, ranks, rules, and guidance are not official."
+        source.notes = (
+            "Seed-owned scenario data. Sectors are not barangays or MGB polygons; "
+            "shapes, ranks, rules, and guidance are not official."
+        )
         source.save()
         return source
 
@@ -218,7 +224,7 @@ class Command(BaseCommand):
 
     def _areas(self, source: DataSource) -> dict[str, GeographicArea]:
         areas = {}
-        for code, name, baseline, west, south in ZONES:
+        for code, name, baseline, west, south, size in ZONES:
             area = self._demo_record(
                 GeographicArea,
                 {"code": code},
@@ -228,9 +234,9 @@ class Command(BaseCommand):
             polygon = Polygon(
                 (
                     (west, south),
-                    (west, south + 0.01),
-                    (west + 0.01, south + 0.01),
-                    (west + 0.01, south),
+                    (west, south + size),
+                    (west + size, south + size),
+                    (west + size, south),
                     (west, south),
                 ),
                 srid=4326,

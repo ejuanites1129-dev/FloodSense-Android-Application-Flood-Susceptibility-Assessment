@@ -303,8 +303,8 @@ void main() {
     expect(statusSemantics.properties.liveRegion, isTrue);
 
     for (final label in [
-      'Zoom in reference map',
-      'Zoom out reference map',
+      'Zoom in Bacoor map',
+      'Zoom out Bacoor map',
       'Fit all Bacoor barangays',
     ]) {
       final target = find.bySemanticsLabel(label);

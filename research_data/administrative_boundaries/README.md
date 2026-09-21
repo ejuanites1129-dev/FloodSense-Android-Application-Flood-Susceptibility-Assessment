@@ -160,7 +160,9 @@ barangays from:
 GET /api/v1/geography/reference-boundaries/
 ```
 
-This dedicated endpoint and its neutral map are separate from the fictional
-demonstration assessment endpoints. Do not add flood classifications or
-`AreaFact` records to the imported barangays unless those values have an
-independently reviewed source and approval workflow.
+This dedicated endpoint remains separate from the fictional demonstration
+assessment endpoints and data records. The Android client may compose both
+layers in one map: the 47 barangays provide administrative context while the
+synthetic `DEMO_ZONE` polygons carry scenario colors. Do not add flood
+classifications or `AreaFact` records to the imported barangays unless those
+values have an independently reviewed source and approval workflow.

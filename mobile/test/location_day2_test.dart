@@ -467,7 +467,7 @@ void main() {
       await tester.tap(find.byKey(const Key('location-purpose-continue')));
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const Key('dynamic-map')), findsOneWidget);
+      expect(find.byKey(const Key('reference-boundary-map')), findsOneWidget);
       expect(find.byKey(const Key('manual-barangay-selector')), findsOneWidget);
       expect(find.byKey(const Key('zone-none')), findsOneWidget);
       expect(find.bySemanticsLabel(RegExp('Light, selected')), findsOneWidget);
