@@ -5,6 +5,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:floodsense/app/floodsense_app.dart';
 import 'package:floodsense/data/models/geographic_area.dart';
+import 'package:floodsense/data/models/nearest_center_result.dart';
 import 'package:floodsense/data/models/scenario_option.dart';
 import 'package:floodsense/data/models/verified_center.dart';
 import 'package:floodsense/features/assessment/assessment_controller.dart';
@@ -57,31 +58,36 @@ final class Day6CenterProvider implements NearestCenterProvider {
   int calls = 0;
 
   @override
-  Future<List<VerifiedCenter>> findNearest({
+  Future<NearestCenterResult> findNearest({
     required double latitude,
     required double longitude,
   }) async {
     calls++;
-    return [
-      VerifiedCenter(
-        publicIdentifier: 'day6-synthetic-center',
-        name: 'Synthetic center with a deliberately long resident-facing name',
-        address: 'A deliberately long synthetic address used only to verify responsive layout and text scaling.',
-        barangay: CenterBarangayIdentity(
-          psgcCode: '0402103004',
-          name: 'Synthetic Barangay With A Long Name',
+    return NearestCenterResult(
+      distanceMethod: nearestCenterDistanceMethod,
+      warnings: const [nearestCenterDistanceWarning],
+      centers: [
+        VerifiedCenter(
+          publicIdentifier: 'day6-synthetic-center',
+          name:
+              'Synthetic center with a deliberately long resident-facing name',
+          address: 'A deliberately long synthetic address used only to verify responsive layout and text scaling.',
+          barangay: CenterBarangayIdentity(
+            psgcCode: '0402103004',
+            name: 'Synthetic Barangay With A Long Name',
+          ),
+          latitude: 14.406,
+          longitude: 120.966,
+          approximateDistance: 275,
+          distanceUnit: CenterDistanceUnit.meters,
+          verifiedOn: DateTime.utc(2026, 9, 1),
+          sourceAttribution: 'Synthetic source for automated tests only',
+          limitations: const [
+            'Synthetic limitation text that remains readable at large text sizes.',
+          ],
         ),
-        latitude: 14.406,
-        longitude: 120.966,
-        approximateDistance: 275,
-        distanceUnit: CenterDistanceUnit.meters,
-        verifiedOn: DateTime.utc(2026, 9, 1),
-        sourceAttribution: 'Synthetic source for automated tests only',
-        limitations: const [
-          'Synthetic limitation text that remains readable at large text sizes.',
-        ],
-      ),
-    ];
+      ],
+    );
   }
 }
 

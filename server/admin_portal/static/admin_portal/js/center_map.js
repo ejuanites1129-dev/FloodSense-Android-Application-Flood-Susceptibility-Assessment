@@ -1,6 +1,13 @@
 (() => {
   const mapElement = document.querySelector("[data-center-map]");
-  if (!mapElement || typeof window.ol === "undefined") return;
+  const statusElement = document.querySelector("[data-center-map-status]");
+  if (!mapElement) return;
+  if (typeof window.ol === "undefined") {
+    if (statusElement) {
+      statusElement.textContent = "Map preview unavailable. Review the labeled latitude and longitude fields independently.";
+    }
+    return;
+  }
   mapElement.textContent = "";
 
   const latitudeInput = document.querySelector("#id_latitude");
@@ -33,17 +40,27 @@
     const longitudeValue = longitudeInput ? longitudeInput.value.trim() : String(defaultLongitude);
     if (!latitudeValue || !longitudeValue) {
       point.setGeometry(undefined);
+      if (statusElement) {
+        statusElement.textContent = "Enter both latitude and longitude to preview a marker.";
+      }
       return;
     }
     const latitude = Number(latitudeValue);
     const longitude = Number(longitudeValue);
-    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)
+        || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
       point.setGeometry(undefined);
+      if (statusElement) {
+        statusElement.textContent = "The marker is hidden because the coordinates are outside valid WGS 84 ranges.";
+      }
       return;
     }
     const coordinate = ol.proj.fromLonLat([longitude, latitude]);
     point.setGeometry(new ol.geom.Point(coordinate));
     map.getView().setCenter(coordinate);
+    if (statusElement) {
+      statusElement.textContent = `Preview marker at latitude ${latitudeValue}, longitude ${longitudeValue}. This does not verify the center or route safety.`;
+    }
   };
   if (latitudeInput && longitudeInput) {
     latitudeInput.addEventListener("input", refresh);

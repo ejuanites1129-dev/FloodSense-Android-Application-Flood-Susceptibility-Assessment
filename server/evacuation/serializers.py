@@ -1,4 +1,4 @@
-"""Executable wire contracts only; eligibility and distance remain later work.
+"""Strict request and response contracts for the nearest-center API.
 
 Validate a wire-shaped mapping with ``data=...`` and ``is_valid()`` before
 using ``.data``. These are deliberately not ModelSerializers and do not accept

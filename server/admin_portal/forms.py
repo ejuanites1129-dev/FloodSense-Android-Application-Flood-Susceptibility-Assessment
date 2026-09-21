@@ -2,6 +2,8 @@ from django import forms
 from django.contrib.admin.models import ADDITION, CHANGE, DELETION
 from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import AuthenticationForm
+from django.db.models.functions import Lower, Trim
+from django.utils import timezone
 from dss.models import GuidanceItem
 from evacuation.models import EvacuationCenter
 from expert.models import ScenarioOption, SusceptibilityLevel
@@ -42,6 +44,14 @@ class EvacuationCenterFilterForm(forms.Form):
 
 
 class EvacuationCenterForm(forms.ModelForm):
+    duplicate_review_confirmed = forms.BooleanField(
+        label=(
+            "I reviewed the possible duplicate records and confirm this draft should "
+            "remain a separate record."
+        ),
+        required=False,
+    )
+
     class Meta:
         model = EvacuationCenter
         fields = (
@@ -66,6 +76,19 @@ class EvacuationCenterForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.duplicate_warnings = []
+        self.fields["geographic_area"].help_text = (
+            "Assign the supported administrative area when known. A missing or unsupported "
+            "association keeps the record out of resident results; association does not "
+            "verify the facility, assign flood susceptibility, or establish route safety."
+        )
+        self.fields["contact_information"].help_text = (
+            "Optional. Add only contact details authorized for this staff record; "
+            "this field is never returned by the resident nearest-center API."
+        )
+        self.fields[
+            "limitations"
+        ].help_text = "Record public-facing caveats required to interpret this center safely."
         self.fields["source"].queryset = DataSource.objects.exclude(
             status__in=(PublicationStatus.RESTRICTED, PublicationStatus.RETIRED)
         ).order_by("name", "id")
@@ -74,6 +97,75 @@ class EvacuationCenterForm(forms.ModelForm):
             for choice in PublicationStatus.choices
             if choice[0] in (PublicationStatus.DEMONSTRATION, PublicationStatus.PENDING_VALIDATION)
         ]
+
+    @staticmethod
+    def _reject_control_characters(value):
+        if value and any(ord(char) < 32 and char not in "\n\t\r" for char in value):
+            raise forms.ValidationError("Remove unsupported control characters.")
+        return value
+
+    def clean_name(self):
+        return self._reject_control_characters(self.cleaned_data["name"])
+
+    def clean_address(self):
+        return self._reject_control_characters(self.cleaned_data["address"])
+
+    def clean_contact_information(self):
+        return self._reject_control_characters(self.cleaned_data["contact_information"])
+
+    def clean_limitations(self):
+        return self._reject_control_characters(self.cleaned_data["limitations"])
+
+    def clean_notes(self):
+        return self._reject_control_characters(self.cleaned_data["notes"])
+
+    def clean(self):
+        cleaned = super().clean()
+        if self._errors:
+            return cleaned
+        name = cleaned.get("name")
+        latitude = cleaned.get("latitude")
+        longitude = cleaned.get("longitude")
+        if not name and (latitude is None or longitude is None):
+            return cleaned
+
+        candidates = EvacuationCenter.objects.select_related("geographic_area").all()
+        if self.instance.pk:
+            candidates = candidates.exclude(pk=self.instance.pk)
+
+        matches = {}
+        if name:
+            normalized_name = name.strip().lower()
+            for center in candidates.annotate(normalized_name=Lower(Trim("name"))).filter(
+                normalized_name=normalized_name
+            ):
+                matches.setdefault(center.pk, {"center": center, "reasons": []})["reasons"].append(
+                    "same normalized name"
+                )
+        if latitude is not None and longitude is not None:
+            for center in candidates.filter(latitude=latitude, longitude=longitude):
+                matches.setdefault(center.pk, {"center": center, "reasons": []})["reasons"].append(
+                    "same exact coordinates"
+                )
+
+        self.duplicate_warnings = [
+            {
+                "name": item["center"].name,
+                "area": (
+                    item["center"].geographic_area.name
+                    if item["center"].geographic_area_id
+                    else "No area assigned"
+                ),
+                "reasons": tuple(item["reasons"]),
+            }
+            for _, item in sorted(matches.items())
+        ]
+        if self.duplicate_warnings and not cleaned.get("duplicate_review_confirmed"):
+            self.add_error(
+                "duplicate_review_confirmed",
+                "Review the possible matches before saving this separate draft.",
+            )
+        return cleaned
 
 
 class EvacuationTransitionForm(forms.Form):
@@ -105,6 +197,8 @@ class EvacuationTransitionForm(forms.Form):
         cleaned = super().clean()
         if self.action == "verify" and not cleaned.get("verified_on"):
             self.add_error("verified_on", "A verification date is required.")
+        elif self.action == "verify" and cleaned["verified_on"] > timezone.localdate():
+            self.add_error("verified_on", "The verification date cannot be in the future.")
         return cleaned
 
 

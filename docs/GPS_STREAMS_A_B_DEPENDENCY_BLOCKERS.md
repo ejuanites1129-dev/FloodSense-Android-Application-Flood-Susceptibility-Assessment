@@ -19,11 +19,12 @@ Repository state and tests are authoritative if this note later becomes stale.
 | Stream B Days 1-4 | Complete | Resolver contract/service/API, controlled boundary filtering, robustness, public PSGC utility, and center-identity/boundary integration tests are implemented. |
 | Stream A Day 4 independent work | Complete | Location-gated center state management, validated presentation types, cards, markers, warnings, failure states, cleanup, and fake-based tests are implemented. |
 | Stream A Day 4 production integration | **Pending Stream A implementation** | The tested backend and exact handoff now exist. Production adapter/parser and warning-envelope integration remain absent. |
-| Stream C resident API | **Day 3 backend verified** | Public JSON POST route, 1,024-byte limit, scoped rate control, normalized errors, no-store and no-write HTTP tests pass. |
+| Stream C resident API | **Day 4 backend verified** | Current-state eligibility, full-precision distance ordering, display rounding, public allowlist, bounded input/output, honest empty behavior, and no-write HTTP behavior pass. |
 | Stream C/D Day 1 | Complete; former baseline blocker resolved | Frozen contract, repository privacy review, ownership, and baseline evidence exist. Contract and full backend tests now pass locally. |
 | Stream C/D Day 2 | **Complete** | Database-backed distance, eligibility, migration, no-write and Admin permission tests pass. The user confirmed the manual browser checklist passed; the UUID migration is confirmed applied locally. |
 | Stream C/D Day 3 | **Fresh browser QA pending** | Backend, map code review/regression and Android handoff are verified. No connected browser was available for a fresh desktop/320px, keyboard or JavaScript-disabled pass. |
-| Stream D evacuation Admin | Implemented separately | Draft/review/verification/inactive workflows, permission checks, audit entries, forms, and map preview exist. This does not substitute for Stream C's resident API. |
+| Stream C/D Day 4 | **Automated work complete; fresh browser QA pending** | Eligibility refresh, distance edge cases, Admin validation, exact duplicate warnings, provenance, confirmations, permissions, safe audit summaries, and map alternatives are implemented. |
+| Stream D evacuation Admin | **Day 4 automated work verified** | Draft/review/verification/inactive workflows, permission checks, confirmations, audit entries, provenance, duplicate review, forms, and accessible map alternatives exist. |
 
 The earlier Day 4 checkpoint reported 148 Flutter tests and 241 backend tests.
 The Team B Day 1 run passed 164 Flutter tests and 153 new contract tests;
@@ -76,8 +77,9 @@ mobile integration, deployed controls and fresh Day 3 browser evidence are not.
 
 - Stream A can now plan parser/adapter work against exact field names,
   nullability, bounds, warnings, and errors; the missing contract blocker is resolved.
-- The backend service/endpoint and Day 3 handoff are now available. Stream A
-  still owns production integration; Team B has not implemented a mobile adapter.
+- The backend service/endpoint and Day 3 handoff are available. Stream A's
+  production adapter landed on 22 September 2026 with strict envelope parsing,
+  warning presentation, and typed client errors.
 - The Day 1 center contract foundation is complete; this does not establish live
   nearest-center output or deployed privacy controls.
 
@@ -155,31 +157,41 @@ No new map layer or production map redesign was required by the Day 3 review.
 
 ### Day 4 — live center integration and end-to-end verification
 
-#### Live mobile integration still missing
+#### Stream C/D Day 4 backend and Admin work verified
 
 The service now verifies eligibility per call, full-precision ordering, display
 rounding, bounded results, strict input, straight-line methodology and honest
 empty results. These behaviors and HTTP abuse controls now pass backend endpoint
-tests. Day 4 still needs verification through the production mobile adapter.
+tests. Admin form/workflow/provenance/duplicate/audit regressions also pass. See
+`GPS_STREAM_C_D_DAY_4_GUIDE.md` for exact implementation and performance evidence.
+Fresh visual browser evidence is still unavailable in this environment.
+
+#### Live mobile integration implemented; populated evidence still pending
+
+The production provider now returns the full result envelope, and the default
+app uses the shared HTTP client as its `NearestCenterProvider`. Automated tests
+cover exact parsing, POST-body coordinates, truthful empty output, warning
+presentation, no automatic retry, and typed failures. Localhost and LAN socket
+checks returned the exact empty envelope, and the build launched on the connected
+Android 14 phone. Manual confirmation of the rendered empty state is still pending.
 
 #### Stream D coordination still needed
 
-- Coordinate Stream A adoption of the frozen Day 1 contract, including public
-  UUID and safe provenance/address fields; Stream C owns rollout of the verified UUID migration.
-- Run Admin-to-API-to-Flutter integration checks after the adapter lands.
+- Preserve the adopted frozen Day 1 contract, including public UUID and safe
+  provenance/address fields; each target still owns rollout verification of the UUID migration.
+- Run populated Admin-to-API-to-Flutter integration checks after authorized
+  source-backed center data becomes available.
 - Capture release evidence for empty, results, invalid, offline, timeout, and
   unavailable scenarios without adding invented presentation records.
 
-#### Stream A work that remains blocked
+#### Remaining data/evidence dependencies
 
-- Production `NearestCenterProvider` HTTP adapter.
-- Strict JSON parsing using exact frozen names, nullability, statuses, units,
-  limits, and errors.
-- Live endpoint tests proving coordinates are in the POST body and absent from
-  the URL.
-- Live empty/results/offline/timeout/server/malformed integration checks.
-- Physical-device verification of real cards, center markers, location changes,
-  and cleanup against the backend.
+- Authorized evacuation-center records with approved, publicly releasable,
+  non-demonstration provenance.
+- Fresh Admin list/create/edit/detail/confirmation browser evidence.
+- Populated physical-device verification of real cards, markers, location
+  changes, and cleanup against the backend.
+- Deployment TLS, proxy/logging, representative performance, and governance review.
 
 The independent Stream A implementation is intentionally ready for one future
 adapter; it does not sort, filter, retry automatically, calculate authoritative
@@ -198,15 +210,13 @@ into Stream C's evacuation API implementation.
 
 ## Downstream impact after Day 4
 
-Until mobile integration and the remaining Stream D evidence land:
+With mobile integration landed but remaining Stream D/data evidence outstanding:
 
-- Day 5 can harden the completed in-memory location/controller/UI code, but it
-  cannot complete end-to-end privacy, authorization, logging, abuse-limit, and
-  failure-response review for center lookup.
-- Day 6 can polish fake-backed cards and accessibility, but it cannot validate
-  real response rendering, real-data empty states, or endpoint performance.
-- Day 7 cannot complete deployment rehearsal or Admin-to-API-to-device evidence
-  for nearest centers.
+- Automated privacy, parsing, failure, UI, and honest-empty regression work is complete.
+- Real-data card rendering and representative endpoint performance remain
+  data/deployment-environment work.
+- Day 7 cannot complete populated Admin-to-API-to-device evidence or production
+  deployment certification without those inputs.
 
 Do not interpret these dependencies as permission to start Days 5-7 early.
 
@@ -217,11 +227,11 @@ Do not interpret these dependencies as permission to start Days 5-7 early.
    Day 3 Android handoff; verify each target's existing UUID migration.
 3. Stream D verifies the remaining deployment/privacy controls and integration
    evidence identified by the completed Day 1 repository review.
-4. Stream A adds the production adapter and strict parser without changing the
-   provider-independent controller or UI behavior.
-5. Run focused Stream C and mobile contract tests, then the full backend and
-   Flutter suites.
-6. Perform physical-device checks without creating fake real-world centers.
+4. Stream A's production adapter and strict parser are complete.
+5. Focused mobile contract tests and the full 175-test Flutter suite pass; the
+   Day 4 backend suite remains green at its recorded checkpoint.
+6. Complete manual empty-state verification, then perform populated physical-
+   device checks only after authorized center data is available.
 
 ## Completion rule
 

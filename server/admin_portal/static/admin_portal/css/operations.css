@@ -39,6 +39,9 @@
 .detail-grid .detail-wide { grid-column: 1 / -1; }
 .map-preview { min-height: 310px; margin-top: 16px; border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; background: #eef2f6; }
 .map-preview__fallback { display: grid; min-height: 310px; place-items: center; padding: 24px; color: var(--muted); text-align: center; }
+.map-preview__status { margin: 14px 0 0; padding: 10px 12px; border-left: 4px solid var(--brand); background: #eef8fd; }
+.map-attribution { margin: 10px 0 0; color: var(--muted); font-size: .84rem; }
+.map-preview:focus-visible { outline: 3px solid var(--brand-dark); outline-offset: 3px; }
 .confirm-page { max-width: 800px; }
 .confirm-form { display: grid; gap: 16px; margin-top: 20px; }
 .checkbox-confirm { display: flex; align-items: flex-start; gap: 10px; }

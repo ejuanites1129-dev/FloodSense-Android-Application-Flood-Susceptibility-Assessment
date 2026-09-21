@@ -6,10 +6,13 @@
 
 **Scope:** Foreground GPS, barangay detection, nearest verified evacuation-center discovery, and safe improvements that do not change the research algorithm
 
-**Implementation checkpoint (21 September 2026):** Streams A and B are complete
-through their independent Day 4 work, but live nearest-center integration remains
-pending the production mobile adapter and mandatory warning-envelope integration,
-and remaining Stream D deployment/privacy/integration evidence. See
+**Implementation checkpoint (22 September 2026):** The production mobile
+nearest-center adapter, strict complete-envelope parser, mandatory warning
+presentation, and typed failure mapping are implemented and wired into the
+default app. The full Flutter suite passes with 175 tests, and the live backend
+honest-empty envelope was verified over localhost and the phone-accessible LAN
+address. Authorized center data, populated Admin-to-API-to-device evidence,
+fresh Admin browser QA, and deployment/governance review remain pending. See
 `GPS_STREAMS_A_B_DEPENDENCY_BLOCKERS.md` for the cross-day inventory and exact handoff.
 
 **Team B Day 1 checkpoint (20 September 2026):** Streams C/D contract, repository
@@ -54,6 +57,28 @@ See [Day 3 evidence](GPS_STREAM_C_D_DAY_3_GUIDE.md) and the
 There is no new migration or dependency. Production Flutter integration,
 physical-device results, deployed privacy controls and Day 4 acceptance remain
 unverified; the historical Day 1/2 checkpoints above describe their own scope.
+
+**Team B Day 4 checkpoint (21 September 2026): Automated C/D work complete; fresh browser QA pending.**
+Current-state center/source eligibility, WGS 84 distance edge cases,
+full-precision-before-rounding behavior, bounded safe output, and truthful empty
+responses are explicitly regression-tested. The evacuation Admin now adds exact
+normalized-name/exact-coordinate review warnings without merging, stronger
+server-side validation, clearer provenance and transition effects, safe audit
+field summaries, and non-map coordinate status/fallbacks. Focused Day 4 and
+existing endpoint/Admin suites pass. No schema change, migration, data import,
+mobile edit, or geography edit was required. The connected browser runtime had
+no available browser, so fresh visual/keyboard/responsive/no-script verification
+remains an environment limitation. See `GPS_STREAM_C_D_DAY_4_GUIDE.md`.
+
+**Stream A integration follow-up (22 September 2026): Mobile adapter complete;
+data-dependent acceptance remains.** The app now posts confirmed coordinates in
+the JSON body to the frozen nearest-center endpoint, parses the exact complete
+response envelope, preserves server order and mandatory warnings, rejects
+malformed public records, and maps request, rate, connectivity, timeout, server,
+and malformed-response failures without automatic retries. The app was installed
+on a connected Android 14 physical device and its initial API requests succeeded.
+The truthful empty response is live; populated-card acceptance must wait for
+authorized, source-backed center records and must not use invented production data.
 
 ## 1. Purpose
 

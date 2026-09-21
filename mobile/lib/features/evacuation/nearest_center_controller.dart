@@ -19,6 +19,8 @@ enum NearestCenterPhase {
   timeout,
   serverUnavailable,
   malformedResponse,
+  requestRejected,
+  rateLimited,
   locationCleared,
   locationChanged,
   recoverableError,
@@ -38,6 +40,8 @@ final class NearestCenterController extends ChangeNotifier {
 
   NearestCenterPhase _phase = NearestCenterPhase.initial;
   List<VerifiedCenter> _centers = const [];
+  List<String> _warnings = const [];
+  String? _distanceMethod;
   String? _selectedCenterIdentifier;
   _ConfirmedLocationKey? _activeLocation;
   int _generation = 0;
@@ -45,6 +49,8 @@ final class NearestCenterController extends ChangeNotifier {
 
   NearestCenterPhase get phase => _phase;
   List<VerifiedCenter> get centers => _centers;
+  List<String> get warnings => _warnings;
+  String? get distanceMethod => _distanceMethod;
   String? get selectedCenterIdentifier => _selectedCenterIdentifier;
   bool get canRetry => switch (_phase) {
     NearestCenterPhase.offline ||
@@ -68,6 +74,8 @@ final class NearestCenterController extends ChangeNotifier {
     NearestCenterPhase.timeout => 'The center request timed out. Your confirmed location and assessment choices are unchanged.',
     NearestCenterPhase.serverUnavailable => 'Verified center information is temporarily unavailable. Your confirmed location and assessment choices are unchanged.',
     NearestCenterPhase.malformedResponse => 'Center information could not be safely read. No partial center records are shown.',
+    NearestCenterPhase.requestRejected => 'The center request was not accepted. Confirm a valid location before trying again.',
+    NearestCenterPhase.rateLimited => 'Too many center requests were made. Please wait before confirming a location again.',
     NearestCenterPhase.locationCleared =>
       'Center results were cleared with the temporary location.',
     NearestCenterPhase.locationChanged =>
@@ -148,14 +156,17 @@ final class NearestCenterController extends ChangeNotifier {
     if (_phase == NearestCenterPhase.loading) return;
     final generation = ++_generation;
     _centers = const [];
+    _warnings = const [];
+    _distanceMethod = null;
     _selectedCenterIdentifier = null;
     _setPhase(NearestCenterPhase.loading);
     try {
-      final centers = await activeProvider.findNearest(
+      final result = await activeProvider.findNearest(
         latitude: location.coordinate.latitude,
         longitude: location.coordinate.longitude,
       );
       if (!_isCurrent(generation, location)) return;
+      final centers = result.centers;
       final identifiers = centers
           .map((center) => center.publicIdentifier)
           .toSet();
@@ -165,6 +176,8 @@ final class NearestCenterController extends ChangeNotifier {
         return;
       }
       _centers = List.unmodifiable(centers);
+      _warnings = List.unmodifiable(result.warnings);
+      _distanceMethod = result.distanceMethod;
       _setPhase(
         centers.isEmpty
             ? NearestCenterPhase.empty
@@ -173,6 +186,8 @@ final class NearestCenterController extends ChangeNotifier {
     } on CenterLookupException catch (error) {
       if (!_isCurrent(generation, location)) return;
       _centers = const [];
+      _warnings = const [];
+      _distanceMethod = null;
       _setPhase(switch (error.kind) {
         CenterLookupFailureKind.offline => NearestCenterPhase.offline,
         CenterLookupFailureKind.timeout => NearestCenterPhase.timeout,
@@ -180,12 +195,17 @@ final class NearestCenterController extends ChangeNotifier {
           NearestCenterPhase.serverUnavailable,
         CenterLookupFailureKind.malformedResponse =>
           NearestCenterPhase.malformedResponse,
+        CenterLookupFailureKind.requestRejected =>
+          NearestCenterPhase.requestRejected,
+        CenterLookupFailureKind.rateLimited => NearestCenterPhase.rateLimited,
         CenterLookupFailureKind.recoverable =>
           NearestCenterPhase.recoverableError,
       });
     } catch (_) {
       if (!_isCurrent(generation, location)) return;
       _centers = const [];
+      _warnings = const [];
+      _distanceMethod = null;
       _setPhase(NearestCenterPhase.recoverableError);
     }
   }
@@ -197,6 +217,8 @@ final class NearestCenterController extends ChangeNotifier {
     _generation++;
     _activeLocation = null;
     _centers = const [];
+    _warnings = const [];
+    _distanceMethod = null;
     _selectedCenterIdentifier = null;
   }
 
@@ -214,6 +236,8 @@ final class NearestCenterController extends ChangeNotifier {
     _locationController.removeListener(_onLocationChanged);
     _activeLocation = null;
     _centers = const [];
+    _warnings = const [];
+    _distanceMethod = null;
     _selectedCenterIdentifier = null;
     super.dispose();
   }

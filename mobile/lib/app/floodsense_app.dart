@@ -22,14 +22,19 @@ class FloodSenseApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final activeApi = api ?? FloodSenseApiClient();
+    NearestCenterProvider? activeCenterProvider = nearestCenterProvider;
+    if (activeCenterProvider == null && activeApi is NearestCenterProvider) {
+      activeCenterProvider = activeApi as NearestCenterProvider;
+    }
     return MaterialApp(
       title: 'FloodSense',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       home: AssessmentScreen(
-        api: api ?? FloodSenseApiClient(),
+        api: activeApi,
         locationService: locationService,
-        nearestCenterProvider: nearestCenterProvider,
+        nearestCenterProvider: activeCenterProvider,
         showBasemap: showBasemap,
       ),
     );

@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:floodsense/data/api/floodsense_api_client.dart';
 import 'package:floodsense/data/models/barangay_resolution.dart';
 import 'package:floodsense/data/models/point_resolution.dart';
+import 'package:floodsense/data/models/nearest_center_result.dart';
 import 'package:floodsense/data/models/verified_center.dart';
 import 'package:floodsense/features/assessment/assessment_controller.dart';
 import 'package:floodsense/features/evacuation/nearest_center_controller.dart';
@@ -89,12 +90,19 @@ final class Day5CenterProvider implements NearestCenterProvider {
   int calls = 0;
 
   @override
-  Future<List<VerifiedCenter>> findNearest({
+  Future<NearestCenterResult> findNearest({
     required double latitude,
     required double longitude,
-  }) {
+  }) async {
     calls++;
-    return handler();
+    final centers = await handler();
+    return NearestCenterResult(
+      centers: centers,
+      distanceMethod: nearestCenterDistanceMethod,
+      warnings: centers.isEmpty
+          ? const [nearestCenterEmptyWarning, nearestCenterEmptyDistanceWarning]
+          : const [nearestCenterDistanceWarning],
+    );
   }
 }
 

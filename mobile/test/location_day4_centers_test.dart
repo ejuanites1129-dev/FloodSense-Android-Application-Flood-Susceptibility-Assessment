@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:floodsense/app/floodsense_app.dart';
 import 'package:floodsense/data/api/floodsense_api_client.dart';
 import 'package:floodsense/data/models/barangay_resolution.dart';
+import 'package:floodsense/data/models/nearest_center_result.dart';
 import 'package:floodsense/data/models/point_resolution.dart';
 import 'package:floodsense/data/models/verified_center.dart';
 import 'package:floodsense/features/evacuation/nearest_center_controller.dart';
@@ -69,16 +70,28 @@ class FakeNearestCenterProvider implements NearestCenterProvider {
   handler;
 
   @override
-  Future<List<VerifiedCenter>> findNearest({
+  Future<NearestCenterResult> findNearest({
     required double latitude,
     required double longitude,
-  }) {
+  }) async {
     calls++;
     this.latitude = latitude;
     this.longitude = longitude;
-    return handler?.call(latitude, longitude) ?? Future.value(sampleCenters());
+    final centers =
+        await (handler?.call(latitude, longitude) ??
+            Future.value(sampleCenters()));
+    return testCenterResult(centers);
   }
 }
+
+NearestCenterResult testCenterResult(List<VerifiedCenter> centers) =>
+    NearestCenterResult(
+      centers: centers,
+      distanceMethod: nearestCenterDistanceMethod,
+      warnings: centers.isEmpty
+          ? const [nearestCenterEmptyWarning, nearestCenterEmptyDistanceWarning]
+          : const [nearestCenterDistanceWarning],
+    );
 
 List<VerifiedCenter> sampleCenters() => [
   VerifiedCenter(

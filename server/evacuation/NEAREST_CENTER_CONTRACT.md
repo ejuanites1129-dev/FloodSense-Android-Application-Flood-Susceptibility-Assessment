@@ -6,8 +6,11 @@
 public HTTP route are implemented and tested. The request/response schema below
 is unchanged; reviewed HTTP size/rate additions appear below. Statements about
 future Day 2 implementation are retained as the original design specification.
-The production mobile adapter remains Day 4 work. See
-`../../docs/GPS_STREAM_C_D_DAY_3_GUIDE.md` for evidence and remaining verification.
+**Mobile integration checkpoint (22 September 2026):** the production adapter,
+strict complete-envelope parser, mandatory warning UI, typed failure mapping,
+and default-app wiring are implemented. See
+`../../docs/GPS_STREAMS_A_B_DEPENDENCY_BLOCKERS.md` for remaining data and
+deployment evidence.
 
 This is the current safe team implementation direction, not adviser approval of
 optional GPS. The final GPS requirement remains unresolved in
@@ -43,6 +46,21 @@ location. Manual barangay selection without a coordinate cannot supply distance.
 The query ranks eligible Bacoor-associated centers against any valid WGS 84
 point, including points outside Bacoor. There is no radius or same-barangay
 filter, no nearest-polygon fallback, and no implication of road reachability.
+
+### Interpreting the distance safely
+
+The service computes an approximate geodetic straight-line distance between the
+submitted point and each eligible center's stored WGS 84 coordinate. It is not
+road distance and it is not a safe-route calculation. It does not account for
+road closures, flood depth, traffic, terrain, access restrictions, bridge
+conditions, or any other live hazard. The nearest result is not necessarily the
+safest destination.
+
+Center records contain no live occupancy signal. Inclusion does not guarantee
+that a center is currently open, has space, is accessible, or is reachable.
+During an emergency, users should follow official local instructions. These
+limitations describe the implementation and do not create an evacuation order
+or an unreviewed legal or operational assurance.
 
 ## Public response schema
 
@@ -307,14 +325,13 @@ access blocked by pytest-django. It verifies the schema; on Day 3 its former
 route-absence assertion was replaced by exact route registration. The new
 `test_day3_nearest_api.py` covers the HTTP boundary and database-backed behavior.
 
-Stream A may use this contract for fakes/planning. Later it owns strict JSON
-parsing and one production `NearestCenterProvider` adapter, including rejecting
-extra fields, preserving UUID/PSGC strings and server ordering, and handling
-top-level warnings. Its current provider returns only a list; the adapter/UI
-handoff must ensure required envelope warnings remain visible. No mobile files
-were edited. The older mobile handoff's missing-contract inventory is superseded
-for backend availability by this document and the Day 3 handoff; its mobile
-live-integration blockers still apply.
+Stream A implements this contract through one production
+`NearestCenterProvider` adapter. It rejects extra fields, preserves UUID/PSGC
+strings and server ordering, validates the exact distance method, unit, dates,
+limitations and warning vocabulary, and retains top-level warnings in the UI.
+The older missing-contract inventory is superseded. Authorized populated data,
+fresh Admin browser evidence, and deployment verification remain separate
+acceptance dependencies.
 
 See `../../docs/GPS_STREAM_C_D_DAY_1_PRIVACY_REVIEW.md` and
 `../../docs/GPS_STREAM_C_D_DAY_1_BASELINE.md` for evidence and limits.

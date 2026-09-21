@@ -4,6 +4,7 @@ from datetime import date
 from django.contrib.admin.models import CHANGE, LogEntry
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
+from django.utils import timezone
 from provenance.models import PublicationStatus
 
 from .models import EvacuationCenter
@@ -17,6 +18,11 @@ class CenterTransition:
     target_status: str
     permission: str
     confirmation: str
+    resident_visibility_effect: str
+
+    @property
+    def target_label(self) -> str:
+        return EvacuationCenter.VerificationStatus(self.target_status).label
 
 
 TRANSITIONS = {
@@ -29,6 +35,7 @@ TRANSITIONS = {
             EvacuationCenter.VerificationStatus.IN_REVIEW,
             "evacuation.change_evacuationcenter",
             "The record will become read-only while its source and location are reviewed.",
+            "The record remains excluded from resident nearest-center results.",
         ),
         CenterTransition(
             "return-draft",
@@ -37,6 +44,7 @@ TRANSITIONS = {
             EvacuationCenter.VerificationStatus.DRAFT,
             "evacuation.change_evacuationcenter",
             "The record will leave the review queue and become editable.",
+            "The record remains excluded from resident nearest-center results.",
         ),
         CenterTransition(
             "verify",
@@ -46,6 +54,8 @@ TRANSITIONS = {
             "evacuation.verify_evacuationcenter",
             "Verification confirms the record against its approved source; it does "
             "not issue an evacuation order.",
+            "The record can appear to residents only when every current center, source, "
+            "public-field, and geographic-identity eligibility gate also passes.",
         ),
         CenterTransition(
             "deactivate",
@@ -54,6 +64,7 @@ TRANSITIONS = {
             EvacuationCenter.VerificationStatus.INACTIVE,
             "evacuation.deactivate_evacuationcenter",
             "The center will be marked inactive and must not be treated as currently available.",
+            "The record is removed from resident nearest-center results on the next request.",
         ),
         CenterTransition(
             "reactivate-review",
@@ -62,6 +73,7 @@ TRANSITIONS = {
             EvacuationCenter.VerificationStatus.IN_REVIEW,
             "evacuation.change_evacuationcenter",
             "The inactive record will require fresh verification before it can be active again.",
+            "The record remains excluded from resident nearest-center results until reverified.",
         ),
     )
 }
@@ -100,17 +112,15 @@ def transition_center(
         raise ValidationError("Unknown verification action.")
     if not actor.has_perm(transition.permission):
         raise PermissionDenied
-    center = (
-        EvacuationCenter.objects.select_for_update()
-        .select_related("source")
-        .get(pk=center_id)
-    )
+    center = EvacuationCenter.objects.select_for_update().select_related("source").get(pk=center_id)
     if center.verification_status != expected_status:
         raise ValidationError(
             "This center changed after the confirmation page opened. Review it and try again."
         )
     if center.verification_status != transition.source_status:
         raise ValidationError("This action is not valid from the current state.")
+    if action == "verify" and verified_on and verified_on > timezone.localdate():
+        raise ValidationError("The verification date cannot be in the future.")
 
     previous = center.get_verification_status_display()
     center.verification_status = transition.target_status

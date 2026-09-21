@@ -6,6 +6,7 @@
 <div class="operations-page confirm-page">
   <section class="page-heading"><div><p class="eyebrow">Confirm verification action</p><h1>{{ transition.label }}</h1><p>{{ center.name }}</p></div></section>
   <section class="notice notice--warning"><strong>Review before continuing</strong><p>{{ transition.confirmation }}</p></section>
+  <section class="panel" aria-labelledby="transition-effect-heading"><h2 id="transition-effect-heading">Requested state change</h2><dl class="detail-grid"><div><dt>Record</dt><dd>{{ center.name }}</dd></div><div><dt>Action</dt><dd>{{ transition.label }}</dd></div><div><dt>Current state</dt><dd>{{ center.get_verification_status_display }}</dd></div><div><dt>Resulting state</dt><dd>{{ transition.target_label }}</dd></div><div class="detail-wide"><dt>Resident visibility effect</dt><dd>{{ transition.resident_visibility_effect }}</dd></div></dl></section>
   {% include "admin_portal/includes/center_safety.html" %}
   <section class="panel">
     <h2>Confirm the record change</h2>

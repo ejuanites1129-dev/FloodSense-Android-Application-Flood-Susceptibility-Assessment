@@ -1,4 +1,7 @@
-"""SELECT-only internal nearest-center service; no HTTP endpoint or location history."""
+"""SELECT-only nearest-center service used by the public HTTP endpoint.
+
+The service retains no user-location history and performs no database writes.
+"""
 
 from math import isfinite
 
@@ -222,7 +225,7 @@ def find_nearest_eligible_centers(*, latitude: float, longitude: float, limit: i
     """Return the frozen wire envelope, without persisting or logging user input.
 
     Invalid caller inputs raise safe DRF ValidationError before any SQL. Database
-    failures propagate for the future view's generic failure boundary.
+    failures propagate to the public view's generic failure boundary.
     """
     request = NearestCenterRequestSerializer(
         data={"latitude": latitude, "longitude": longitude, "limit": limit}

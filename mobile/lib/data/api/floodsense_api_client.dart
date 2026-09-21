@@ -11,8 +11,10 @@ import '../models/barangay_resolution.dart';
 import '../models/geographic_area.dart';
 import '../models/json_parsing.dart';
 import '../models/map_assessment_result.dart';
+import '../models/nearest_center_result.dart';
 import '../models/point_resolution.dart';
 import '../models/scenario_option.dart';
+import '../../features/evacuation/nearest_center_provider.dart';
 import 'api_exception.dart';
 
 abstract interface class BarangayResolver {
@@ -43,7 +45,7 @@ abstract interface class FloodSenseApi implements BarangayResolver {
   void close();
 }
 
-class FloodSenseApiClient implements FloodSenseApi {
+class FloodSenseApiClient implements FloodSenseApi, NearestCenterProvider {
   FloodSenseApiClient({
     http.Client? client,
     String? baseUrl,
@@ -132,6 +134,87 @@ class FloodSenseApiClient implements FloodSenseApi {
       );
     }
     return result;
+  }
+
+  @override
+  Future<NearestCenterResult> findNearest({
+    required double latitude,
+    required double longitude,
+  }) async {
+    if (!latitude.isFinite ||
+        latitude < -90 ||
+        latitude > 90 ||
+        !longitude.isFinite ||
+        longitude < -180 ||
+        longitude > 180) {
+      throw const CenterLookupException(
+        CenterLookupFailureKind.requestRejected,
+      );
+    }
+
+    try {
+      final response = await _client
+          .post(
+            _uri('evacuation-centers/nearest/'),
+            headers: const {
+              HttpHeaders.acceptHeader: 'application/json',
+              HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
+            },
+            body: jsonEncode({
+              'latitude': latitude,
+              'longitude': longitude,
+              'limit': 3,
+            }),
+          )
+          .timeout(timeout);
+
+      if (response.statusCode == 200) {
+        final contentType = response.headers[HttpHeaders.contentTypeHeader];
+        if (contentType == null ||
+            !contentType.toLowerCase().startsWith('application/json')) {
+          throw const CenterLookupException(
+            CenterLookupFailureKind.malformedResponse,
+          );
+        }
+        final body = _decodeObject(response.bodyBytes);
+        return NearestCenterResult.fromJson(body, requestedLimit: 3);
+      }
+      if (response.statusCode == 400 ||
+          response.statusCode == 413 ||
+          response.statusCode == 415) {
+        throw const CenterLookupException(
+          CenterLookupFailureKind.requestRejected,
+        );
+      }
+      if (response.statusCode == 429) {
+        throw CenterLookupException(
+          CenterLookupFailureKind.rateLimited,
+          retryAfter: _retryAfter(response.headers['retry-after']),
+        );
+      }
+      if (const {500, 502, 503, 504}.contains(response.statusCode)) {
+        throw const CenterLookupException(
+          CenterLookupFailureKind.serverUnavailable,
+        );
+      }
+      throw const CenterLookupException(CenterLookupFailureKind.recoverable);
+    } on CenterLookupException {
+      rethrow;
+    } on TimeoutException {
+      throw const CenterLookupException(CenterLookupFailureKind.timeout);
+    } on SocketException {
+      throw const CenterLookupException(CenterLookupFailureKind.offline);
+    } on http.ClientException {
+      throw const CenterLookupException(CenterLookupFailureKind.offline);
+    } on FormatException {
+      throw const CenterLookupException(
+        CenterLookupFailureKind.malformedResponse,
+      );
+    } on ArgumentError {
+      throw const CenterLookupException(
+        CenterLookupFailureKind.malformedResponse,
+      );
+    }
   }
 
   @override
@@ -254,6 +337,13 @@ class FloodSenseApiClient implements FloodSenseApi {
       result['request'] = ['The assessment selections were not accepted.'];
     }
     return Map.unmodifiable(result);
+  }
+
+  Duration? _retryAfter(String? value) {
+    if (value == null) return null;
+    final seconds = int.tryParse(value.trim());
+    if (seconds == null || seconds < 0) return null;
+    return Duration(seconds: seconds);
   }
 
   @override

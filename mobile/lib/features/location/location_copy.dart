@@ -5,7 +5,10 @@ abstract final class LocationCopy {
   static const purposeTitle = 'Use your location for this assessment?';
   static const purpose =
       'FloodSense can use one temporary location to look up a likely Bacoor '
-      'barangay. This lookup does not determine flood susceptibility.';
+      'barangay and request nearby verified center information with approximate '
+      'straight-line distances. This lookup does not determine flood '
+      'susceptibility, route safety, accessibility, availability, or an '
+      'evacuation recommendation.';
   static const privacy =
       'Your coordinate is used only during this flow and is not retained. '
       'You can use the map pin or barangay selector instead.';

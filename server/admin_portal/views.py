@@ -90,8 +90,7 @@ SECTIONS = {
         "title": "Evacuation centers",
         "eyebrow": "Verified resources",
         "description": (
-            "Review and verify sourced center records supplied by the responsible "
-            "data custodian."
+            "Review and verify sourced center records supplied by the responsible data custodian."
         ),
         "day": "Day 6",
     },
@@ -118,6 +117,47 @@ AUDIT_MODULES = (
     (("expert", "scenariooption"), "Rainfall references"),
     (("evacuation", "evacuationcenter"), "Evacuation centers"),
 )
+
+CENTER_AUDIT_FIELD_LABELS = {
+    "name": "name",
+    "address": "address",
+    "geographic_area": "geographic area",
+    "latitude": "latitude",
+    "longitude": "longitude",
+    "contact_information": "contact information",
+    "source": "source association",
+    "publication_status": "publication status",
+    "notes": "notes",
+    "limitations": "public limitations",
+}
+
+
+def _selected_center_source(form: EvacuationCenterForm) -> DataSource | None:
+    """Return permitted source metadata for staff presentation, never raw POST data."""
+    if form.is_bound:
+        source = getattr(form, "cleaned_data", {}).get("source")
+        return source if isinstance(source, DataSource) else None
+    source_id = form.initial.get("source")
+    if not source_id and form.instance and form.instance.source_id:
+        source_id = form.instance.source_id
+    if not source_id:
+        return None
+    return form.fields["source"].queryset.filter(pk=source_id).first()
+
+
+def _center_edit_audit_message(form: EvacuationCenterForm) -> str:
+    labels = [
+        CENTER_AUDIT_FIELD_LABELS[name]
+        for name in form.changed_data
+        if name in CENTER_AUDIT_FIELD_LABELS
+    ]
+    if not labels:
+        return "Evacuation-center draft saved without a material field change."
+    return (
+        "Evacuation-center draft edited through the management portal. Changed fields: "
+        + ", ".join(labels)
+        + "."
+    )
 
 
 def staff_required(view: Callable[..., HttpResponse]) -> Callable[..., HttpResponse]:
@@ -558,6 +598,7 @@ def evacuation_center_create(request: HttpRequest) -> HttpResponse:
             "center": None,
             "form_mode": "create",
             "openlayers_root": OPENLAYERS_CDN_ROOT,
+            "selected_source": _selected_center_source(form),
         }
     )
     return render(request, "admin_portal/evacuation_center_form.html", context)
@@ -581,7 +622,7 @@ def evacuation_center_edit(request: HttpRequest, center_id: int) -> HttpResponse
             log_center_action(
                 actor=request.user,
                 center=center,
-                message="Evacuation-center draft edited through the management portal.",
+                message=_center_edit_audit_message(form),
             )
         messages.success(request, "Evacuation-center draft updated.")
         return redirect("admin_portal:evacuation-center-detail", center_id=center.pk)
@@ -592,6 +633,7 @@ def evacuation_center_edit(request: HttpRequest, center_id: int) -> HttpResponse
             "center": center,
             "form_mode": "edit",
             "openlayers_root": OPENLAYERS_CDN_ROOT,
+            "selected_source": _selected_center_source(form),
         }
     )
     return render(request, "admin_portal/evacuation_center_form.html", context)

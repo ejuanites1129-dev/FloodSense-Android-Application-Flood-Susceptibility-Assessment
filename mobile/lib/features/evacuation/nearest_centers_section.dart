@@ -47,6 +47,28 @@ class NearestCentersSection extends StatelessWidget {
                 label: const Text('Try center request again'),
               ),
             ],
+            if (controller.warnings.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Semantics(
+                container: true,
+                label: controller.warnings.join(' '),
+                child: Container(
+                  key: const Key('nearest-center-response-warnings'),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.warningSurface,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final warning in controller.warnings)
+                        Text('• $warning'),
+                    ],
+                  ),
+                ),
+              ),
+            ],
             if (controller.centers.isNotEmpty) ...[
               const SizedBox(height: 14),
               for (final center in controller.centers) ...[

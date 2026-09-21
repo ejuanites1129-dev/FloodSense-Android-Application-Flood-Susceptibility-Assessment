@@ -6,8 +6,15 @@
 geography/barangay resolution
 **Verdict:** **Conditionally ready**
 
-The foreground GPS, manual-location, barangay resolver, assessment-separation,
-privacy, accessibility, and failure-handling work is reproducible and passes the
+> **Historical snapshot:** Every blocker and verdict below describes the exact
+> rehearsed commit from 20 September. Stream C/D Days 1–3 landed later and are
+> intentionally not retroactively claimed by this report. Use
+> `GPS_STREAMS_A_B_DEPENDENCY_BLOCKERS.md` and
+> `GPS_STREAM_A_NEAREST_CENTER_DAY_3_HANDOFF.md` for current status.
+
+At the rehearsed commit, the foreground GPS, manual-location, barangay resolver,
+assessment-separation, privacy, accessibility, and failure-handling work is
+reproducible and passes the
 automated release gates. The complete resident nearest-center path is not a
 release candidate because Stream C still has no public eligibility service or
 endpoint and Stream A consequently has no production HTTP adapter. Android
@@ -62,7 +69,7 @@ changed.
 
 ## 3. Dependency-blocker classification
 
-| Blocker | Classification | Current evidence and owner | Release impact / safest next action |
+| Blocker | Classification | Evidence at rehearsed commit and owner | Release impact / safest next action |
 | --- | --- | --- | --- |
 | Foreground location dependency and Android declarations | Resolved | `geolocator` is locked; the merged debug manifest has coarse/fine foreground permissions only. Stream A. | None. Retain one-shot behavior and manifest regression checks. |
 | Exact nearest-center wire contract, safe fields, statuses, limits, units, and errors | Still active; owned by Programmer 2 / Streams C-D | `server/evacuation/` has no contract, serializer, service, or URL; `mobile/STREAM_C_NEAREST_CENTER_HANDOFF.md` remains accurate. | Prevents live center parsing and end-to-end release-candidate status. Freeze a reviewed contract first. |

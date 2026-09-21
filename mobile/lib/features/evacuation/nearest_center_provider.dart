@@ -1,11 +1,9 @@
-import '../../data/models/verified_center.dart';
+import '../../data/models/nearest_center_result.dart';
 
 /// Replaceable boundary for the Stream C nearest-center service.
 ///
-/// There is deliberately no production HTTP implementation until Stream C
-/// publishes exact request, response, limit, and error contracts.
 abstract interface class NearestCenterProvider {
-  Future<List<VerifiedCenter>> findNearest({
+  Future<NearestCenterResult> findNearest({
     required double latitude,
     required double longitude,
   });
@@ -16,11 +14,14 @@ enum CenterLookupFailureKind {
   timeout,
   serverUnavailable,
   malformedResponse,
+  requestRejected,
+  rateLimited,
   recoverable,
 }
 
 final class CenterLookupException implements Exception {
-  const CenterLookupException(this.kind);
+  const CenterLookupException(this.kind, {this.retryAfter});
 
   final CenterLookupFailureKind kind;
+  final Duration? retryAfter;
 }

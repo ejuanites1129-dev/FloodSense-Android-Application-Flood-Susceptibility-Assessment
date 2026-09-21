@@ -1,52 +1,32 @@
-# Stream C nearest-center contract handoff
+# Stream C nearest-center handoff — superseded baseline
 
-For the complete Days 1-4 dependency inventory and downstream impact, see
-`../docs/GPS_STREAMS_A_B_DEPENDENCY_BLOCKERS.md`.
+**Status:** Integration completed on 22 September 2026; retained as a historical handoff.
 
-Day 4 Stream A cannot add a production HTTP adapter until Stream C publishes
-and tests its frozen nearest-center contract.
+This file originally recorded the missing Stream C dependency before the
+nearest-center contract, service, public identifier migration, and HTTP endpoint
+existed. Do not use its former inventory as the current repository state.
 
-## Checked repository state
+The authoritative implementation handoff is now:
 
-- The conceptual route is `POST /api/v1/evacuation-centers/nearest/`.
-- `server/evacuation/views.py` does not implement that route.
-- `server/evacuation/` has no nearest-center serializer, service, URL module, or
-  endpoint contract document.
-- `server/config/urls.py` does not expose an evacuation API route.
-- `EvacuationCenter` has no approved stable public identifier distinct from its
-  database row ID.
-- No checked-in contract defines exact request keys, optional limit bounds,
-  response keys, result states, distance unit, or error shapes.
+- `../docs/GPS_STREAM_A_NEAREST_CENTER_DAY_3_HANDOFF.md` for the exact Android
+  request, response-envelope, parser, warning, privacy, and error requirements;
+- `../server/evacuation/NEAREST_CENTER_CONTRACT.md` for the frozen wire and
+  eligibility contract; and
+- `../docs/GPS_STREAMS_A_B_DEPENDENCY_BLOCKERS.md` for current completion and
+  downstream work.
 
-## Stream A boundary completed
+## Current boundary
 
-The mobile UI now consumes `NearestCenterProvider`, which accepts an in-memory
-latitude and longitude and returns validated, public presentation data in the
-provider's original order. There is no production provider, wire parser, URL,
-automatic retry, mobile eligibility filter, or client-side distance sort. The
-normal app displays an honest contract-unavailable state after a coordinate-
-bearing location is confirmed. Deterministic fakes cover the UI and controller.
+Stream C/D Days 1–3 now provide and test
+`POST /api/v1/evacuation-centers/nearest/`, the database-backed eligibility and
+distance service, the stable public UUID, bounded JSON parsing, safe errors,
+no-store headers, request throttling, and no-write behavior.
 
-## Required from Programmer 2
-
-Freeze and test:
-
-1. Exact JSON request keys and the approved optional result-limit default and
-   bounds.
-2. Exact success, empty, validation, timeout-facing, and service-error shapes.
-3. A stable public center identifier that is not an unapproved raw row ID.
-4. Public barangay identity fields compatible with the geography convention:
-   the 10-digit PSGC value derived from `GeographicArea.code` values shaped as
-   `PSGC_##########`, plus the public label.
-5. Latitude/longitude, approximate distance and unit, verification date, safe
-   source attribution, and public limitations field names and nullability.
-6. Backend-only filtering for verified, approved, publicly releasable records;
-   stable nearest-first ordering; bounded results; malformed-record exclusion;
-   and no location-history writes.
-7. An allowlist that excludes contact information, internal notes, restricted
-   provenance, approval comments, live occupancy, unverified capacity,
-   susceptibility data, and Expert System data.
-
-After that contract lands, Stream A can add one `NearestCenterProvider` HTTP
-adapter and strict JSON parser without changing the location controller or
-resident widgets.
+Stream A now provides the production Flutter HTTP adapter, strict complete-
+envelope parsing, mandatory warning presentation, typed client error mapping,
+and default-app wiring. The provider returns `NearestCenterResult`, preserving
+`centers`, `distance_method`, and `warnings`; backend eligibility, distance
+sorting, and result limiting remain server-owned. The full Flutter suite passes
+with 175 tests, and the live honest-empty response was verified over the phone-
+accessible LAN address. Populated device acceptance still requires authorized,
+source-backed center records.

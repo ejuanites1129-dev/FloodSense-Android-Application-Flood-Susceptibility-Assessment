@@ -5,6 +5,15 @@
 Android handoff complete. Fresh Day 3 browser layout/accessibility verification
 is pending; do not mark the complete C/D Day 3 acceptance gate passed yet.
 
+**Pre-Day-4 readiness recheck — 21 September 2026:** The pulled public-UUID
+migration is applied on this workstation. Django system and migration checks,
+Ruff, 342 focused C/D tests, all 599 backend tests, Flutter analysis, and all
+167 Flutter tests pass. A local socket smoke check returned the exact safe empty
+nearest-center envelope with `Cache-Control: no-store` from the migrated
+application database. Browser availability was checked again, but no
+controllable browser was connected, so the fresh visual/keyboard/no-script
+acceptance item remains open rather than being inferred from automated tests.
+
 ## Starting point and preserved work
 
 The worktree was clean on `main` at
