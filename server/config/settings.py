@@ -20,12 +20,16 @@ def env_bool(name: str, default: bool = False) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+DEVELOPMENT_SECRET_KEY = "development-only-change-before-deployment"
 SECRET_KEY = os.getenv(
     "DJANGO_SECRET_KEY",
-    "development-only-change-before-deployment",
+    DEVELOPMENT_SECRET_KEY,
 )
 DEBUG = env_bool("DJANGO_DEBUG", True)
 GIS_ENABLED = env_bool("FLOODSENSE_GIS_ENABLED", True)
+
+if not DEBUG and SECRET_KEY == DEVELOPMENT_SECRET_KEY:
+    raise ImproperlyConfigured("DJANGO_SECRET_KEY must be set when DJANGO_DEBUG is false.")
 
 if gdal_library_path := os.getenv("GDAL_LIBRARY_PATH"):
     GDAL_LIBRARY_PATH = gdal_library_path
@@ -192,6 +196,14 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 LOGIN_URL = "admin_portal:login"
 LOGIN_REDIRECT_URL = "admin_portal:dashboard"
 LOGOUT_REDIRECT_URL = "admin_portal:login"
+
+# Keep session/authentication cookies inaccessible to scripts and same-site by
+# default. Production additionally requires HTTPS-only transport below.
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = "DENY"
 
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

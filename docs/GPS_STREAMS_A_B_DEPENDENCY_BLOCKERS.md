@@ -1,6 +1,6 @@
 # GPS Streams A and B dependency blockers
 
-**Status date:** 21 September 2026
+**Status date:** 22 September 2026
 
 **Scope:** Cross-day handoff for GPS Streams A and B through Day 4
 
@@ -24,6 +24,7 @@ Repository state and tests are authoritative if this note later becomes stale.
 | Stream C/D Day 2 | **Complete** | Database-backed distance, eligibility, migration, no-write and Admin permission tests pass. The user confirmed the manual browser checklist passed; the UUID migration is confirmed applied locally. |
 | Stream C/D Day 3 | **Fresh browser QA pending** | Backend, map code review/regression and Android handoff are verified. No connected browser was available for a fresh desktop/320px, keyboard or JavaScript-disabled pass. |
 | Stream C/D Day 4 | **Automated work complete; fresh browser QA pending** | Eligibility refresh, distance edge cases, Admin validation, exact duplicate warnings, provenance, confirmations, permissions, safe audit summaries, and map alternatives are implemented. |
+| Stream C/D Day 5 | **Repository hardening complete; deployment/browser evidence pending** | Coordinate non-persistence, no-write behavior, error privacy, API bounds, Admin CSRF/authorization, mass-assignment, audit atomicity, Expert separation, production settings and failure paths pass automated review. Fresh browser and deployed infrastructure evidence remain open. |
 | Stream D evacuation Admin | **Day 4 automated work verified** | Draft/review/verification/inactive workflows, permission checks, confirmations, audit entries, provenance, duplicate review, forms, and accessible map alternatives exist. |
 
 The earlier Day 4 checkpoint reported 148 Flutter tests and 241 backend tests.
@@ -47,6 +48,13 @@ analysis is clean and 167 tests pass in the current unchanged-mobile checkout.
 See `GPS_STREAM_C_D_DAY_3_GUIDE.md` and
 `GPS_STREAM_A_NEAREST_CENTER_DAY_3_HANDOFF.md`. The route blocker is resolved;
 mobile integration, deployed controls and fresh Day 3 browser evidence are not.
+
+Day 5 now has **642 backend tests passed**. Duplicate JSON members fail closed,
+Admin transition deletion races return not found, production mode rejects the
+development fallback secret, and focused CSRF/mass-assignment/audit-rollback
+regressions pass. See `GPS_STREAM_C_D_DAY_5_GUIDE.md`. This repository evidence
+does not certify a deployed proxy, APM/log retention, shared throttling or TLS,
+and browser discovery still found no available browser for a fresh visual pass.
 
 ## Unresolved work by originating day
 

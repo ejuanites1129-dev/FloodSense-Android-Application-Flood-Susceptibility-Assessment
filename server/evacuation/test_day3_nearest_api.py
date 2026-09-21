@@ -113,6 +113,14 @@ def test_public_csrf_free_access_ignores_authorization(client, lookup, authoriza
     lookup.assert_called_once_with(**POINT, limit=3)
 
 
+def test_public_lookup_never_invokes_susceptibility_inference(client, lookup):
+    with patch("expert.services.evaluate_assessment") as inference:
+        response = post(client)
+    assert response.status_code == 200
+    lookup.assert_called_once_with(**POINT, limit=3)
+    inference.assert_not_called()
+
+
 @pytest.mark.parametrize("accept", ["application/json", "text/html", "*/*", "application/xml"])
 def test_json_only_even_in_debug_and_with_format_preferences(client, lookup, settings, accept):
     settings.DEBUG = True
@@ -191,6 +199,8 @@ def test_unsupported_or_missing_media_is_safe_even_for_empty_body(client, lookup
         b'{"latitude": NaN, "longitude": 0}',
         b'{"latitude": Infinity, "longitude": 0}',
         b'{"latitude": 0, "longitude": -Infinity}',
+        b'{"latitude": 0, "latitude": 1, "longitude": 0}',
+        b'{"latitude": 0, "longitude": 0, "metadata": {"a": 1, "a": 2}}',
     ],
 )
 def test_malformed_json_has_no_fragments(client, lookup, body):

@@ -670,6 +670,8 @@ def evacuation_center_transition(request: HttpRequest, center_id: int, action: s
                 verified_on=form.cleaned_data.get("verified_on"),
                 capacity=form.cleaned_data.get("capacity"),
             )
+        except EvacuationCenter.DoesNotExist:
+            raise Http404 from None
         except ValidationError as error:
             form.add_error(None, " ".join(error.messages))
             response_status = 409
@@ -829,6 +831,8 @@ def data_source_transition(request: HttpRequest, source_id: int, action: str) ->
                 expected_status=form.cleaned_data["expected_status"],
                 expected_public=form.cleaned_data["expected_public"],
             )
+        except DataSource.DoesNotExist:
+            raise Http404 from None
         except ValidationError as error:
             form.add_error(None, " ".join(error.messages))
             response_status = 409
