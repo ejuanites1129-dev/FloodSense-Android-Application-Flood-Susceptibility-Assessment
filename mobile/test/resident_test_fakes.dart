@@ -28,6 +28,7 @@ class FakeResidentAuthRepository implements ResidentAuthRepository {
   bool registerCalled = false;
   bool resetRequested = false;
   bool preferencesSaved = false;
+  bool deletionScheduled = false;
   String? lastUsername;
 
   final documents = const [
@@ -201,7 +202,9 @@ class FakeResidentAuthRepository implements ResidentAuthRepository {
   Future<ResidentUser> unlinkGoogle(String password) async => testUser;
 
   @override
-  Future<void> requestDeletion() async {}
+  Future<void> scheduleDeletion() async {
+    deletionScheduled = true;
+  }
 
   @override
   Future<void> logout() async {

@@ -25,7 +25,10 @@ account_patterns = [
     path("me/", views.account_me, name="me"),
     path("preferences/", views.account_preferences, name="preferences"),
     path("change-password/", views.change_password, name="change-password"),
-    path("request-deletion/", views.request_deletion, name="request-deletion"),
+    path("deletion/schedule/", views.schedule_deletion, name="schedule-deletion"),
+    path("deletion/cancel/", views.cancel_deletion, name="cancel-deletion"),
+    # Backward-compatible route for older mobile builds.
+    path("request-deletion/", views.schedule_deletion, name="request-deletion"),
     path("google/link/", views.link_google, name="google-link"),
     path("google/unlink/", views.unlink_google, name="google-unlink"),
 ]

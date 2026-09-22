@@ -124,6 +124,10 @@ class SessionController extends ChangeNotifier {
     user = await repository.unlinkGoogle(password);
   });
 
+  Future<bool> scheduleAccountDeletion() async => _run(() async {
+    await repository.scheduleDeletion();
+  });
+
   Future<void> logout() async {
     busy = true;
     _notify();

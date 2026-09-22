@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
 import '../../config/api_config.dart';
+import '../network/network_exception.dart';
 
 class DssOption {
   const DssOption({
@@ -147,10 +147,7 @@ class HttpStructuredDssRepository implements StructuredDssRepository {
     );
     return DssStep.fromJson(
       await _send(
-        () => _client.get(
-          uri,
-          headers: const {HttpHeaders.acceptHeader: 'application/json'},
-        ),
+        () => _client.get(uri, headers: const {'accept': 'application/json'}),
       ),
     );
   }
@@ -169,8 +166,8 @@ class HttpStructuredDssRepository implements StructuredDssRepository {
         () => _client.post(
           uri,
           headers: const {
-            HttpHeaders.acceptHeader: 'application/json',
-            HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
+            'accept': 'application/json',
+            'content-type': 'application/json; charset=utf-8',
           },
           body: jsonEncode({
             'mode': 'demonstration',
@@ -197,8 +194,11 @@ class HttpStructuredDssRepository implements StructuredDssRepository {
       );
     } on TimeoutException {
       throw StateError('The DSS request timed out.');
-    } on SocketException {
-      throw StateError('The DSS is offline. Check your connection.');
+    } catch (error) {
+      if (isSocketException(error)) {
+        throw StateError('The DSS is offline. Check your connection.');
+      }
+      rethrow;
     }
   }
 }

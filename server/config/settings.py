@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "corsheaders",
     "rest_framework",
     "rest_framework_simplejwt.token_blacklist",
     "admin_portal",
@@ -68,6 +69,7 @@ if GIS_ENABLED:
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -76,6 +78,22 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
+
+# Browser clients must opt in through an exact origin. The fixed local web
+# development port matches the Flutter command documented in mobile/README.md.
+# Production must replace this list with its deployed HTTPS origin.
+default_cors_origins = (
+    "http://localhost:3000,http://127.0.0.1:3000" if DEBUG else ""
+)
+CORS_ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        "DJANGO_CORS_ALLOWED_ORIGINS",
+        default_cors_origins,
+    ).split(",")
+    if origin.strip()
+]
+CORS_URLS_REGEX = r"^/api/.*$"
 
 ROOT_URLCONF = "config.urls"
 
@@ -200,6 +218,9 @@ SIMPLE_JWT = {
 PASSWORD_RESET_TIMEOUT = int(os.getenv("FLOODSENSE_PASSWORD_RESET_TIMEOUT", "3600"))
 EMAIL_VERIFICATION_EXPIRY_HOURS = int(
     os.getenv("FLOODSENSE_EMAIL_VERIFICATION_EXPIRY_HOURS", "24")
+)
+ACCOUNT_DELETION_GRACE_DAYS = int(
+    os.getenv("FLOODSENSE_ACCOUNT_DELETION_GRACE_DAYS", "30")
 )
 RESIDENT_APP_PUBLIC_URL = os.getenv(
     "FLOODSENSE_RESIDENT_APP_PUBLIC_URL", "http://localhost:3000"

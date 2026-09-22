@@ -1,4 +1,4 @@
-# FloodSense Android application
+# FloodSense mobile and web application
 
 This Flutter application provides the Day 6 FloodSense demonstration flow. It
 loads administrator-managed rainfall options and fictional polygons from
@@ -8,8 +8,9 @@ displays the full explanation and DSS preparedness guidance for the selected
 zone.
 
 The application never stores permanent assessment rules, classifications,
-guidance, or pin coordinates. It does not use GPS and is not a live forecast,
-warning, boundary authority, route-safety, or evacuation-order service.
+guidance, or pin coordinates. Foreground GPS is optional and temporary. The
+application is not a live forecast, warning, boundary authority, route-safety,
+or evacuation-order service.
 
 ## Run on the Android emulator
 
@@ -38,6 +39,32 @@ http://10.0.2.2:8000/api/v1
 Android emulator traffic uses a debug-only cleartext-HTTP exception. Release
 builds retain Android's normal cleartext restriction; production must use an
 HTTPS API.
+
+## Run in Chrome for local development
+
+Install the backend dependencies and start Django on port 8000:
+
+```powershell
+Set-Location ..\server
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe manage.py runserver 127.0.0.1:8000
+```
+
+In another terminal, use the fixed browser origin allowed by the local Django
+configuration:
+
+```powershell
+Set-Location mobile
+flutter pub get
+flutter run -d chrome --web-hostname localhost --web-port 3000
+```
+
+The web build defaults to `http://127.0.0.1:8000/api/v1`. Use
+`--dart-define=FLOODSENSE_API_BASE_URL=https://.../api/v1` for a deployed HTTPS
+backend. Browser GPS requires a secure context; `localhost` is accepted for
+development. Google sign-in remains Android-only until the web interface uses
+Google's required provider-rendered button and approved OAuth origin. Username
+or email authentication remains available in the web preview.
 
 ## Run on a physical Android device
 

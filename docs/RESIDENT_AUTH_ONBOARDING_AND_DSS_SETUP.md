@@ -34,6 +34,76 @@ required. Until one published Terms version, one published Privacy version,
 and one published onboarding version exist, verified residents see a safe
 configuration-required screen rather than bypassing setup and entering Home.
 
+Migration `accounts.0004_schedule_account_deletion` adds the nullable deletion
+deadline used by the resident-controlled 30-day recovery flow. It preserves
+existing deletion records and does not delete any account when the migration is
+applied.
+
+## Teammate handoff after pulling this change
+
+Run these commands from the repository root. Keep the teammate's existing
+private `server/.env`; never replace it with another developer's file.
+
+```powershell
+# Install the updated Python requirements, including django-cors-headers.
+& .\server\.venv\Scripts\python.exe -m pip install -r .\server\requirements.txt
+
+# Review and apply the committed database migrations locally.
+& .\server\.venv\Scripts\python.exe .\server\manage.py migrate --plan
+& .\server\.venv\Scripts\python.exe .\server\manage.py migrate
+& .\server\.venv\Scripts\python.exe .\server\manage.py check
+
+# Resolve the Flutter packages already declared by the project.
+Push-Location .\mobile
+flutter pub get
+flutter analyze
+flutter test
+Pop-Location
+```
+
+No Node.js package installation, JavaScript framework, Firebase project, or
+new database server is required. Continue using the existing Flutter SDK,
+Django virtual environment, PostgreSQL/PostGIS database, and Android SDK. The
+new browser preview uses Flutter Web and the same Django API.
+
+To run the browser preview locally:
+
+```powershell
+# Terminal 1, from the repository root
+& .\server\.venv\Scripts\python.exe .\server\manage.py runserver 127.0.0.1:8000
+
+# Terminal 2
+Set-Location .\mobile
+flutter run -d chrome --web-hostname localhost --web-port 3000
+```
+
+The default development CORS configuration permits only the local web preview
+origins on port 3000 and only for `/api/` routes. If Django deliberately runs
+on another port, pass the API address to Flutter, for example:
+
+```powershell
+flutter run -d chrome --web-hostname localhost --web-port 3000 `
+  --dart-define=FLOODSENSE_API_BASE_URL=http://127.0.0.1:8001/api/v1
+```
+
+For the Android emulator, start Django on `0.0.0.0:8000`; the default debug
+client uses `http://10.0.2.2:8000/api/v1`. A physical Android phone must use a
+reachable LAN address supplied through `FLOODSENSE_API_BASE_URL`, and that host
+must be included in the teammate's private Django allowed-host configuration.
+Web Google sign-in remains intentionally disabled until an approved web OAuth
+client is configured; username/email sign-in works in the browser preview.
+
+For deployment, arrange a reviewed daily invocation of the following command.
+Do not run it merely to test the interface because it permanently removes due
+accounts:
+
+```powershell
+& .\server\.venv\Scripts\python.exe .\server\manage.py purge_scheduled_accounts
+```
+
+Use `--dry-run` first when validating deployment scheduling. Local development
+and ordinary presentations do not need to run the purge command.
+
 ## Environment variables
 
 The safe placeholders are in `server/.env.example`:
@@ -118,7 +188,8 @@ storage; otherwise the refresh token remains in memory for the running app.
 | `POST /api/v1/account/change-password/` | current/new password | result |
 | `POST /api/v1/account/google/link/` | password plus Google ID token | linked account |
 | `POST /api/v1/account/google/unlink/` | password | no content |
-| `POST /api/v1/account/request-deletion/` | authenticated | pending review record |
+| `POST /api/v1/account/deletion/schedule/` | authenticated | schedules deletion after the configured 30-day grace period |
+| `POST /api/v1/account/deletion/cancel/` | authenticated | cancels a scheduled deletion |
 | `GET /api/v1/legal/terms/current/` | public | published version or labeled draft preview |
 | `GET /api/v1/legal/privacy/current/` | public | published version or labeled draft preview |
 
@@ -131,6 +202,16 @@ Structured DSS remains public and stateless for compatibility:
 The client owns Back/restart history; the API stores no resident answers. DSS
 responses carry source, status, and warning text and cannot modify an
 assessment classification.
+
+Resident account deletion is user-controlled rather than an administrator
+approval request. Scheduling signs the mobile user out; a successful password
+or Google sign-in during the grace period cancels the schedule. Deployment must
+run `python manage.py purge_scheduled_accounts` as a reviewed daily maintenance
+command to permanently remove due resident accounts. This is server
+maintenance, not scenario monitoring or a mobile background timer. The grace
+period defaults to 30 days through
+`FLOODSENSE_ACCOUNT_DELETION_GRACE_DAYS`; the final retention and backup policy
+still requires institutional approval before production use.
 
 No structured DSS flow is silently published by these migrations. Existing
 flat `GuidanceItem` behavior remains available for compatibility. An authorized

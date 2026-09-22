@@ -76,7 +76,8 @@ void main() {
     await tester.tap(find.byKey(const Key('sign-in-button')));
     await tester.pumpAndSettle();
     expect(repository.loginRememberMe, isTrue);
-    expect(find.text('Start an Assessment'), findsOneWidget);
+    expect(find.byKey(const Key('resident-bottom-navigation')), findsOneWidget);
+    expect(find.byKey(const Key('resident-hybrid-map')), findsOneWidget);
   });
 
   testWidgets(
@@ -84,6 +85,7 @@ void main() {
     (tester) async {
       final repository = FakeResidentAuthRepository();
       await pumpResidentApp(tester, repository);
+      await tester.ensureVisible(find.text('Create Account'));
       await tester.tap(find.text('Create Account'));
       await tester.pumpAndSettle();
       await tester.enterText(
@@ -101,7 +103,9 @@ void main() {
         find.byKey(const Key('register-username')),
       );
       expect(field.controller!.text, 'resident.one');
-      await tester.tap(find.text('Privacy Policy'));
+      final privacy = find.text('Privacy Policy');
+      await tester.ensureVisible(privacy);
+      await tester.tap(privacy);
       await tester.pumpAndSettle();
       expect(find.text('Foreground GPS'), findsOneWidget);
     },
@@ -112,6 +116,7 @@ void main() {
   ) async {
     final repository = FakeResidentAuthRepository();
     await pumpResidentApp(tester, repository);
+    await tester.ensureVisible(find.text('Create Account'));
     await tester.tap(find.text('Create Account'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('create-account-button')));
@@ -119,6 +124,7 @@ void main() {
     expect(find.textContaining('beginning with a letter'), findsOneWidget);
     expect(find.text('Enter a valid email address.'), findsOneWidget);
     expect(find.text('Use at least 8 characters.'), findsOneWidget);
+    expect(find.text('Confirm your password.'), findsOneWidget);
     EditableText field = tester.widget(
       find.descendant(
         of: find.byKey(const Key('register-password')),
@@ -143,6 +149,7 @@ void main() {
     final repository = FakeResidentAuthRepository()
       ..requireGoogleUsername = true;
     await pumpResidentApp(tester, repository);
+    await tester.ensureVisible(find.text('Create Account'));
     await tester.tap(find.text('Create Account'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Continue with Google'));
@@ -155,7 +162,7 @@ void main() {
     await tester.tap(find.text('Continue with Google'));
     await tester.pumpAndSettle();
     expect(repository.googleUsername, 'google.resident');
-    expect(find.text('Start an Assessment'), findsOneWidget);
+    expect(find.byKey(const Key('resident-bottom-navigation')), findsOneWidget);
   });
 
   testWidgets('forgot password gives non-enumerating confirmation', (
@@ -199,13 +206,19 @@ void main() {
     final repository = FakeResidentAuthRepository()
       ..restoration = testSession(SetupStage.authenticatedReady);
     await pumpResidentApp(tester, repository);
-    expect(find.text('Start an Assessment'), findsOneWidget);
+    expect(find.byKey(const Key('resident-hybrid-map')), findsOneWidget);
     await tester.tap(find.byIcon(Icons.person_outline));
     await tester.pumpAndSettle();
     expect(find.text('Verified email address'), findsOneWidget);
-    await tester.drag(find.byType(ListView), const Offset(0, -500));
-    await tester.pumpAndSettle();
-    final logout = find.text('Log out');
+    final logout = find.byKey(const Key('profile-logout'));
+    await tester.scrollUntilVisible(
+      logout,
+      500,
+      scrollable: find.descendant(
+        of: find.byKey(const Key('profile-secondary-options')),
+        matching: find.byType(Scrollable),
+      ),
+    );
     await tester.tap(logout);
     await tester.pumpAndSettle();
     expect(repository.logoutCalled, isTrue);
@@ -221,7 +234,7 @@ void main() {
     await pumpResidentApp(tester, repository, api: api);
     await tester.tap(find.byIcon(Icons.person_outline));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Preferences'));
+    await tester.tap(find.byKey(const Key('profile-preferences')));
     await tester.pumpAndSettle();
     expect(find.textContaining('never store exact GPS'), findsOneWidget);
     await tester.tap(find.text('High contrast'));
@@ -233,6 +246,31 @@ void main() {
       find.text('Preferences saved. No assessment was run.'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('resident schedules deletion and is signed out', (tester) async {
+    final repository = FakeResidentAuthRepository()
+      ..restoration = testSession(SetupStage.authenticatedReady);
+    await pumpResidentApp(tester, repository);
+    await tester.tap(find.byIcon(Icons.person_outline));
+    await tester.pumpAndSettle();
+    final deleteAccount = find.text('Delete account');
+    await tester.scrollUntilVisible(
+      deleteAccount,
+      400,
+      scrollable: find.descendant(
+        of: find.byKey(const Key('profile-secondary-options')),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await tester.tap(deleteAccount);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('30 days'), findsOneWidget);
+    await tester.tap(find.text('Delete my account'));
+    await tester.pumpAndSettle();
+    expect(repository.deletionScheduled, isTrue);
+    expect(repository.logoutCalled, isTrue);
+    expect(find.text('Resident sign in'), findsOneWidget);
   });
 
   testWidgets(
@@ -249,11 +287,13 @@ void main() {
       await tester.pumpAndSettle();
       final scenario = find.text('Scenario limitations');
       await tester.ensureVisible(scenario);
+      await tester.drag(find.byType(ListView), const Offset(0, -180));
+      await tester.pumpAndSettle();
       await tester.tap(scenario);
       await tester.pumpAndSettle();
       expect(find.textContaining('not an official warning'), findsOneWidget);
-      await tester.tap(find.byKey(const Key('accept-11')));
-      await tester.tap(find.byKey(const Key('accept-12')));
+      expect(find.byType(CheckboxListTile), findsOneWidget);
+      await tester.tap(find.byKey(const Key('accept-all-legal')));
       await tester.pump();
       button = tester.widget(find.byKey(const Key('accept-legal-button')));
       expect(button.onPressed, isNotNull);
@@ -274,13 +314,13 @@ void main() {
       size: const Size(320, 640),
       textScale: 1.4,
     );
-    expect(find.text('Step 1 of 7'), findsOneWidget);
+    expect(find.text('STEP 1 OF 7'), findsOneWidget);
     await tester.tap(find.byKey(const Key('onboarding-continue')));
-    await tester.pump();
-    expect(find.text('Step 2 of 7'), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(find.text('STEP 2 OF 7'), findsOneWidget);
     await tester.tap(find.text('Back'));
-    await tester.pump();
-    expect(find.text('Step 1 of 7'), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(find.text('STEP 1 OF 7'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

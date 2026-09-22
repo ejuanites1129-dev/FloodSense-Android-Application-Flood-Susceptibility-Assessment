@@ -141,9 +141,15 @@ class OnboardingVersionAdmin(admin.ModelAdmin):
 
 @admin.register(AccountDeletionRequest)
 class AccountDeletionRequestAdmin(admin.ModelAdmin):
-    list_display = ("user", "status", "requested_at", "resolved_at")
+    list_display = (
+        "user",
+        "status",
+        "requested_at",
+        "scheduled_for",
+        "resolved_at",
+    )
     list_filter = ("status",)
-    readonly_fields = ("user", "requested_at")
+    readonly_fields = ("user", "requested_at", "scheduled_for", "resolved_at")
 
 
 @admin.register(ExternalIdentity, LegalAcceptance, OnboardingAcknowledgement, ResidentPreference)

@@ -5,6 +5,7 @@ from urllib.parse import parse_qs, urlparse
 from django.contrib.auth.tokens import default_token_generator
 from django.core import mail
 from django.core.cache import cache
+from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.utils import timezone
 from django.utils.encoding import force_bytes
@@ -12,6 +13,7 @@ from django.utils.http import urlsafe_base64_encode
 from rest_framework.test import APIClient
 
 from .models import (
+    AccountDeletionRequest,
     EmailVerificationChallenge,
     ExternalIdentity,
     LegalAcceptance,
@@ -436,14 +438,66 @@ class ResidentSetupAndAccountTests(TestCase):
             {"high_contrast": True, "reduce_motion": True},
             format="json",
         )
-        deletion = self.client.post("/api/v1/account/request-deletion/", {}, format="json")
+        deletion = self.client.post(
+            "/api/v1/account/deletion/schedule/", {}, format="json"
+        )
         self.assertEqual(updated.status_code, 200)
         self.assertEqual(updated.data["username"], "new.name")
         self.assertTrue(preferences.data["high_contrast"])
         self.assertFalse(preferences.data["stores_precise_coordinates"])
         self.assertEqual(deletion.status_code, 201)
+        self.assertEqual(deletion.data["grace_days"], 30)
+        scheduled = AccountDeletionRequest.objects.get(user=self.user)
+        self.assertEqual(scheduled.status, AccountDeletionRequest.Status.PENDING)
+        self.assertIsNotNone(scheduled.scheduled_for)
         self.client.force_authenticate(None)
         self.assertEqual(self.client.get("/api/v1/account/me/").status_code, 401)
+
+    def test_successful_login_cancels_scheduled_account_deletion(self):
+        AccountDeletionRequest.objects.create(
+            user=self.user,
+            scheduled_for=timezone.now() + timedelta(days=30),
+        )
+        self.client.force_authenticate(None)
+        response = self.client.post(
+            "/api/v1/auth/login/",
+            {
+                "identifier": "resident",
+                "password": "Strong-Test-Password-482!",
+                "remember_me": False,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["scheduled_deletion_cancelled"])
+        deletion = AccountDeletionRequest.objects.get(user=self.user)
+        self.assertEqual(deletion.status, AccountDeletionRequest.Status.CANCELLED)
+        self.assertIsNotNone(deletion.resolved_at)
+
+    def test_purge_command_deletes_only_due_resident_accounts(self):
+        due_user = User.objects.create_user(
+            email="due@example.com",
+            resident_username="due.resident",
+            password="Strong-Test-Password-482!",
+        )
+        future_user = User.objects.create_user(
+            email="future@example.com",
+            resident_username="future.resident",
+            password="Strong-Test-Password-482!",
+        )
+        AccountDeletionRequest.objects.create(
+            user=due_user,
+            scheduled_for=timezone.now() - timedelta(minutes=1),
+        )
+        AccountDeletionRequest.objects.create(
+            user=future_user,
+            scheduled_for=timezone.now() + timedelta(days=1),
+        )
+
+        call_command("purge_scheduled_accounts", verbosity=0)
+
+        self.assertFalse(User.objects.filter(pk=due_user.pk).exists())
+        self.assertTrue(User.objects.filter(pk=future_user.pk).exists())
 
     def test_preferences_reject_unknown_or_wrong_default_records(self):
         response = self.client.patch(

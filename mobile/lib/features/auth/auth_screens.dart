@@ -17,32 +17,96 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    body: SafeArea(
-      child: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 480),
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 180),
-              child: _registration
-                  ? RegistrationForm(
-                      key: const ValueKey('registration'),
-                      controller: widget.controller,
-                      onShowLogin: () => setState(() => _registration = false),
-                    )
-                  : LoginForm(
-                      key: const ValueKey('login'),
-                      controller: widget.controller,
-                      onCreateAccount: () =>
-                          setState(() => _registration = true),
-                    ),
+    body: Stack(
+      children: [
+        const Positioned.fill(
+          child: IgnorePointer(child: CustomPaint(painter: _AuthMapPainter())),
+        ),
+        SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 180),
+                  child: _registration
+                      ? RegistrationForm(
+                          key: const ValueKey('registration'),
+                          controller: widget.controller,
+                          onShowLogin: () =>
+                              setState(() => _registration = false),
+                        )
+                      : LoginForm(
+                          key: const ValueKey('login'),
+                          controller: widget.controller,
+                          onCreateAccount: () =>
+                              setState(() => _registration = true),
+                        ),
+                ),
+              ),
             ),
           ),
         ),
-      ),
+      ],
     ),
   );
+}
+
+class _AuthMapPainter extends CustomPainter {
+  const _AuthMapPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final background = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Color(0xFFF1F9F3),
+          AppColors.pageBackground,
+          Color(0xFFEAF6FC),
+        ],
+      ).createShader(Offset.zero & size);
+    canvas.drawRect(Offset.zero & size, background);
+
+    final contour = Paint()
+      ..color = AppColors.primary.withValues(alpha: 0.08)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    for (var index = 0; index < 7; index++) {
+      final inset = 18.0 + index * 22;
+      final path = Path()
+        ..moveTo(-20, inset)
+        ..cubicTo(
+          size.width * 0.25,
+          inset - 26,
+          size.width * 0.58,
+          inset + 34,
+          size.width + 20,
+          inset - 8,
+        );
+      canvas.drawPath(path, contour);
+    }
+    final river = Paint()
+      ..color = AppColors.primary.withValues(alpha: 0.18)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    final riverPath = Path()
+      ..moveTo(size.width * 0.82, -10)
+      ..cubicTo(
+        size.width * 0.68,
+        size.height * 0.2,
+        size.width * 0.94,
+        size.height * 0.34,
+        size.width * 0.72,
+        size.height * 0.58,
+      );
+    canvas.drawPath(riverPath, river);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _BrandHeader extends StatelessWidget {
@@ -53,7 +117,22 @@ class _BrandHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Column(
     children: [
-      const Icon(Icons.water_drop_outlined, size: 54, color: AppColors.primary),
+      Container(
+        width: 64,
+        height: 64,
+        decoration: BoxDecoration(
+          color: AppColors.primary,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x331A94D5),
+              blurRadius: 16,
+              offset: Offset(0, 7),
+            ),
+          ],
+        ),
+        child: const Icon(Icons.waves, size: 38, color: Colors.white),
+      ),
       const SizedBox(height: 10),
       Text(
         'FloodSense',
@@ -161,7 +240,7 @@ class _LoginFormState extends State<LoginForm> {
               value: _remember,
               onChanged: (value) => setState(() => _remember = value ?? false),
             ),
-            const Expanded(child: Text('Remember Me on this device')),
+            const Expanded(child: Text('Remember Me')),
             TextButton(
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
@@ -210,13 +289,34 @@ class _LoginFormState extends State<LoginForm> {
           icon: const Icon(Icons.account_circle_outlined),
           label: const Text('Continue with Google'),
         ),
-        TextButton(
+        const SizedBox(height: 14),
+        _InlineActionPrompt(
+          prefix: 'New to FloodSense?',
+          action: 'Create Account',
           onPressed: widget.onCreateAccount,
-          child: const Text('Create Account'),
         ),
+        const SizedBox(height: 10),
         LegalFooter(
           repository: widget.controller.repository,
           originLabel: 'Login',
+        ),
+        const SizedBox(height: 10),
+        Container(
+          key: const Key('login-planning-notice'),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.activeBackground,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.info, size: 18, color: AppColors.low),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text('Planning scenarios only—not a live warning.'),
+              ),
+            ],
+          ),
         ),
       ],
     ),
@@ -241,6 +341,7 @@ class _RegistrationFormState extends State<RegistrationForm> {
   final _username = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _confirmPassword = TextEditingController();
   bool _obscure = true;
 
   @override
@@ -248,6 +349,7 @@ class _RegistrationFormState extends State<RegistrationForm> {
     _username.dispose();
     _email.dispose();
     _password.dispose();
+    _confirmPassword.dispose();
     super.dispose();
   }
 
@@ -327,6 +429,23 @@ class _RegistrationFormState extends State<RegistrationForm> {
           validator: (value) =>
               (value?.length ?? 0) < 8 ? 'Use at least 8 characters.' : null,
         ),
+        const SizedBox(height: 14),
+        TextFormField(
+          key: const Key('register-confirm-password'),
+          controller: _confirmPassword,
+          obscureText: _obscure,
+          autofillHints: const [AutofillHints.newPassword],
+          decoration: const InputDecoration(
+            labelText: 'Confirm password',
+            border: OutlineInputBorder(),
+          ),
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Confirm your password.';
+            }
+            return value != _password.text ? 'Passwords do not match.' : null;
+          },
+        ),
         const SizedBox(height: 8),
         const Text(
           'Use a long, unique password. Avoid common, all-numeric, or account-similar passwords.',
@@ -350,15 +469,31 @@ class _RegistrationFormState extends State<RegistrationForm> {
             widget.controller.busy ? 'Creating account…' : 'Create Account',
           ),
         ),
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 16),
+          child: Row(
+            children: [
+              Expanded(child: Divider()),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: Text('or'),
+              ),
+              Expanded(child: Divider()),
+            ],
+          ),
+        ),
         OutlinedButton.icon(
           onPressed: widget.controller.busy ? null : _google,
           icon: const Icon(Icons.account_circle_outlined),
           label: const Text('Continue with Google'),
         ),
-        TextButton(
+        const SizedBox(height: 16),
+        _InlineActionPrompt(
+          prefix: 'Already have an account?',
+          action: 'Log in here',
           onPressed: widget.onShowLogin,
-          child: const Text('Back to Login'),
         ),
+        const SizedBox(height: 12),
         LegalFooter(
           repository: widget.controller.repository,
           originLabel: 'Registration',
@@ -409,22 +544,69 @@ class LegalFooter extends StatelessWidget {
   }
 
   @override
+  Widget build(BuildContext context) => Semantics(
+    label: 'By creating an account, you agree to the Terms of Use and acknowledge the Privacy Policy.',
+    child: Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 4,
+      runSpacing: 2,
+      children: [
+        const Text('By creating an account, you agree to the'),
+        _CompactTextButton(
+          label: 'Terms of Use',
+          onPressed: () => _open(context, 'terms'),
+        ),
+        const Text('and acknowledge the'),
+        _CompactTextButton(
+          label: 'Privacy Policy',
+          onPressed: () => _open(context, 'privacy'),
+        ),
+        const Text('.'),
+      ],
+    ),
+  );
+}
+
+class _InlineActionPrompt extends StatelessWidget {
+  const _InlineActionPrompt({
+    required this.prefix,
+    required this.action,
+    required this.onPressed,
+  });
+
+  final String prefix;
+  final String action;
+  final VoidCallback onPressed;
+
+  @override
   Widget build(BuildContext context) => Wrap(
     alignment: WrapAlignment.center,
     crossAxisAlignment: WrapCrossAlignment.center,
+    spacing: 4,
     children: [
-      const Text('By creating an account, you agree to the '),
-      TextButton(
-        onPressed: () => _open(context, 'terms'),
-        child: const Text('Terms of Use'),
-      ),
-      const Text(' and acknowledge the '),
-      TextButton(
-        onPressed: () => _open(context, 'privacy'),
-        child: const Text('Privacy Policy'),
-      ),
-      const Text('.'),
+      Text(prefix),
+      _CompactTextButton(label: action, onPressed: onPressed),
     ],
+  );
+}
+
+class _CompactTextButton extends StatelessWidget {
+  const _CompactTextButton({required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => TextButton(
+    style: TextButton.styleFrom(
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+      minimumSize: Size.zero,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      textStyle: const TextStyle(fontWeight: FontWeight.w700),
+    ),
+    onPressed: onPressed,
+    child: Text(label),
   );
 }
 
@@ -745,47 +927,83 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Verify email address')),
-    body: ListView(
-      padding: const EdgeInsets.all(20),
+    body: Stack(
       children: [
-        const Text(
-          'Open the one-time link from your email, or paste its token below. Tokens expire and work only once.',
+        const Positioned.fill(
+          child: IgnorePointer(child: CustomPaint(painter: _AuthMapPainter())),
         ),
-        const SizedBox(height: 16),
-        TextField(
-          key: const Key('verification-token'),
-          controller: _token,
-          decoration: const InputDecoration(
-            labelText: 'Verification token',
-            border: OutlineInputBorder(),
+        SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Icon(
+                      Icons.mark_email_read_outlined,
+                      size: 68,
+                      color: AppColors.primary,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Verify email address',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Open the one-time link from your email, or paste its token below. Tokens expire and work only once.',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    TextField(
+                      key: const Key('verification-token'),
+                      controller: _token,
+                      decoration: const InputDecoration(
+                        labelText: 'Verification token',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      onPressed: widget.controller.busy
+                          ? null
+                          : () => widget.controller.verifyEmail(_token.text),
+                      icon: const Icon(Icons.verified_outlined),
+                      label: const Text('Verify email'),
+                    ),
+                    const SizedBox(height: 28),
+                    TextField(
+                      controller: _email,
+                      decoration: const InputDecoration(
+                        labelText: 'Email address',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: widget.controller.busy
+                          ? null
+                          : () => widget.controller.resendVerification(
+                              _email.text,
+                            ),
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Resend verification'),
+                    ),
+                    _SessionMessage(controller: widget.controller),
+                    const SizedBox(height: 12),
+                    TextButton.icon(
+                      onPressed: widget.controller.showLogin,
+                      icon: const Icon(Icons.arrow_back),
+                      label: const Text('Back to Login'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
-        ),
-        const SizedBox(height: 12),
-        FilledButton(
-          onPressed: widget.controller.busy
-              ? null
-              : () => widget.controller.verifyEmail(_token.text),
-          child: const Text('Verify email'),
-        ),
-        const SizedBox(height: 20),
-        TextField(
-          controller: _email,
-          decoration: const InputDecoration(
-            labelText: 'Email address',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        OutlinedButton(
-          onPressed: widget.controller.busy
-              ? null
-              : () => widget.controller.resendVerification(_email.text),
-          child: const Text('Resend verification'),
-        ),
-        _SessionMessage(controller: widget.controller),
-        TextButton(
-          onPressed: widget.controller.showLogin,
-          child: const Text('Back to Login'),
         ),
       ],
     ),

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import timedelta
+
 from django.conf import settings
 from django.contrib.auth import authenticate, password_validation
 from django.contrib.auth.tokens import default_token_generator
@@ -68,6 +70,19 @@ GENERIC_RESET_RESPONSE = (
 )
 
 
+def _cancel_scheduled_deletion(user: User) -> bool:
+    """Treat a successful sign-in as cancellation during the grace period."""
+    return bool(
+        AccountDeletionRequest.objects.filter(
+            user=user,
+            status=AccountDeletionRequest.Status.PENDING,
+        ).update(
+            status=AccountDeletionRequest.Status.CANCELLED,
+            resolved_at=timezone.now(),
+        )
+    )
+
+
 class ResidentTokenRefreshView(TokenRefreshView):
     permission_classes = (AllowAny,)
     throttle_classes = (TokenRefreshThrottle,)
@@ -131,12 +146,14 @@ def login(request):
             },
             status=status.HTTP_403_FORBIDDEN,
         )
+    deletion_cancelled = _cancel_scheduled_deletion(authenticated)
     return Response(
         {
             **token_pair_for_user(authenticated),
             "remember_me": serializer.validated_data["remember_me"],
             "user": serialize_user(authenticated),
             "setup": setup_status_for(authenticated),
+            "scheduled_deletion_cancelled": deletion_cancelled,
         }
     )
 
@@ -289,11 +306,13 @@ def google_auth(request):
             )
         identity.last_verified_email = email
         identity.save(update_fields=("last_verified_email",))
+        deletion_cancelled = _cancel_scheduled_deletion(identity.user)
         return Response(
             {
                 **token_pair_for_user(identity.user),
                 "user": serialize_user(identity.user),
                 "setup": setup_status_for(identity.user),
+                "scheduled_deletion_cancelled": deletion_cancelled,
             }
         )
     if User.objects.filter(email__iexact=email).exists():
@@ -615,18 +634,51 @@ def change_password(request):
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
-def request_deletion(request):
+def schedule_deletion(request):
+    if request.user.is_staff or request.user.is_superuser:
+        return Response(
+            {"detail": "Staff accounts cannot be deleted from the resident app."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    delete_on = timezone.now() + timedelta(
+        days=settings.ACCOUNT_DELETION_GRACE_DAYS
+    )
     deletion_request, created = AccountDeletionRequest.objects.get_or_create(
         user=request.user,
         status=AccountDeletionRequest.Status.PENDING,
+        defaults={"scheduled_for": delete_on},
     )
+    if deletion_request.scheduled_for is None:
+        deletion_request.scheduled_for = delete_on
+        deletion_request.save(update_fields=("scheduled_for",))
     return Response(
         {
             "id": deletion_request.pk,
             "status": deletion_request.status,
-            "detail": "Deletion request recorded for authorized review.",
+            "scheduled_for": deletion_request.scheduled_for,
+            "grace_days": settings.ACCOUNT_DELETION_GRACE_DAYS,
+            "detail": (
+                "Account deletion is scheduled. Signing in before the deletion "
+                "date cancels it automatically."
+            ),
         },
         status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def cancel_deletion(request):
+    cancelled = _cancel_scheduled_deletion(request.user)
+    return Response(
+        {
+            "cancelled": cancelled,
+            "detail": (
+                "Scheduled account deletion was cancelled."
+                if cancelled
+                else "No scheduled account deletion was found."
+            ),
+        }
     )
 
 

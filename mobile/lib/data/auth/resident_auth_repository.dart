@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 
 import '../../config/api_config.dart';
+import '../network/network_exception.dart';
 
 class ResidentAuthException implements Exception {
   const ResidentAuthException(
@@ -193,6 +194,12 @@ class OfficialGoogleIdentityProvider implements GoogleIdentityProvider {
   bool _initialized = false;
 
   Future<void> _initialize() async {
+    if (kIsWeb) {
+      throw const ResidentAuthException(
+        'Google sign-in is not enabled in this web preview. Use username or email sign-in.',
+        code: 'google_web_not_configured',
+      );
+    }
     if (serverClientId.trim().isEmpty) {
       throw const ResidentAuthException(
         'Google sign-in is not configured for this build.',
@@ -267,7 +274,7 @@ abstract interface class ResidentAuthRepository {
   Future<void> changePassword(String currentPassword, String newPassword);
   Future<ResidentUser> linkGoogle(String password);
   Future<ResidentUser> unlinkGoogle(String password);
-  Future<void> requestDeletion();
+  Future<void> scheduleDeletion();
   Future<void> logout();
   String? get accessToken;
 }
@@ -299,10 +306,10 @@ class HttpResidentAuthRepository implements ResidentAuthRepository {
       Uri.parse('$_baseUrl/${path.replaceFirst(RegExp(r'^/+'), '')}');
 
   Map<String, String> _headers({bool authenticated = false}) => {
-    HttpHeaders.acceptHeader: 'application/json',
-    HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
+    'accept': 'application/json',
+    'content-type': 'application/json; charset=utf-8',
     if (authenticated && _accessToken != null)
-      HttpHeaders.authorizationHeader: 'Bearer $_accessToken',
+      'authorization': 'Bearer $_accessToken',
   };
 
   Future<Map<String, dynamic>> _request(
@@ -345,10 +352,6 @@ class HttpResidentAuthRepository implements ResidentAuthRepository {
       throw const ResidentAuthException(
         'The request timed out. Check your connection and try again.',
       );
-    } on SocketException {
-      throw const ResidentAuthException(
-        'FloodSense is offline or unavailable. Check your connection.',
-      );
     } on FormatException {
       throw const ResidentAuthException(
         'FloodSense returned an unreadable response.',
@@ -357,6 +360,13 @@ class HttpResidentAuthRepository implements ResidentAuthRepository {
       throw const ResidentAuthException(
         'FloodSense is offline or unavailable. Check your connection.',
       );
+    } catch (error) {
+      if (isSocketException(error)) {
+        throw const ResidentAuthException(
+          'FloodSense is offline or unavailable. Check your connection.',
+        );
+      }
+      rethrow;
     }
   }
 
@@ -603,9 +613,9 @@ class HttpResidentAuthRepository implements ResidentAuthRepository {
   }
 
   @override
-  Future<void> requestDeletion() => _request(
+  Future<void> scheduleDeletion() => _request(
     'POST',
-    'account/request-deletion/',
+    'account/deletion/schedule/',
     body: const {},
     authenticated: true,
   );

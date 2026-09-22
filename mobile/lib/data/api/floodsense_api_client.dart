@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
@@ -14,6 +13,7 @@ import '../models/map_assessment_result.dart';
 import '../models/nearest_center_result.dart';
 import '../models/point_resolution.dart';
 import '../models/scenario_option.dart';
+import '../network/network_exception.dart';
 import '../../features/evacuation/nearest_center_provider.dart';
 import 'api_exception.dart';
 
@@ -92,8 +92,8 @@ class FloodSenseApiClient implements FloodSenseApi, NearestCenterProvider {
       () => _client.post(
         _uri('assessments/evaluate/'),
         headers: const {
-          HttpHeaders.acceptHeader: 'application/json',
-          HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
+          'accept': 'application/json',
+          'content-type': 'application/json; charset=utf-8',
         },
         body: jsonEncode(request.toJson()),
       ),
@@ -157,8 +157,8 @@ class FloodSenseApiClient implements FloodSenseApi, NearestCenterProvider {
           .post(
             _uri('evacuation-centers/nearest/'),
             headers: const {
-              HttpHeaders.acceptHeader: 'application/json',
-              HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
+              'accept': 'application/json',
+              'content-type': 'application/json; charset=utf-8',
             },
             body: jsonEncode({
               'latitude': latitude,
@@ -169,7 +169,7 @@ class FloodSenseApiClient implements FloodSenseApi, NearestCenterProvider {
           .timeout(timeout);
 
       if (response.statusCode == 200) {
-        final contentType = response.headers[HttpHeaders.contentTypeHeader];
+        final contentType = response.headers['content-type'];
         if (contentType == null ||
             !contentType.toLowerCase().startsWith('application/json')) {
           throw const CenterLookupException(
@@ -202,8 +202,6 @@ class FloodSenseApiClient implements FloodSenseApi, NearestCenterProvider {
       rethrow;
     } on TimeoutException {
       throw const CenterLookupException(CenterLookupFailureKind.timeout);
-    } on SocketException {
-      throw const CenterLookupException(CenterLookupFailureKind.offline);
     } on http.ClientException {
       throw const CenterLookupException(CenterLookupFailureKind.offline);
     } on FormatException {
@@ -214,6 +212,11 @@ class FloodSenseApiClient implements FloodSenseApi, NearestCenterProvider {
       throw const CenterLookupException(
         CenterLookupFailureKind.malformedResponse,
       );
+    } catch (error) {
+      if (isSocketException(error)) {
+        throw const CenterLookupException(CenterLookupFailureKind.offline);
+      }
+      rethrow;
     }
   }
 
@@ -238,8 +241,8 @@ class FloodSenseApiClient implements FloodSenseApi, NearestCenterProvider {
     () => _client.post(
       _uri(route),
       headers: const {
-        HttpHeaders.acceptHeader: 'application/json',
-        HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
+        'accept': 'application/json',
+        'content-type': 'application/json; charset=utf-8',
       },
       body: jsonEncode(body),
     ),
@@ -247,10 +250,7 @@ class FloodSenseApiClient implements FloodSenseApi, NearestCenterProvider {
   );
 
   Future<Map<String, dynamic>> _get(Uri uri) => _send(
-    () => _client.get(
-      uri,
-      headers: const {HttpHeaders.acceptHeader: 'application/json'},
-    ),
+    () => _client.get(uri, headers: const {'accept': 'application/json'}),
   );
 
   Future<Map<String, dynamic>> _send(
@@ -286,11 +286,6 @@ class FloodSenseApiClient implements FloodSenseApi, NearestCenterProvider {
         'The request timed out. Check your connection and try again.',
         kind: ApiFailureKind.timeout,
       );
-    } on SocketException {
-      throw const ApiException(
-        'Unable to reach FloodSense. Check that the server and network are available.',
-        kind: ApiFailureKind.connectivity,
-      );
     } on http.ClientException {
       throw const ApiException(
         'Unable to reach FloodSense. Check that the server and network are available.',
@@ -301,6 +296,14 @@ class FloodSenseApiClient implements FloodSenseApi, NearestCenterProvider {
         'FloodSense received an unreadable response from the server.',
         kind: ApiFailureKind.malformedResponse,
       );
+    } catch (error) {
+      if (isSocketException(error)) {
+        throw const ApiException(
+          'Unable to reach FloodSense. Check that the server and network are available.',
+          kind: ApiFailureKind.connectivity,
+        );
+      }
+      rethrow;
     }
   }
 

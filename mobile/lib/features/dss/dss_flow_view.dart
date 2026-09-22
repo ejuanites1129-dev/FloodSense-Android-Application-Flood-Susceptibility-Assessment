@@ -6,10 +6,18 @@ class DssFlowView extends StatefulWidget {
   const DssFlowView({
     required this.controller,
     required this.susceptibilityCode,
+    this.scrollController,
+    this.padding = const EdgeInsets.all(16),
+    this.header,
+    this.footer,
     super.key,
   });
   final DssController controller;
   final String susceptibilityCode;
+  final ScrollController? scrollController;
+  final EdgeInsetsGeometry padding;
+  final Widget? header;
+  final Widget? footer;
   @override
   State<DssFlowView> createState() => _DssFlowViewState();
 }
@@ -29,36 +37,31 @@ class _DssFlowViewState extends State<DssFlowView> {
     animation: widget.controller,
     builder: (context, _) {
       final step = widget.controller.current;
+      final children = <Widget>[?widget.header];
       if (widget.controller.busy && step == null) {
-        return const Center(
-          child: CircularProgressIndicator(
-            semanticsLabel: 'Loading structured guidance',
+        children.addAll(const [
+          SizedBox(height: 30),
+          Center(
+            child: CircularProgressIndicator(
+              semanticsLabel: 'Loading structured guidance',
+            ),
           ),
-        );
-      }
-      if (widget.controller.error != null && step == null) {
-        return Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(widget.controller.error!),
-              FilledButton(
-                onPressed: widget.controller.restart,
-                child: const Text('Try again'),
-              ),
-            ],
+        ]);
+      } else if (widget.controller.error != null && step == null) {
+        children.addAll([
+          Text(widget.controller.error!),
+          const SizedBox(height: 12),
+          FilledButton(
+            onPressed: widget.controller.restart,
+            child: const Text('Try again'),
           ),
+        ]);
+      } else if (step == null) {
+        children.add(
+          const Text('Structured guidance is not available for this result.'),
         );
-      }
-      if (step == null) {
-        return const Text(
-          'Structured guidance is not available for this result.',
-        );
-      }
-      return ListView(
-        key: const Key('dss-flow-view'),
-        padding: const EdgeInsets.all(16),
-        children: [
+      } else {
+        children.addAll([
           Text(step.title, style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 8),
           LinearProgressIndicator(
@@ -176,7 +179,14 @@ class _DssFlowViewState extends State<DssFlowView> {
             icon: const Icon(Icons.restart_alt),
             label: const Text('Exit and restart guidance'),
           ),
-        ],
+        ]);
+      }
+      if (widget.footer case final footer?) children.add(footer);
+      return ListView(
+        key: const Key('dss-flow-view'),
+        controller: widget.scrollController,
+        padding: widget.padding,
+        children: children,
       );
     },
   );

@@ -431,7 +431,7 @@ class ResidentPreference(models.Model):
 
 class AccountDeletionRequest(models.Model):
     class Status(models.TextChoices):
-        PENDING = "PENDING", "Pending review"
+        PENDING = "PENDING", "Scheduled for deletion"
         CANCELLED = "CANCELLED", "Cancelled"
         COMPLETED = "COMPLETED", "Completed"
 
@@ -446,6 +446,7 @@ class AccountDeletionRequest(models.Model):
         default=Status.PENDING,
     )
     requested_at = models.DateTimeField(auto_now_add=True)
+    scheduled_for = models.DateTimeField(null=True, blank=True)
     resolved_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
@@ -458,4 +459,4 @@ class AccountDeletionRequest(models.Model):
         )
 
     def __str__(self) -> str:
-        return f"Deletion request for {self.user} ({self.status})"
+        return f"Account deletion for {self.user} ({self.status})"
