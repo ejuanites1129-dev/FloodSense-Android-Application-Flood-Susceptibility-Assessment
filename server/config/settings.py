@@ -144,6 +144,15 @@ NEAREST_CENTER_RATE = os.getenv("FLOODSENSE_NEAREST_CENTER_RATE", "30/min")
 if not re.fullmatch(r"[1-9][0-9]*/(?:s|sec|second|m|min|minute|h|hour|d|day)", NEAREST_CENTER_RATE):
     raise ImproperlyConfigured("FLOODSENSE_NEAREST_CENTER_RATE must be a positive DRF rate.")
 
+
+def throttle_rate(name: str, default: str) -> str:
+    value = os.getenv(name, default)
+    if not re.fullmatch(
+        r"[1-9][0-9]*/(?:s|sec|second|m|min|minute|h|hour|d|day)", value
+    ):
+        raise ImproperlyConfigured(f"{name} must be a positive DRF rate.")
+    return value
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
@@ -154,6 +163,22 @@ REST_FRAMEWORK = {
     # Only views opting into this scope are throttled. No location enters cache.
     "DEFAULT_THROTTLE_RATES": {
         "nearest_centers": NEAREST_CENTER_RATE,
+        "resident_login": throttle_rate("FLOODSENSE_LOGIN_RATE", "10/min"),
+        "resident_registration": throttle_rate(
+            "FLOODSENSE_REGISTRATION_RATE", "5/hour"
+        ),
+        "resident_password_reset": throttle_rate(
+            "FLOODSENSE_PASSWORD_RESET_RATE", "5/hour"
+        ),
+        "resident_verification": throttle_rate(
+            "FLOODSENSE_VERIFICATION_RATE", "5/hour"
+        ),
+        "resident_google_auth": throttle_rate(
+            "FLOODSENSE_GOOGLE_AUTH_RATE", "10/min"
+        ),
+        "resident_token_refresh": throttle_rate(
+            "FLOODSENSE_TOKEN_REFRESH_RATE", "30/min"
+        ),
     },
     "DEFAULT_RENDERER_CLASSES": (
         "rest_framework.renderers.JSONRenderer",
@@ -171,6 +196,29 @@ SIMPLE_JWT = {
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
 }
+
+PASSWORD_RESET_TIMEOUT = int(os.getenv("FLOODSENSE_PASSWORD_RESET_TIMEOUT", "3600"))
+EMAIL_VERIFICATION_EXPIRY_HOURS = int(
+    os.getenv("FLOODSENSE_EMAIL_VERIFICATION_EXPIRY_HOURS", "24")
+)
+RESIDENT_APP_PUBLIC_URL = os.getenv(
+    "FLOODSENSE_RESIDENT_APP_PUBLIC_URL", "http://localhost:3000"
+)
+GOOGLE_OAUTH_WEB_CLIENT_ID = os.getenv("GOOGLE_OAUTH_WEB_CLIENT_ID", "").strip()
+
+EMAIL_BACKEND = os.getenv(
+    "DJANGO_EMAIL_BACKEND",
+    "django.core.mail.backends.console.EmailBackend",
+)
+DEFAULT_FROM_EMAIL = os.getenv(
+    "DJANGO_DEFAULT_FROM_EMAIL", "FloodSense <no-reply@localhost>"
+)
+EMAIL_HOST = os.getenv("DJANGO_EMAIL_HOST", "localhost")
+EMAIL_PORT = int(os.getenv("DJANGO_EMAIL_PORT", "25"))
+EMAIL_HOST_USER = os.getenv("DJANGO_EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("DJANGO_EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = env_bool("DJANGO_EMAIL_USE_TLS", False)
+EMAIL_USE_SSL = env_bool("DJANGO_EMAIL_USE_SSL", False)
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "Asia/Manila"

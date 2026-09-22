@@ -10,6 +10,19 @@ from .models import (
 )
 
 
+class RawInferenceReadOnlyAdminMixin:
+    """Keep raw inference configuration visible for audit, never ordinary editing."""
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
 @admin.register(ScenarioOption)
 class ScenarioOptionAdmin(admin.ModelAdmin):
     list_display = (
@@ -37,7 +50,7 @@ class SusceptibilityLevelAdmin(admin.ModelAdmin):
 
 
 @admin.register(RuleSet)
-class RuleSetAdmin(admin.ModelAdmin):
+class RuleSetAdmin(RawInferenceReadOnlyAdminMixin, admin.ModelAdmin):
     list_display = ("name", "version", "mode", "status", "is_active", "updated_at")
     list_filter = ("mode", "status", "is_active")
     search_fields = ("name", "version", "change_summary")
@@ -46,13 +59,13 @@ class RuleSetAdmin(admin.ModelAdmin):
     readonly_fields = ("created_at", "updated_at")
 
 
-class ExpertRuleConditionInline(admin.TabularInline):
+class ExpertRuleConditionInline(RawInferenceReadOnlyAdminMixin, admin.TabularInline):
     model = ExpertRuleCondition
     extra = 0
 
 
 @admin.register(ExpertRule)
-class ExpertRuleAdmin(admin.ModelAdmin):
+class ExpertRuleAdmin(RawInferenceReadOnlyAdminMixin, admin.ModelAdmin):
     list_display = (
         "code",
         "ruleset",
@@ -70,7 +83,7 @@ class ExpertRuleAdmin(admin.ModelAdmin):
 
 
 @admin.register(ExpertRuleCondition)
-class ExpertRuleConditionAdmin(admin.ModelAdmin):
+class ExpertRuleConditionAdmin(RawInferenceReadOnlyAdminMixin, admin.ModelAdmin):
     list_display = (
         "rule",
         "condition_type",

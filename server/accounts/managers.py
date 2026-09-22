@@ -10,6 +10,8 @@ class UserManager(BaseUserManager):
         if not email:
             raise ValueError("An email address is required.")
         email = self.normalize_email(email).lower()
+        if resident_username := extra_fields.get("resident_username"):
+            extra_fields["resident_username"] = resident_username.strip().lower()
         user = self.model(email=email, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
@@ -30,4 +32,3 @@ class UserManager(BaseUserManager):
             raise ValueError("A superuser must have is_superuser=True.")
 
         return self._create_user(email, password, **extra_fields)
-

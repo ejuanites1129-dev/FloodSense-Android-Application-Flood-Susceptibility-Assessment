@@ -12,9 +12,10 @@ import '../../data/models/point_resolution.dart';
 import '../../data/models/scenario_option.dart';
 
 class AssessmentController extends ChangeNotifier {
-  AssessmentController(this._api);
+  AssessmentController(this._api, {this.closeApiOnDispose = true});
 
   final FloodSenseApi _api;
+  final bool closeApiOnDispose;
 
   bool isLoading = false;
   bool isSubmitting = false;
@@ -357,7 +358,7 @@ class AssessmentController extends ChangeNotifier {
     isReferenceLoading = false;
     pinCoordinate = null;
     pointResolution = null;
-    _api.close();
+    if (closeApiOnDispose) _api.close();
     super.dispose();
   }
 }

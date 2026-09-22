@@ -89,6 +89,11 @@ not City-verified. Never run this command against a shared, staging, or deployed
 database without explicit authorization. See
 `docs/DAY_6_DYNAMIC_MAP_GUIDE.md` for its safety checks and the map/API workflow.
 
+Resident authentication, Remember Me, email/Google setup, versioned legal and
+onboarding gates, Account/Preferences, structured DSS, and the multi-step
+Android assessment are documented in
+`docs/RESIDENT_AUTH_ONBOARDING_AND_DSS_SETUP.md`.
+
 ## Administration portal
 
 Start Django, then open `http://127.0.0.1:8000/management/`. The portal accepts
