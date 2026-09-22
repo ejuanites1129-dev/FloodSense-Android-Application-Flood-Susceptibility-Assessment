@@ -29,6 +29,19 @@
     <article class="metric-card"><h2 class="metric-card__label">Demonstration-only areas</h2><strong data-count="demonstration">{{ map_data.counts.demonstration }}</strong><p>Synthetic records, including disabled</p></article>
   </section>
   <p class="map-note">{{ map_data.counts.total }} reviewable records · {{ map_data.counts.disabled }} disabled. Counts cover the supported administrative reference and demonstration categories only. Other records are outside this review page.</p>
+  <section class="panel" aria-labelledby="map-filter-heading">
+    <p class="eyebrow">Filter</p>
+    <h2 id="map-filter-heading">Reviewable record status</h2>
+    {% if filters.errors %}<p class="notice notice--warning" role="alert">The status filter is invalid. All reviewable records are shown.</p>{% endif %}
+    <form method="get" action="{% url 'admin_portal:map-data' %}">
+      <div class="field-group">
+        <label for="{{ filters.status.id_for_label }}">{{ filters.status.label }}</label>
+        {{ filters.status }}
+      </div>
+      <button class="button button--primary" type="submit">Apply filter</button>
+      <a class="button button--secondary" href="{% url 'admin_portal:map-data' %}">Clear filter</a>
+    </form>
+  </section>
   <noscript><p class="notice notice--info">JavaScript is unavailable. The summary and area list remain usable; select an area to load its details. The interactive map and search require JavaScript.</p></noscript>
 
   <div class="map-workspace">
@@ -43,6 +56,9 @@
       <p id="map-keyboard-help" class="map-note">With the map focused, use arrow keys to pan and + or − to zoom. Use the area list to select records with the keyboard.</p>
       <p class="map-note map-attribution">Basemap © <a href="https://www.openstreetmap.org/copyright" rel="noopener noreferrer" target="_blank">OpenStreetMap contributors</a>. Boundary sources are listed in record details.</p>
       <ul class="map-legend" aria-label="Boundary legend">
+        {% if map_data.coverage_mask_available %}
+        <li><span class="map-swatch map-swatch--outside" aria-hidden="true"></span>Outside Bacoor assessment coverage</li>
+        {% endif %}
         <li><span class="map-swatch" aria-hidden="true"></span>Administrative reference</li>
         <li><span class="map-swatch map-swatch--demo" aria-hidden="true"></span>Demonstration only</li>
         <li><span class="map-swatch map-swatch--selected" aria-hidden="true"></span>Selected boundary</li>
@@ -81,6 +97,7 @@
       <p class="map-note" id="area-results" role="status">{{ map_data.counts.total }} records. Select an area to inspect its details.</p>
       <p class="map-note">Tab to a record and press Enter or Space to select it. Arrow keys move between visible records.</p>
       <form method="get" action="{% url 'admin_portal:map-data' %}#record-details" id="area-selection-form">
+        {% if map_status_filter %}<input type="hidden" name="status" value="{{ map_status_filter }}">{% endif %}
         <ul class="area-list" id="area-list" aria-label="Geographic records">
           {% for record in map_data.records %}
           <li data-area-row>

@@ -56,6 +56,17 @@ regressions pass. See `GPS_STREAM_C_D_DAY_5_GUIDE.md`. This repository evidence
 does not certify a deployed proxy, APM/log retention, shared throttling or TLS,
 and browser discovery still found no available browser for a fresh visual pass.
 
+Day 6 system-wide work, plus the neutral outside-Bacoor coverage mask, now has **693 backend tests passed** and **197 Flutter
+tests passed**, with clean Flutter analysis. The dashboard includes truthful,
+permission-aware evacuation-center counts and exact filtered review links.
+Explicit-path GeoJSON and CSV/TSV validators report SHA-256, structure,
+quality, metadata provenance/classification, and unknowns without importing,
+approving, activating, or printing candidate record values. See
+`GPS_SYSTEM_WIDE_DAY_6_GUIDE.md` for exact measurements and commands. A fresh
+browser pass remains an environment evidence blocker because the available
+browser-control runtime failed before connecting; this is not a failing
+application test.
+
 ## Unresolved work by originating day
 
 ### Day 1 — contract, policy, and integration freeze

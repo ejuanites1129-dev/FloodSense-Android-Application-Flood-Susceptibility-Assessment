@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:floodsense/app/floodsense_app.dart';
 import 'package:floodsense/data/auth/resident_auth_repository.dart';
@@ -115,6 +116,12 @@ void main() {
       await _pumpApp(tester, auth: auth, api: api, size: const Size(320, 640));
 
       expect(find.byKey(const Key('resident-hybrid-map')), findsOneWidget);
+      final coverage = tester.widget<PolygonLayer<int>>(
+        find.byKey(const Key('hybrid-bacoor-coverage-mask')),
+      );
+      expect(coverage.polygons, hasLength(1));
+      expect(coverage.invertedFill, const Color(0xA6677280));
+      expect(find.text('Outside Bacoor assessment coverage'), findsOneWidget);
       expect(find.text('Map'), findsOneWidget);
       expect(find.text('Assess'), findsOneWidget);
       expect(find.text('Prepare'), findsOneWidget);

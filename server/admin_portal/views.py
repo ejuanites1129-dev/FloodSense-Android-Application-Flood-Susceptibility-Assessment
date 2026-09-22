@@ -59,6 +59,7 @@ from .forms import (
     GuidanceFilterForm,
     GuidanceItemForm,
     GuidanceTransitionForm,
+    MapDataFilterForm,
     RainfallReferenceFilterForm,
     SettingsInventoryFilterForm,
     StaffAuthenticationForm,
@@ -269,7 +270,7 @@ def password_help(request: HttpRequest) -> HttpResponse:
 @require_GET
 def dashboard(request: HttpRequest) -> HttpResponse:
     context = _portal_context(request, active_section="dashboard")
-    context["dashboard"] = get_dashboard_summary()
+    context["dashboard"] = get_dashboard_summary(user=request.user)
     return render(request, "admin_portal/dashboard.html", context)
 
 
@@ -277,7 +278,15 @@ def dashboard(request: HttpRequest) -> HttpResponse:
 @require_GET
 def map_data(request: HttpRequest) -> HttpResponse:
     context = _portal_context(request, active_section="map-data")
-    context["map_data"] = get_map_data(selected_id=request.GET.get("area"))
+    filters = MapDataFilterForm(request.GET)
+    valid = filters.is_valid()
+    selected_status = filters.cleaned_data.get("status") if valid else ""
+    context["filters"] = filters
+    context["map_status_filter"] = selected_status
+    context["map_data"] = get_map_data(
+        selected_id=request.GET.get("area"),
+        status=selected_status,
+    )
     context["openlayers_root"] = OPENLAYERS_CDN_ROOT
     return render(request, "admin_portal/map_data.html", context)
 
@@ -328,6 +337,11 @@ def guidance_list(request: HttpRequest) -> HttpResponse:
             queryset = queryset.filter(category=category)
         if workflow_status := filters.cleaned_data["workflow_status"]:
             queryset = queryset.filter(workflow_status=workflow_status)
+        if filters.cleaned_data["review_attention"] == "needs_review":
+            queryset = queryset.filter(
+                Q(status=PublicationStatus.PENDING_VALIDATION)
+                | Q(workflow_status=GuidanceItem.WorkflowStatus.IN_REVIEW)
+            )
         if susceptibility_level := filters.cleaned_data["susceptibility_level"]:
             queryset = queryset.filter(susceptibility_level=susceptibility_level)
 

@@ -75,10 +75,29 @@
         <p class="dashboard-note">Stored hypothetical inputs, not current rainfall observations.</p>
       </article>
 
+      <article class="metric-card" aria-labelledby="centers-heading">
+        <h2 class="metric-card__label" id="centers-heading">Evacuation centers</h2>
+        <p class="dashboard-total"><span>{{ dashboard.evacuation_centers.total }}</span> total records</p>
+        <p class="dashboard-secondary">{{ dashboard.evacuation_centers.verification_counts.VERIFIED }} verified</p>
+        {% include "admin_portal/publication_breakdown.html" with summary=dashboard.evacuation_centers only %}
+        {% if not dashboard.evacuation_centers.verification_counts.VERIFIED %}
+          <p class="dashboard-empty">No evacuation-center records are currently verified.</p>
+        {% endif %}
+        <details class="dashboard-details">
+          <summary>Verification states</summary>
+          <dl class="dashboard-counts">
+            {% for verification in dashboard.evacuation_centers.verifications %}
+              <div><dt>{{ verification.label }}</dt><dd>{{ verification.count }}</dd></div>
+            {% endfor %}
+          </dl>
+        </details>
+        <p class="dashboard-note">Verification and publication are separate; this summary does not establish resident-facing eligibility.</p>
+      </article>
+
       <article class="metric-card dashboard-attention-total" aria-labelledby="review-heading">
         <div>
           <h2 class="metric-card__label" id="review-heading">Review attention</h2>
-          <p class="dashboard-total"><span>{{ dashboard.review_attention.total }}</span> records across the four modules above</p>
+          <p class="dashboard-total"><span>{{ dashboard.review_attention.total }}</span> records across the five modules above</p>
         </div>
         <a class="button button--secondary" href="#review-attention">View breakdown <span aria-hidden="true">↓</span></a>
       </article>
@@ -101,7 +120,7 @@
               </li>
             {% endfor %}
           </ol>
-          <p class="dashboard-note dashboard-panel-footer">Up to five recorded actions for geography, sources, guidance, and scenario options.</p>
+          <p class="dashboard-note dashboard-panel-footer">Up to five recorded actions for geography, sources, guidance, scenario options, and evacuation centers.</p>
         {% else %}
           <div class="empty-state dashboard-empty-state">
             <span class="empty-state__icon" aria-hidden="true">▤</span>
@@ -113,22 +132,22 @@
 
       <article class="panel" id="review-attention" aria-labelledby="attention-heading">
         <div class="panel__heading"><div><p class="eyebrow">Attention needed</p><h2 id="attention-heading">Records needing review by module</h2></div></div>
-        <p class="dashboard-note">Pending-validation records are counted in every module. DSS guidance also includes items explicitly submitted to its In review workflow, without double-counting an item.</p>
+        <p class="dashboard-note">Pending-validation records are counted for publication-controlled modules. DSS guidance also includes items explicitly submitted to its In review workflow, without double-counting an item. Evacuation centers count only their explicit In review verification state.</p>
         {% if not dashboard.review_attention.total %}
           <p class="dashboard-empty">No records currently need validation or content review.</p>
         {% endif %}
         <ul class="dashboard-review-list">
           {% for module in dashboard.review_attention.modules %}
             <li>
-              {% if module.section_slug == 'sources-content' and not perms.provenance.view_datasource or module.section_slug == 'dss-content' and not perms.dss.view_guidanceitem %}
+              {% if module.section_slug == 'sources-content' and not perms.provenance.view_datasource or module.section_slug == 'dss-content' and not perms.dss.view_guidanceitem or module.section_slug == 'rainfall-references' and not perms.expert.view_scenariooption or module.section_slug == 'evacuation-centers' and not perms.evacuation.view_evacuationcenter %}
                 <span><span>{{ module.label }}</span><span class="dashboard-review-count">{{ module.count }} <span class="sr-only">needing review; access not granted</span></span></span>
               {% else %}
-                <a href="{% url 'admin_portal:section' section_slug=module.section_slug %}"><span>{{ module.label }}</span><span class="dashboard-review-count">{{ module.count }} <span class="sr-only">needing review</span></span></a>
+                <a href="{% url 'admin_portal:section' section_slug=module.section_slug %}?{{ module.filter_query }}"><span>{{ module.label }}</span><span class="dashboard-review-count">{{ module.count }} <span class="sr-only">needing review</span></span></a>
               {% endif %}
             </li>
           {% endfor %}
         </ul>
-        <p class="dashboard-note dashboard-panel-footer">Map data and Settings remain read-only. DSS content opens its permission-controlled workflow.</p>
+        <p class="dashboard-note dashboard-panel-footer">Map data and Settings remain read-only. DSS content and evacuation centers open their permission-controlled workflows.</p>
       </article>
 
       <aside class="panel dashboard-actions" aria-labelledby="actions-heading">
@@ -139,6 +158,7 @@
           <a href="{% url 'admin_portal:settings' %}#parameters"><span>Review assessment parameters</span><small>Read-only inventory</small></a>
           {% if perms.dss.view_guidanceitem %}<a href="{% url 'admin_portal:dss-content' %}"><span>Open DSS content</span><small>Permission-controlled workflow</small></a>{% endif %}
           {% if perms.provenance.view_datasource %}<a href="{% url 'admin_portal:sources-content' %}"><span>Manage sources</span><small>Provenance workflow</small></a>{% endif %}
+          {% if perms.evacuation.view_evacuationcenter %}<a href="{% url 'admin_portal:evacuation-centers' %}"><span>Manage evacuation centers</span><small>Verification workflow</small></a>{% endif %}
         </div>
       </aside>
     </section>

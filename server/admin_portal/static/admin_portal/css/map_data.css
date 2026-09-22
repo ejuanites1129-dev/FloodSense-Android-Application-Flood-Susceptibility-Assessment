@@ -17,6 +17,7 @@
 .map-legend { display: flex; gap: 12px; flex-wrap: wrap; margin: 0; padding: 0; list-style: none; font-size: .75rem; }
 .map-legend li { display: flex; gap: 6px; align-items: center; }
 .map-swatch { display: inline-block; width: 22px; height: 14px; border: 2px solid #64748b; background: #e2e8f0; flex-shrink: 0; }
+.map-swatch--outside { border-color: #475467; background: rgba(71, 84, 103, .62); }
 .map-swatch--demo { border-color: #665477; border-style: dashed; background: #ece8f0; }
 .map-swatch--selected { border: 3px solid #172b4d; background: #cbd5e1; }
 .layer-option { padding: 15px 0; border-top: 1px solid var(--border); }

@@ -21,7 +21,9 @@ ADMINISTRATIVE = "administrative"
 DEMONSTRATION = "demonstration"
 
 
-def _reviewable_areas():
+def reviewable_area_filter():
+    """Return the shared definition used by the map and dashboard review count."""
+
     administrative = Q(
         area_type__in=(GeographicArea.AreaType.CITY, GeographicArea.AreaType.BARANGAY),
         status=PublicationStatus.PENDING_VALIDATION,
@@ -36,8 +38,12 @@ def _reviewable_areas():
         source__status=PublicationStatus.DEMONSTRATION,
         source__source_type=DataSource.SourceType.DEMONSTRATION,
     )
+    return administrative | demonstration
+
+
+def _reviewable_areas():
     # Disabled eligible rows remain reviewable; only enabled valid geometry is mapped.
-    return GeographicArea.objects.filter(administrative | demonstration)
+    return GeographicArea.objects.filter(reviewable_area_filter())
 
 
 def _date(value):
@@ -125,13 +131,15 @@ def _record(area):
     return record, feature
 
 
-def get_map_data(*, selected_id=None):
+def get_map_data(*, selected_id=None, status=None):
     """Two SELECTs regardless of record count; no private notes or rule fields.
 
     Counts deliberately cover only the two supported review categories. Generic
     approved geographic rows cannot establish an approved susceptibility layer.
     """
     areas = _reviewable_areas()
+    if status:
+        areas = areas.filter(status=status)
     counts = areas.aggregate(
         total=Count("pk"),
         enabled=Count("pk", filter=Q(is_enabled=True)),
@@ -186,5 +194,9 @@ def get_map_data(*, selected_id=None):
         "unavailable_selection": unavailable_selection,
         "administrative_mapped": len(layers[ADMINISTRATIVE]["features"]),
         "demonstration_mapped": len(layers[DEMONSTRATION]["features"]),
+        "coverage_mask_available": any(
+            feature["properties"]["area_type"] == GeographicArea.AreaType.CITY
+            for feature in layers[ADMINISTRATIVE]["features"]
+        ),
         "payload": {"records": records, "layers": layers},
     }

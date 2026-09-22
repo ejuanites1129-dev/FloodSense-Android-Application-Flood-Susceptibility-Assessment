@@ -9,6 +9,7 @@ from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from dss.models import GuidanceItem
+from evacuation.models import EvacuationCenter
 from expert.models import ScenarioOption, SusceptibilityLevel
 from geography.models import GeographicArea
 from provenance.models import DataSource, PublicationStatus
@@ -18,10 +19,16 @@ from .services.dashboard import get_dashboard_summary
 
 class EmptyDashboardSummaryTests(TestCase):
     def test_empty_domain_has_zero_counts_and_no_invented_activity(self):
-        with self.assertNumQueries(5):
+        with self.assertNumQueries(6):
             summary = get_dashboard_summary()
 
-        for name in ("geographic_areas", "data_sources", "guidance_items", "scenario_options"):
+        for name in (
+            "geographic_areas",
+            "data_sources",
+            "guidance_items",
+            "scenario_options",
+            "evacuation_centers",
+        ):
             with self.subTest(name=name):
                 self.assertEqual(summary[name]["total"], 0)
                 self.assertEqual(
@@ -36,12 +43,17 @@ class EmptyDashboardSummaryTests(TestCase):
                     ],
                 )
         self.assertEqual(summary["geographic_areas"]["enabled"], 0)
+        self.assertEqual(summary["geographic_areas"]["needs_review"], 0)
         self.assertTrue(all(row["count"] == 0 for row in summary["geographic_areas"]["area_types"]))
         self.assertEqual(summary["data_sources"]["approved_public"], 0)
         self.assertEqual(summary["guidance_items"]["enabled"], 0)
         self.assertEqual(summary["scenario_options"]["enabled"], 0)
         self.assertEqual(summary["scenario_options"]["enabled_intensity"], 0)
         self.assertEqual(summary["scenario_options"]["enabled_duration"], 0)
+        self.assertEqual(
+            summary["evacuation_centers"]["verification_counts"],
+            {value: 0 for value, _label in EvacuationCenter.VerificationStatus.choices},
+        )
         self.assertEqual(summary["review_attention"]["total"], 0)
         self.assertEqual(summary["recent_activity"], [])
         self.assertIs(summary["activity_is_complete_audit"], False)
@@ -53,7 +65,7 @@ class EmptyDashboardSummaryTests(TestCase):
         with CaptureQueriesContext(connection) as queries:
             get_dashboard_summary()
 
-        self.assertEqual(len(queries), 5)
+        self.assertEqual(len(queries), 6)
         self.assertTrue(
             all(query["sql"].lstrip().upper().startswith("SELECT") for query in queries)
         )
@@ -142,6 +154,20 @@ class DashboardRecordSummaryTests(TestCase):
             status=PublicationStatus.DEMONSTRATION,
             is_enabled=True,
         )
+        for index, status in enumerate(PublicationStatus.values):
+            verification = EvacuationCenter.VerificationStatus.values[
+                index % len(EvacuationCenter.VerificationStatus.values)
+            ]
+            EvacuationCenter.objects.create(
+                name=f"Fixture center {status}",
+                address="Fictional test address",
+                geographic_area=GeographicArea.objects.first(),
+                latitude=0,
+                longitude=0,
+                source=cls.source,
+                publication_status=status,
+                verification_status=verification,
+            )
 
     def test_geographic_totals_statuses_and_area_types_remain_independent(self):
         areas = get_dashboard_summary()["geographic_areas"]
@@ -204,6 +230,21 @@ class DashboardRecordSummaryTests(TestCase):
             },
         )
 
+    def test_centers_report_publication_and_verification_as_separate_dimensions(self):
+        centers = get_dashboard_summary()["evacuation_centers"]
+
+        self.assertEqual(centers["total"], 5)
+        self.assertEqual(centers["status_counts"], dict.fromkeys(PublicationStatus.values, 1))
+        self.assertEqual(
+            centers["verification_counts"],
+            {
+                EvacuationCenter.VerificationStatus.DRAFT: 2,
+                EvacuationCenter.VerificationStatus.IN_REVIEW: 1,
+                EvacuationCenter.VerificationStatus.VERIFIED: 1,
+                EvacuationCenter.VerificationStatus.INACTIVE: 1,
+            },
+        )
+
     def test_review_total_includes_pending_status_and_guidance_review_workflow(self):
         GuidanceItem.objects.filter(
             status=PublicationStatus.DEMONSTRATION,
@@ -211,14 +252,40 @@ class DashboardRecordSummaryTests(TestCase):
         ).update(workflow_status=GuidanceItem.WorkflowStatus.IN_REVIEW)
         attention = get_dashboard_summary()["review_attention"]
 
-        self.assertEqual(attention["total"], 13)
+        self.assertEqual(attention["total"], 10)
         self.assertEqual(
             attention["modules"],
             [
-                {"label": "Geographic areas", "section_slug": "map-data", "count": 4},
-                {"label": "Data sources", "section_slug": "sources-content", "count": 2},
-                {"label": "DSS guidance", "section_slug": "dss-content", "count": 3},
-                {"label": "Scenario options", "section_slug": "assessment-parameters", "count": 4},
+                {
+                    "label": "Geographic areas",
+                    "section_slug": "map-data",
+                    "count": 0,
+                    "filter_query": "status=PENDING_VALIDATION",
+                },
+                {
+                    "label": "Data sources",
+                    "section_slug": "sources-content",
+                    "count": 2,
+                    "filter_query": "status=PENDING_VALIDATION",
+                },
+                {
+                    "label": "DSS guidance",
+                    "section_slug": "dss-content",
+                    "count": 3,
+                    "filter_query": "review_attention=needs_review",
+                },
+                {
+                    "label": "Rainfall references",
+                    "section_slug": "rainfall-references",
+                    "count": 4,
+                    "filter_query": "status=PENDING_VALIDATION",
+                },
+                {
+                    "label": "Evacuation centers",
+                    "section_slug": "evacuation-centers",
+                    "count": 1,
+                    "filter_query": "verification_status=IN_REVIEW",
+                },
             ],
         )
         self.assertEqual(attention["total"], sum(row["count"] for row in attention["modules"]))
@@ -263,7 +330,7 @@ class DashboardRecordSummaryTests(TestCase):
             with CaptureQueriesContext(connection) as queries:
                 summary = get_dashboard_summary()
 
-            self.assertEqual(len(queries), 5)
+            self.assertEqual(len(queries), 6)
             self.assertEqual(len(summary["recent_activity"]), min(number, 5))
             for query in queries:
                 sql = query["sql"].lower()
@@ -345,7 +412,7 @@ class DashboardActivityTests(TestCase):
         # The final two actions share a timestamp; primary key breaks the tie.
         newest = self._entry("geography", "geographicarea", action_flag=DELETION, minute=5)
 
-        with self.assertNumQueries(5):
+        with self.assertNumQueries(6):
             activity = get_dashboard_summary()["recent_activity"]
 
         self.assertEqual(len(activity), 5)
@@ -366,3 +433,11 @@ class DashboardActivityTests(TestCase):
 
         self.assertEqual(activity[0]["actor"], f"Account #{unnamed.pk}")
         self.assertNotIn(unnamed.email, str(activity))
+
+    def test_activity_includes_evacuation_centers_without_record_content(self):
+        self._entry("evacuation", "evacuationcenter", action_flag=CHANGE)
+
+        activity = get_dashboard_summary()["recent_activity"]
+
+        self.assertEqual(activity[0]["module"], "Evacuation centers")
+        self.assertNotIn("PRIVATE_RESTRICTED_OBJECT_DETAILS", str(activity))

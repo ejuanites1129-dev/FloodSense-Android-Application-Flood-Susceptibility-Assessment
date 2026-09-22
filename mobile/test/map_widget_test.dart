@@ -68,6 +68,12 @@ void main() {
       );
       expect(layer.polygons, hasLength(1));
       expect(layer.polygons.single.borderColor, AppColors.primary);
+      final coverage = tester.widget<PolygonLayer<int>>(
+        find.byKey(const Key('bacoor-coverage-mask')),
+      );
+      expect(coverage.polygons, hasLength(1));
+      expect(coverage.invertedFill, const Color(0xA6677280));
+      expect(find.text('Outside Bacoor assessment coverage'), findsOneWidget);
       expect(find.byKey(const Key('bacoor-map-data-note')), findsOneWidget);
       expect(find.byKey(const Key('dynamic-map')), findsNothing);
     });
@@ -140,10 +146,7 @@ void main() {
       expect(find.byKey(const Key('osm-attribution')), findsOneWidget);
       expect(find.bySemanticsLabel('Zoom in Bacoor map'), findsOneWidget);
       expect(find.bySemanticsLabel('Zoom out Bacoor map'), findsOneWidget);
-      expect(
-        find.bySemanticsLabel('Fit all Bacoor barangays'),
-        findsOneWidget,
-      );
+      expect(find.bySemanticsLabel('Fit all Bacoor barangays'), findsOneWidget);
     });
 
     testWidgets('map taps place and reposition one temporary pin', (

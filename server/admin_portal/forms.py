@@ -10,6 +10,18 @@ from expert.models import ScenarioOption, SusceptibilityLevel
 from provenance.models import DataSource, PublicationStatus
 
 
+class MapDataFilterForm(forms.Form):
+    status = forms.ChoiceField(
+        label="Record status",
+        required=False,
+        choices=[
+            ("", "All reviewable statuses"),
+            (PublicationStatus.PENDING_VALIDATION, PublicationStatus.PENDING_VALIDATION.label),
+            (PublicationStatus.DEMONSTRATION, PublicationStatus.DEMONSTRATION.label),
+        ],
+    )
+
+
 class RainfallReferenceFilterForm(forms.Form):
     q = forms.CharField(
         label="Search references",
@@ -334,6 +346,11 @@ class GuidanceFilterForm(forms.Form):
         label="Workflow status",
         required=False,
         choices=[("", "All workflow statuses"), *GuidanceItem.WorkflowStatus.choices],
+    )
+    review_attention = forms.ChoiceField(
+        label="Review attention",
+        required=False,
+        choices=[("", "All records"), ("needs_review", "Needs review")],
     )
     susceptibility_level = forms.ModelChoiceField(
         label="Susceptibility result",

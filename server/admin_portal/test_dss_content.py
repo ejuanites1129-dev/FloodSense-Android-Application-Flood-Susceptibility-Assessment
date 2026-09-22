@@ -121,6 +121,30 @@ class GuidanceManagementTests(TestCase):
         self.assertContains(response, "No guidance items match this view")
         self.assertEqual(GuidanceItem.objects.count(), 1)
 
+    def test_review_attention_filter_matches_dashboard_union_without_duplicates(self):
+        self.client.force_login(self.manager)
+        self.item.status = PublicationStatus.PENDING_VALIDATION
+        self.item.workflow_status = GuidanceItem.WorkflowStatus.IN_REVIEW
+        self.item.save(update_fields=("status", "workflow_status"))
+        GuidanceItem.objects.create(
+            susceptibility_level=self.level,
+            title="Not under review",
+            instruction="Synthetic non-review fixture.",
+            category=GuidanceItem.Category.PREPARE,
+            source=self.source,
+            status=PublicationStatus.DEMONSTRATION,
+            workflow_status=GuidanceItem.WorkflowStatus.DRAFT,
+        )
+
+        response = self.client.get(
+            reverse("admin_portal:dss-content"),
+            {"review_attention": "needs_review"},
+        )
+
+        self.assertEqual(response.context["guidance_page"].paginator.count, 1)
+        self.assertContains(response, self.item.title)
+        self.assertNotContains(response, "Not under review")
+
     def test_create_uses_server_validation_preserves_input_and_logs_addition(self):
         self.client.force_login(self.manager)
         url = reverse("admin_portal:guidance-create")

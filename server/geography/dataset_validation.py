@@ -50,11 +50,13 @@ def validate_geojson_dataset(
 
     candidate = path.resolve()
     if not candidate.is_file():
-        raise DatasetValidationError(f"Dataset file was not found: {candidate}")
+        raise DatasetValidationError(f"Dataset file was not found: {candidate.name}")
     try:
         raw = candidate.read_bytes()
     except OSError as error:
-        raise DatasetValidationError(f"Dataset file could not be read: {error}") from error
+        raise DatasetValidationError(
+            f"Dataset file could not be read: {candidate.name}."
+        ) from error
     try:
         payload = json.loads(raw.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
@@ -116,8 +118,8 @@ def validate_geojson_dataset(
         elif not geometry.valid:
             invalid_geometry_count += 1
 
-    duplicate_identity_values = {
-        field: sorted(value for value, count in Counter(values).items() if count > 1)
+    duplicate_identity_counts = {
+        field: sum(1 for count in Counter(values).values() if count > 1)
         for field, values in identity_values.items()
     }
     property_fields = sorted({field for properties in property_rows for field in properties})
@@ -135,7 +137,7 @@ def validate_geojson_dataset(
         feature_count=len(features),
         geometry_types=set(geometry_types),
         missing_identity_counts=missing_identity_counts,
-        duplicate_identity_values=duplicate_identity_values,
+        duplicate_identity_counts=duplicate_identity_counts,
         null_geometry_count=null_geometry_count,
         empty_geometry_count=empty_geometry_count,
         invalid_geometry_count=invalid_geometry_count,
@@ -153,6 +155,12 @@ def validate_geojson_dataset(
             "present": True,
             "size_bytes": len(raw),
             "sha256": hashlib.sha256(raw).hexdigest().upper(),
+            "fact_provenance": {
+                "name": "VERIFIED_BY_TOOL",
+                "present": "VERIFIED_BY_TOOL",
+                "size_bytes": "VERIFIED_BY_TOOL",
+                "sha256": "VERIFIED_BY_TOOL",
+            },
         },
         "metadata": {
             "dataset_name": _known(payload.get("name")),
@@ -161,6 +169,25 @@ def validate_geojson_dataset(
                 for field in _METADATA_FIELDS
             },
         },
+        "metadata_provenance": {
+            "dataset_name": "DATASET_DECLARED"
+            if _known(payload.get("name")) != UNKNOWN_METADATA
+            else "MISSING",
+            **{
+                field: (
+                    "DATASET_DECLARED"
+                    if _known(declared_crs if field == "crs" else metadata.get(field))
+                    != UNKNOWN_METADATA
+                    else "MISSING"
+                )
+                for field in _METADATA_FIELDS
+            },
+        },
+        "metadata_classification": {
+            "dataset_name": "UNSPECIFIED",
+            **{field: "UNSPECIFIED" for field in _METADATA_FIELDS},
+        },
+        "inferred_metadata_fields": [],
         "structure": {
             "format": "GeoJSON FeatureCollection",
             "feature_count": len(features),
@@ -172,7 +199,7 @@ def validate_geojson_dataset(
         "quality": {
             "identity_fields": list(normalized_identity_fields),
             "missing_identity_counts": missing_identity_counts,
-            "duplicate_identity_values": duplicate_identity_values,
+            "duplicate_identity_counts": duplicate_identity_counts,
             "property_fields": property_fields,
             "missing_property_counts": missing_property_counts,
             "null_geometry_count": null_geometry_count,
@@ -191,7 +218,9 @@ def validate_geojson_dataset(
         "result": {
             "status": "PASS" if not issues else "ISSUES_FOUND",
             "issues": issues,
+            "import_effect": "NONE",
             "approval_effect": "NONE",
+            "activation_effect": "NONE",
             "limitations": [
                 "Technical validation does not approve, import, activate, or publish this dataset.",
                 "Unknown metadata remains unknown until an authorized source supplies it.",
@@ -225,7 +254,7 @@ def _issues(
     feature_count: int,
     geometry_types: set[str],
     missing_identity_counts: dict[str, int],
-    duplicate_identity_values: dict[str, list[str]],
+    duplicate_identity_counts: dict[str, int],
     null_geometry_count: int,
     empty_geometry_count: int,
     invalid_geometry_count: int,
@@ -245,9 +274,9 @@ def _issues(
     for field, count in missing_identity_counts.items():
         if count:
             issues.append(f"Identity field {field!r} is missing in {count} features.")
-    for field, values in duplicate_identity_values.items():
-        if values:
-            issues.append(f"Identity field {field!r} has {len(values)} duplicate values.")
+    for field, count in duplicate_identity_counts.items():
+        if count:
+            issues.append(f"Identity field {field!r} has {count} duplicated distinct values.")
     if null_geometry_count:
         issues.append(f"Found {null_geometry_count} null geometries.")
     if empty_geometry_count:

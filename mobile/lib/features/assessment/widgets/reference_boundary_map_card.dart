@@ -13,6 +13,7 @@ import '../../../data/models/point_resolution.dart';
 import '../../../data/models/verified_center.dart';
 import '../../evacuation/nearest_center_controller.dart';
 import '../../location/location_controller.dart';
+import '../../map/bacoor_coverage_mask.dart';
 import '../assessment_controller.dart';
 import 'dynamic_map_card.dart';
 
@@ -44,6 +45,8 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
   List<GeographicArea>? _cachedPolygonAreas;
   String? _cachedConfirmedAreaCode;
   List<Polygon<int>> _cachedPolygons = const [];
+  List<GeographicArea>? _cachedCoverageAreas;
+  List<Polygon<int>> _cachedCoveragePolygons = const [];
 
   @override
   void dispose() {
@@ -262,6 +265,14 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
                                   maxNativeZoom: 19,
                                 ),
                               PolygonLayer<int>(
+                                key: const Key('bacoor-coverage-mask'),
+                                polygons: _coveragePolygons(
+                                  controller.referenceAreas,
+                                ),
+                                invertedFill: bacoorOutsideCoverageColor,
+                                polygonLabels: false,
+                              ),
+                              PolygonLayer<int>(
                                 key: const Key('demonstration-polygons'),
                                 polygons: _scenarioPolygons(controller),
                                 drawLabelsLast: true,
@@ -435,6 +446,8 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
                 },
               ),
               const SizedBox(height: 10),
+              const BacoorCoverageLegend(),
+              const SizedBox(height: 10),
               if (controller.mapError case final error?) ...[
                 MapError(
                   message: error.message,
@@ -519,6 +532,14 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
     _cachedPolygonAreas = areas;
     _cachedConfirmedAreaCode = confirmedCode;
     return _cachedPolygons = List.unmodifiable(polygons);
+  }
+
+  List<Polygon<int>> _coveragePolygons(List<GeographicArea> areas) {
+    if (identical(areas, _cachedCoverageAreas)) {
+      return _cachedCoveragePolygons;
+    }
+    _cachedCoverageAreas = areas;
+    return _cachedCoveragePolygons = buildBacoorCoveragePolygons(areas);
   }
 }
 

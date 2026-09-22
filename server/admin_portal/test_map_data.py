@@ -149,6 +149,48 @@ class MapDataTests(TestCase):
             [item["id"] for item in data["payload"]["layers"]["administrative"]["features"]],
         )
 
+    def test_map_explains_the_neutral_outside_bacoor_coverage_mask(self):
+        self.area(area_type=GeographicArea.AreaType.CITY, code="TEST_CITY")
+
+        response = self.client.get(self.url)
+
+        self.assertContains(response, "Outside Bacoor assessment coverage")
+        self.assertContains(response, "map-swatch--outside")
+        self.assertTrue(response.context["map_data"]["coverage_mask_available"])
+
+    def test_status_filter_matches_dashboard_review_definition_and_preserves_selection(self):
+        pending = self.area()
+        demonstration = self.demo()
+
+        response = self.client.get(
+            self.url,
+            {"status": PublicationStatus.PENDING_VALIDATION, "area": pending.pk},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["map_data"]["counts"]["total"], 1)
+        self.assertEqual(
+            [record["id"] for record in response.context["map_data"]["records"]],
+            [str(pending.pk)],
+        )
+        self.assertNotContains(response, demonstration.name)
+        self.assertContains(
+            response,
+            f'name="status" value="{PublicationStatus.PENDING_VALIDATION}"',
+            count=1,
+        )
+
+    def test_invalid_status_filter_is_safe_and_shows_all_reviewable_records(self):
+        self.area()
+        self.demo()
+
+        response = self.client.get(self.url, {"status": "NOT_A_STATUS"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["map_data"]["counts"]["total"], 2)
+        self.assertContains(response, "The status filter is invalid")
+        self.assertNotContains(response, 'type="hidden" name="status"')
+
     def test_excludes_unrelated_restricted_retired_and_misidentified_sources(self):
         valid = self.area()
         source_changes = (

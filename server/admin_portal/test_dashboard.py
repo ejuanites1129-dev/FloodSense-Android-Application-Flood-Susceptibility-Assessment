@@ -4,6 +4,7 @@ from html.parser import HTMLParser
 
 from django.contrib.admin.models import ADDITION, CHANGE, DELETION, LogEntry
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.geos import MultiPolygon, Polygon
 from django.core.exceptions import PermissionDenied
@@ -13,6 +14,7 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils.html import escape
 from dss.models import GuidanceItem
+from evacuation.models import EvacuationCenter
 from expert.models import ExpertRule, ExpertRuleCondition, ScenarioOption, SusceptibilityLevel
 from geography.models import GeographicArea
 from provenance.models import DataSource, PublicationStatus
@@ -66,6 +68,7 @@ class OperationalDashboardTests(TestCase):
         "No approved public data sources are available.",
         "No approved preparedness guidance is available.",
         "No approved scenario options are available.",
+        "No evacuation-center records are currently verified.",
     )
     activity_limitation = (
         "This is a limited view of recorded Django maintenance actions, "
@@ -129,6 +132,20 @@ class OperationalDashboardTests(TestCase):
             status=status,
             is_enabled=True,
         )
+        EvacuationCenter.objects.create(
+            name="Synthetic dashboard fixture center",
+            address="Synthetic test address",
+            geographic_area=area,
+            latitude=0,
+            longitude=0,
+            source=source,
+            publication_status=status,
+            verification_status=(
+                EvacuationCenter.VerificationStatus.IN_REVIEW
+                if status == PublicationStatus.PENDING_VALIDATION
+                else EvacuationCenter.VerificationStatus.DRAFT
+            ),
+        )
         return source, area, guidance, option
 
     def create_log(self, model, *, action=CHANGE, user=None):
@@ -166,7 +183,13 @@ class OperationalDashboardTests(TestCase):
     def test_active_staff_receives_zero_counts_and_meaningful_empty_states(self):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 200)
-        for name in ("geographic_areas", "data_sources", "guidance_items", "scenario_options"):
+        for name in (
+            "geographic_areas",
+            "data_sources",
+            "guidance_items",
+            "scenario_options",
+            "evacuation_centers",
+        ):
             with self.subTest(summary=name):
                 self.assertEqual(response.context["dashboard"][name]["total"], 0)
         self.assertEqual(response.context["dashboard"]["review_attention"]["total"], 0)
@@ -180,7 +203,13 @@ class OperationalDashboardTests(TestCase):
     def test_demonstration_records_remain_unapproved_even_when_enabled(self):
         self.create_records()
         response = self.client.get(self.url)
-        for name in ("geographic_areas", "data_sources", "guidance_items", "scenario_options"):
+        for name in (
+            "geographic_areas",
+            "data_sources",
+            "guidance_items",
+            "scenario_options",
+            "evacuation_centers",
+        ):
             with self.subTest(summary=name):
                 summary = response.context["dashboard"][name]
                 self.assertEqual(summary["total"], 1)
@@ -200,7 +229,7 @@ class OperationalDashboardTests(TestCase):
         response = self.client.get(self.url)
         self.assertContains(response, "No approved public data sources are available.")
         for message in self.approved_empty_messages:
-            if "public data sources" not in message:
+            if "public data sources" not in message and "evacuation-center" not in message:
                 self.assertNotContains(response, message)
         source.is_publicly_releasable = True
         source.save(update_fields=["is_publicly_releasable"])
@@ -268,15 +297,26 @@ class OperationalDashboardTests(TestCase):
             self.assertNotContains(response, private_value)
 
     def test_relevant_recorded_activity_uses_safe_labels_and_semantic_list(self):
+        self.staff.user_permissions.set(
+            Permission.objects.filter(
+                content_type__app_label__in=("provenance", "dss", "evacuation"),
+                codename__in=(
+                    "view_datasource",
+                    "view_guidanceitem",
+                    "view_evacuationcenter",
+                ),
+            )
+        )
         for model, action in (
             (DataSource, ADDITION),
             (GeographicArea, CHANGE),
             (GuidanceItem, DELETION),
             (ScenarioOption, CHANGE),
+            (EvacuationCenter, CHANGE),
         ):
             self.create_log(model, action=action)
         response = self.client.get(self.url)
-        self.assertEqual(len(response.context["dashboard"]["recent_activity"]), 4)
+        self.assertEqual(len(response.context["dashboard"]["recent_activity"]), 5)
         self.assertContains(response, self.activity_limitation)
         self.assertContains(response, "Recent recorded maintenance activity")
         self.assertNotContains(response, "private-object-repr-sentinel")
@@ -286,7 +326,7 @@ class OperationalDashboardTests(TestCase):
             self.assertContains(response, label)
         html = DashboardHTML(response)
         timestamps = html.select("time")
-        self.assertEqual(len(timestamps), 4)
+        self.assertEqual(len(timestamps), 5)
         for timestamp in timestamps:
             self.assertTrue(timestamp["attrs"].get("datetime"))
             self.assertIn("li", [ancestor["tag"] for ancestor in timestamp["ancestors"]])
@@ -302,10 +342,20 @@ class OperationalDashboardTests(TestCase):
         self.assertContains(response, "No recorded maintenance activity is available.")
         self.assertContains(response, self.activity_limitation)
 
+    def test_activity_for_permission_controlled_modules_is_hidden_without_view_access(self):
+        self.create_log(DataSource)
+        self.create_log(GuidanceItem)
+        self.create_log(EvacuationCenter)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.context["dashboard"]["recent_activity"], [])
+        self.assertContains(response, "No recorded maintenance activity is available.")
+
     def test_database_display_names_are_escaped_in_greeting_and_activity(self):
         self.staff.display_name = '<img src=x onerror="alert(1)">'
         self.staff.save(update_fields=["display_name"])
-        self.create_log(DataSource)
+        self.create_log(GeographicArea)
         response = self.client.get(self.url)
         self.assertContains(response, escape(self.staff.display_name))
         self.assertNotContains(response, self.staff.display_name)
@@ -333,9 +383,7 @@ class OperationalDashboardTests(TestCase):
                     f"{reverse('admin_portal:login')}?next={url}",
                     fetch_redirect_response=False,
                 )
-        self.assertFalse(
-            any("Open DSS content" in html.text(link) for link in html.select("a"))
-        )
+        self.assertFalse(any("Open DSS content" in html.text(link) for link in html.select("a")))
         self.assertFalse(any("Manage sources" in html.text(link) for link in html.select("a")))
 
     def test_dashboard_retains_accessible_safety_and_removes_foundation_and_rule_controls(self):

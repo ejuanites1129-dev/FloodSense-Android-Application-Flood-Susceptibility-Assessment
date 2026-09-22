@@ -129,6 +129,39 @@
       view: new ol.View({center: ol.proj.fromLonLat([120.96, 14.42]), zoom: 12}),
     });
 
+    const cityFeatureJson = payload.layers.administrative.features.find(
+      feature => feature.properties.area_type === "CITY",
+    );
+    let coverageMaskLayer = null;
+    if (cityFeatureJson) {
+      const cityFeature = format.readFeature(cityFeatureJson, {
+        dataProjection: "EPSG:4326",
+        featureProjection: "EPSG:3857",
+      });
+      const cityGeometry = cityFeature.getGeometry();
+      const cityPolygons = cityGeometry.getType() === "MultiPolygon"
+        ? cityGeometry.getPolygons()
+        : [cityGeometry];
+      const projectionExtent = ol.proj.get("EPSG:3857").getExtent();
+      const outsideGeometry = ol.geom.Polygon.fromExtent(projectionExtent);
+      const maskFeatures = [new ol.Feature({geometry: outsideGeometry})];
+      cityPolygons.forEach(polygon => {
+        outsideGeometry.appendLinearRing(polygon.getLinearRing(0).clone());
+        for (let index = 1; index < polygon.getLinearRingCount(); index += 1) {
+          maskFeatures.push(new ol.Feature({
+            geometry: new ol.geom.Polygon([polygon.getLinearRing(index).getCoordinates()]),
+          }));
+        }
+      });
+      coverageMaskLayer = new ol.layer.Vector({
+        source: new ol.source.Vector({features: maskFeatures}),
+        style: new ol.style.Style({
+          fill: new ol.style.Fill({color: "rgba(71, 84, 103, 0.62)"}),
+        }),
+      });
+      map.addLayer(coverageMaskLayer);
+    }
+
     function visibleFeatures() {
       return Array.from(layers.values()).filter(layer => layer.getVisible())
         .flatMap(layer => layer.getSource().getFeatures());
@@ -139,7 +172,7 @@
       const admin = visible.filter(feature => feature.get("layer_kind") === "administrative").length;
       const demo = visible.length - admin;
       status.textContent = visible.length
-        ? `${admin} administrative reference features · ${demo} demonstration-only features visible. No susceptibility classifications are shown.`
+        ? `${admin} administrative reference features · ${demo} demonstration-only features visible. No susceptibility classifications are shown.${coverageMaskLayer ? " Gray areas are outside Bacoor assessment coverage." : ""}`
         : "No geographic features are visible. Enable an available layer, or use the area list to review records.";
       if (tileError) status.textContent += " Basemap tiles could not load. Available boundaries and record details remain usable.";
       if (selectedId && !records.get(selectedId)?.mapped) status.textContent += " The selected record is not displayable.";
@@ -182,7 +215,10 @@
     fitButton.addEventListener("click", fitVisible);
     map.on("singleclick", event => {
       const hits = [];
-      map.forEachFeatureAtPixel(event.pixel, feature => { hits.push(feature); }, {hitTolerance: 3});
+      map.forEachFeatureAtPixel(event.pixel, feature => { hits.push(feature); }, {
+        hitTolerance: 3,
+        layerFilter: layer => layer !== coverageMaskLayer,
+      });
       // Prefer a barangay over the encompassing city outline at shared borders.
       hits.sort((a, b) => Number(a.get("area_type") === "CITY") - Number(b.get("area_type") === "CITY"));
       if (hits.length) selectRecord(hits[0].get("record_id"), true);

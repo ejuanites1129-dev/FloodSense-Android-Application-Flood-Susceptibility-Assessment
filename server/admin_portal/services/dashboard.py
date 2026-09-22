@@ -3,9 +3,12 @@
 from django.contrib.admin.models import ADDITION, CHANGE, DELETION, LogEntry
 from django.db.models import Count, Q
 from dss.models import GuidanceItem
+from evacuation.models import EvacuationCenter
 from expert.models import ScenarioOption
 from geography.models import GeographicArea
 from provenance.models import DataSource, PublicationStatus
+
+from .map_data import reviewable_area_filter
 
 
 def _record_summary(model, *, include_enabled=False, extra_counts=None):
@@ -33,15 +36,11 @@ def _record_summary(model, *, include_enabled=False, extra_counts=None):
     return summary
 
 
-def _recent_activity():
+def _recent_activity(module_labels=None):
     """Read only safe fields from the limited technical Admin event source."""
 
-    module_labels = {
-        ("geography", "geographicarea"): "Geographic areas",
-        ("provenance", "datasource"): "Data sources",
-        ("dss", "guidanceitem"): "DSS guidance",
-        ("expert", "scenariooption"): "Scenario options",
-    }
+    if module_labels is None:
+        module_labels = ACTIVITY_MODULE_LABELS
     action_labels = {ADDITION: "Added", CHANGE: "Changed", DELETION: "Deleted"}
     relevant_models = Q()
     for app_label, model_name in module_labels:
@@ -75,8 +74,37 @@ def _recent_activity():
     ]
 
 
-def get_dashboard_summary():
-    """Return a read-only snapshot using four aggregates and one activity query.
+ACTIVITY_MODULE_LABELS = {
+    ("geography", "geographicarea"): "Geographic areas",
+    ("provenance", "datasource"): "Data sources",
+    ("dss", "guidanceitem"): "DSS guidance",
+    ("expert", "scenariooption"): "Scenario options",
+    ("evacuation", "evacuationcenter"): "Evacuation centers",
+}
+
+
+def _permitted_activity_modules(user):
+    if user is None or user.is_superuser:
+        return ACTIVITY_MODULE_LABELS
+    allowed = {
+        ("geography", "geographicarea"),
+        ("expert", "scenariooption"),
+    }
+    permission_models = {
+        "provenance.view_datasource": ("provenance", "datasource"),
+        "dss.view_guidanceitem": ("dss", "guidanceitem"),
+        "evacuation.view_evacuationcenter": ("evacuation", "evacuationcenter"),
+    }
+    allowed.update(
+        model_key
+        for permission, model_key in permission_models.items()
+        if user.has_perm(permission)
+    )
+    return {key: ACTIVITY_MODULE_LABELS[key] for key in allowed}
+
+
+def get_dashboard_summary(*, user=None):
+    """Return a read-only snapshot using five aggregates and one activity query.
 
     Enabled and approved are independent counts. These summaries do not assert
     resident-facing eligibility, source approval, or geographic susceptibility.
@@ -86,8 +114,14 @@ def get_dashboard_summary():
         GeographicArea,
         include_enabled=True,
         extra_counts={
-            f"area_type_{value}": Count("pk", filter=Q(area_type=value))
-            for value, _label in GeographicArea.AreaType.choices
+            "needs_review": Count(
+                "pk",
+                filter=reviewable_area_filter() & Q(status=PublicationStatus.PENDING_VALIDATION),
+            ),
+            **{
+                f"area_type_{value}": Count("pk", filter=Q(area_type=value))
+                for value, _label in GeographicArea.AreaType.choices
+            },
         },
     )
     geographic_areas["area_types"] = [
@@ -127,29 +161,81 @@ def get_dashboard_summary():
             ),
         },
     )
+    evacuation_centers = EvacuationCenter.objects.aggregate(
+        total=Count("pk"),
+        **{
+            f"status_{value}": Count("pk", filter=Q(publication_status=value))
+            for value, _label in PublicationStatus.choices
+        },
+        **{
+            f"verification_{value}": Count("pk", filter=Q(verification_status=value))
+            for value, _label in EvacuationCenter.VerificationStatus.choices
+        },
+    )
+    evacuation_centers["status_counts"] = {
+        value: evacuation_centers.pop(f"status_{value}")
+        for value, _label in PublicationStatus.choices
+    }
+    evacuation_centers["statuses"] = [
+        {
+            "value": value,
+            "label": label,
+            "count": evacuation_centers["status_counts"][value],
+        }
+        for value, label in PublicationStatus.choices
+    ]
+    evacuation_centers["verification_counts"] = {
+        value: evacuation_centers.pop(f"verification_{value}")
+        for value, _label in EvacuationCenter.VerificationStatus.choices
+    }
+    evacuation_centers["verifications"] = [
+        {
+            "value": value,
+            "label": label,
+            "count": evacuation_centers["verification_counts"][value],
+        }
+        for value, label in EvacuationCenter.VerificationStatus.choices
+    ]
 
     review_modules = [
         {
             "label": label,
             "section_slug": section_slug,
             "count": count,
+            "filter_query": filter_query,
         }
-        for label, section_slug, count in (
+        for label, section_slug, count, filter_query in (
             (
                 "Geographic areas",
                 "map-data",
-                geographic_areas["status_counts"][PublicationStatus.PENDING_VALIDATION],
+                geographic_areas["needs_review"],
+                "status=PENDING_VALIDATION",
             ),
             (
                 "Data sources",
                 "sources-content",
                 data_sources["status_counts"][PublicationStatus.PENDING_VALIDATION],
+                "status=PENDING_VALIDATION",
             ),
-            ("DSS guidance", "dss-content", guidance_items["needs_review"]),
             (
-                "Scenario options",
-                "assessment-parameters",
+                "DSS guidance",
+                "dss-content",
+                guidance_items["needs_review"],
+                "review_attention=needs_review",
+            ),
+            (
+                "Rainfall references",
+                "rainfall-references",
                 scenario_options["status_counts"][PublicationStatus.PENDING_VALIDATION],
+                "status=PENDING_VALIDATION",
+            ),
+            (
+                "Evacuation centers",
+                "evacuation-centers",
+                evacuation_centers["verification_counts"][
+                    EvacuationCenter.VerificationStatus.IN_REVIEW
+                ],
+                "verification_status=IN_REVIEW",
             ),
         )
     ]
@@ -158,10 +244,11 @@ def get_dashboard_summary():
         "data_sources": data_sources,
         "guidance_items": guidance_items,
         "scenario_options": scenario_options,
+        "evacuation_centers": evacuation_centers,
         "review_attention": {
             "total": sum(module["count"] for module in review_modules),
             "modules": review_modules,
         },
-        "recent_activity": _recent_activity(),
+        "recent_activity": _recent_activity(_permitted_activity_modules(user)),
         "activity_is_complete_audit": False,
     }

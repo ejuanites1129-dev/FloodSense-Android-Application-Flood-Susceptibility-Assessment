@@ -15,6 +15,7 @@ import '../assessment/assessment_controller.dart';
 import '../assessment/widgets/dynamic_map_card.dart';
 import '../evacuation/nearest_center_controller.dart';
 import '../location/location_controller.dart';
+import '../map/bacoor_coverage_mask.dart';
 
 /// The shared map canvas behind Map, Assess, and Prepare.
 ///
@@ -43,6 +44,8 @@ class _HybridMapSurfaceState extends State<HybridMapSurface> {
   bool _mapReady = false;
   int? _lastSelectedAreaId;
   String? _lastSelectedCenter;
+  List<GeographicArea>? _cachedCoverageAreas;
+  List<Polygon<int>> _cachedCoveragePolygons = const [];
 
   @override
   void didUpdateWidget(covariant HybridMapSurface oldWidget) {
@@ -175,7 +178,7 @@ class _HybridMapSurfaceState extends State<HybridMapSurface> {
 
     return Semantics(
       container: true,
-      label: 'Interactive Bacoor scenario map. Drag to pan, pinch to zoom, or tap to place a temporary pin.',
+      label: 'Interactive Bacoor scenario map. Bacoor is clear and areas outside assessment coverage are gray. Drag to pan, pinch to zoom, or tap to place a temporary pin.',
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -203,6 +206,12 @@ class _HybridMapSurfaceState extends State<HybridMapSurface> {
                   userAgentPackageName: 'ph.edu.cvsu.bacoor.floodsense',
                   maxNativeZoom: 19,
                 ),
+              PolygonLayer<int>(
+                key: const Key('hybrid-bacoor-coverage-mask'),
+                polygons: _coveragePolygons(controller.referenceAreas),
+                invertedFill: bacoorOutsideCoverageColor,
+                polygonLabels: false,
+              ),
               PolygonLayer<int>(
                 key: const Key('hybrid-scenario-polygons'),
                 polygons: _scenarioPolygons(controller),
@@ -296,6 +305,16 @@ class _HybridMapSurfaceState extends State<HybridMapSurface> {
               ],
             ),
           ),
+          if (controller.mapError == null)
+            const Positioned(
+              left: 14,
+              right: 76,
+              top: 116,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: BacoorCoverageLegend(compact: true),
+              ),
+            ),
           if (controller.isMapAssessing)
             const Positioned.fill(child: MapLoadingOverlay()),
           if (controller.mapError case final error?)
@@ -388,6 +407,14 @@ class _HybridMapSurfaceState extends State<HybridMapSurface> {
             hitValue: area.id,
           ),
     ];
+  }
+
+  List<Polygon<int>> _coveragePolygons(List<GeographicArea> areas) {
+    if (identical(areas, _cachedCoverageAreas)) {
+      return _cachedCoveragePolygons;
+    }
+    _cachedCoverageAreas = areas;
+    return _cachedCoveragePolygons = buildBacoorCoveragePolygons(areas);
   }
 
   Marker _centerMarker(VerifiedCenter center) {

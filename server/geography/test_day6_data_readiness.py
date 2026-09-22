@@ -64,6 +64,10 @@ class GeographicDatasetValidationTests(SimpleTestCase):
         self.assertEqual(report["quality"]["property_fields"], ["public_id"])
         self.assertEqual(report["quality"]["missing_property_counts"], {"public_id": 0})
         self.assertEqual(report["metadata"]["license"], "unknown")
+        self.assertEqual(report["metadata_provenance"]["source"], "DATASET_DECLARED")
+        self.assertEqual(report["metadata_provenance"]["license"], "MISSING")
+        self.assertEqual(report["file"]["fact_provenance"]["sha256"], "VERIFIED_BY_TOOL")
+        self.assertEqual(report["inferred_metadata_fields"], [])
         self.assertEqual(report["result"]["status"], "PASS")
         self.assertEqual(report["result"]["approval_effect"], "NONE")
 
@@ -93,8 +97,8 @@ class GeographicDatasetValidationTests(SimpleTestCase):
         self.assertEqual(report["result"]["status"], "ISSUES_FOUND")
         self.assertEqual(report["quality"]["missing_identity_counts"], {"public_id": 2})
         self.assertEqual(
-            report["quality"]["duplicate_identity_values"],
-            {"public_id": ["duplicate"]},
+            report["quality"]["duplicate_identity_counts"],
+            {"public_id": 1},
         )
         self.assertEqual(report["quality"]["null_geometry_count"], 1)
         self.assertEqual(report["quality"]["invalid_geometry_count"], 1)
@@ -134,8 +138,10 @@ class GeographicDatasetValidationTests(SimpleTestCase):
 
     def test_missing_or_non_geojson_input_fails_without_database_access(self):
         with TemporaryDirectory() as directory:
-            with self.assertRaises(DatasetValidationError):
-                validate_geojson_dataset(Path(directory) / "missing.geojson")
+            missing_path = Path(directory) / "missing.geojson"
+            with self.assertRaisesMessage(DatasetValidationError, "missing.geojson") as error:
+                validate_geojson_dataset(missing_path)
+            self.assertNotIn(str(Path(directory).resolve()), str(error.exception))
             path = Path(directory) / "invalid.geojson"
             path.write_text("[]", encoding="utf-8")
             with self.assertRaisesMessage(
