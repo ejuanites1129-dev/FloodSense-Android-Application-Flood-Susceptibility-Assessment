@@ -64,6 +64,12 @@ in `docs/SETUP_WINDOWS.md`. All contributors and coding agents must also follow
 `docs/TEAM_DATABASE_AND_GIT_WORKFLOW.md` before changing models, migrations,
 seed/import processes, or shared backend data.
 
+For the current barangay-susceptibility consultation preview, structured
+Prepare flow, and resident bottom-sheet update, teammates should follow
+`docs/TEAM_HANDOFF_BARANGAY_PREVIEW_AND_PREPARE.md` after pulling. It lists the
+required migration and seed steps, plus the separately guarded optional MGB
+extract/import process.
+
 Before PostGIS is installed, the database-independent backend foundation can be checked with:
 
 ```powershell
@@ -77,16 +83,18 @@ powershell -ExecutionPolicy Bypass -File scripts/verify_postgis.ps1
 ```
 
 For an authorized local development database only, the tested setup command can
-create or refresh the fictional demonstration records and the separate
-pending-validation Bacoor City/barangay administrative reference layer:
+create or refresh the fictional demonstration records, the versioned presentation
+preparedness flow, and the separate pending-validation Bacoor City/barangay
+administrative reference layer:
 
 ```powershell
 server\.venv\Scripts\python.exe server\manage.py seed_demo
 ```
 
-The administrative reference records contain no susceptibility facts and are
-not City-verified. Never run this command against a shared, staging, or deployed
-database without explicit authorization. See
+The structured flow is published only in demonstration operating mode and remains
+pending expert validation. The administrative reference records contain no
+susceptibility facts and are not City-verified. Never run this command against a
+shared, staging, or deployed database without explicit authorization. See
 `docs/DAY_6_DYNAMIC_MAP_GUIDE.md` for its safety checks and the map/API workflow.
 
 Resident authentication, Remember Me, email/Google setup, versioned legal and

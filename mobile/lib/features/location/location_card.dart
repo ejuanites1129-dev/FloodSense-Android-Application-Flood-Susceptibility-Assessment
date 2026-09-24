@@ -85,7 +85,10 @@ class _LocationCardState extends State<LocationCard>
                 ],
                 if (state.phase == LocationFlowPhase.confirmed) ...[
                   const SizedBox(height: 12),
-                  _ConfirmedBarangay(controller: controller),
+                  _ConfirmedBarangay(
+                    controller: controller,
+                    area: _confirmedArea(),
+                  ),
                 ],
                 const SizedBox(height: 12),
                 _LocationActions(controller: controller),
@@ -107,6 +110,12 @@ class _LocationCardState extends State<LocationCard>
         );
       },
     );
+  }
+
+  GeographicArea? _confirmedArea() {
+    final code = controller.confirmedBarangay?.geographicAreaCode;
+    final matches = widget.barangays.where((area) => area.code == code);
+    return matches.length == 1 ? matches.single : null;
   }
 }
 
@@ -293,9 +302,10 @@ class _CandidateDetails extends StatelessWidget {
 }
 
 class _ConfirmedBarangay extends StatelessWidget {
-  const _ConfirmedBarangay({required this.controller});
+  const _ConfirmedBarangay({required this.controller, required this.area});
 
   final LocationController controller;
+  final GeographicArea? area;
 
   @override
   Widget build(BuildContext context) {
@@ -308,8 +318,22 @@ class _ConfirmedBarangay extends StatelessWidget {
         border: Border.all(color: AppColors.primary),
         borderRadius: BorderRadius.circular(10),
       ),
-      child: Text(
-        '${barangay.name} (${barangay.psgcCode}) is the confirmed administrative location. No susceptibility assessment was started automatically.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${barangay.name} (${barangay.psgcCode}) is the confirmed assessment barangay. The scenario runs only after you review and press Assess Susceptibility.',
+          ),
+          if (area?.susceptibilitySummary case final summary?) ...[
+            const SizedBox(height: 8),
+            Text(
+              summary.hasDominantClass
+                  ? 'Provisional MGB-derived baseline: ${summary.dominantClassLabel} (${summary.dominantPercent!.toStringAsFixed(2)}% dominant mapped share; ${summary.mappedPercent.toStringAsFixed(2)}% total mapped coverage).'
+                  : 'No provisional baseline can be assigned because this MGB extract maps none of the four susceptibility classes in this barangay.',
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ],
+        ],
       ),
     );
   }

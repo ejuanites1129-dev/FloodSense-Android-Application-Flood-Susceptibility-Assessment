@@ -5,7 +5,13 @@ from django.contrib.gis.geos import MultiPolygon, Polygon
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
-from dss.models import GuidanceItem
+from dss.models import (
+    DSSFlowVersion,
+    DSSOption,
+    DSSOutcome,
+    DSSQuestion,
+    GuidanceItem,
+)
 from expert.models import (
     ExpertRule,
     ExpertRuleCondition,
@@ -56,6 +62,18 @@ class SeedDemoCommandTests(TestCase):
         self.assertEqual(ExpertRule.objects.count(), 4)
         self.assertEqual(ExpertRuleCondition.objects.count(), 12)
         self.assertEqual(GuidanceItem.objects.count(), 4)
+        self.assertEqual(DSSFlowVersion.objects.count(), 1)
+        self.assertEqual(DSSQuestion.objects.count(), 4)
+        self.assertEqual(DSSOutcome.objects.count(), 4)
+        self.assertEqual(DSSOption.objects.count(), 8)
+        flow = DSSFlowVersion.objects.get()
+        self.assertEqual(flow.code, "preparedness")
+        self.assertEqual(flow.version, "presentation-1")
+        self.assertEqual(
+            flow.workflow_status,
+            DSSFlowVersion.WorkflowStatus.PUBLISHED,
+        )
+        self.assertEqual(flow.susceptibility_levels.count(), 4)
         self.assertFalse(DataSource.objects.get(name=SOURCE_NAME).is_publicly_releasable)
 
     def test_running_twice_is_idempotent(self):
@@ -64,6 +82,10 @@ class SeedDemoCommandTests(TestCase):
             "areas": set(GeographicArea.objects.values_list("id", flat=True)),
             "rules": set(ExpertRule.objects.values_list("id", flat=True)),
             "guidance": set(GuidanceItem.objects.values_list("id", flat=True)),
+            "dss_flows": set(DSSFlowVersion.objects.values_list("id", flat=True)),
+            "dss_questions": set(DSSQuestion.objects.values_list("id", flat=True)),
+            "dss_outcomes": set(DSSOutcome.objects.values_list("id", flat=True)),
+            "dss_options": set(DSSOption.objects.values_list("id", flat=True)),
         }
 
         self._seed()
@@ -80,7 +102,63 @@ class SeedDemoCommandTests(TestCase):
             set(GuidanceItem.objects.values_list("id", flat=True)),
             ids_before["guidance"],
         )
+        self.assertEqual(
+            set(DSSFlowVersion.objects.values_list("id", flat=True)),
+            ids_before["dss_flows"],
+        )
+        self.assertEqual(
+            set(DSSQuestion.objects.values_list("id", flat=True)),
+            ids_before["dss_questions"],
+        )
+        self.assertEqual(
+            set(DSSOutcome.objects.values_list("id", flat=True)),
+            ids_before["dss_outcomes"],
+        )
+        self.assertEqual(
+            set(DSSOption.objects.values_list("id", flat=True)),
+            ids_before["dss_options"],
+        )
         self.assertEqual(ExpertRuleCondition.objects.count(), 12)
+
+    def test_seeded_prepare_flow_is_available_and_branches_deterministically(self):
+        self._seed()
+
+        started = self.client.get(
+            "/api/v1/dss/flows/start/",
+            {
+                "mode": "demonstration",
+                "susceptibility_level": "HIGH",
+            },
+        )
+        self.assertEqual(started.status_code, 200)
+        self.assertEqual(started.json()["question"]["code"], "support-needs")
+
+        support = self.client.post(
+            "/api/v1/dss/flows/preparedness/presentation-1/answer/",
+            data={
+                "mode": "demonstration",
+                "susceptibility_level": "HIGH",
+                "question_code": "support-needs",
+                "option_code": "yes",
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(support.status_code, 200)
+        self.assertEqual(support.json()["question"]["code"], "support-plan")
+
+        outcome = self.client.post(
+            "/api/v1/dss/flows/preparedness/presentation-1/answer/",
+            data={
+                "mode": "demonstration",
+                "susceptibility_level": "HIGH",
+                "question_code": "support-plan",
+                "option_code": "no",
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(outcome.status_code, 200)
+        self.assertEqual(outcome.json()["kind"], "outcome")
+        self.assertEqual(outcome.json()["outcome"]["code"], "arrange-support")
 
     def test_polygons_are_multipolygons_in_4326_and_do_not_overlap(self):
         self._seed()

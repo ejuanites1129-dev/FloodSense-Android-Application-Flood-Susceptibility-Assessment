@@ -71,7 +71,11 @@ class _DssFlowViewState extends State<DssFlowView> {
             semanticsLabel: 'Decision support progress',
           ),
           const SizedBox(height: 8),
-          Text('${step.dataStatus} • Deterministic decision support'),
+          Text(
+            step.dataStatus == 'DEMONSTRATION'
+                ? 'Pending expert validation • Structured preparedness guide'
+                : '${step.dataStatus} • Structured preparedness guide',
+          ),
           const SizedBox(height: 12),
           Card(
             color: const Color(0xFFFFF4CE),

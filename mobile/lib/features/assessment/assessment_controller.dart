@@ -150,6 +150,16 @@ class AssessmentController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void selectAreaByCode(String? code) {
+    if (_disposed) return;
+    if (code == null) {
+      selectArea(null);
+      return;
+    }
+    final matches = areas.where((area) => area.code == code);
+    selectArea(matches.length == 1 ? matches.single : null);
+  }
+
   Future<void> refreshMapAssessment({bool force = false}) async {
     if (_disposed || !hasCompleteScenario) return;
     final intensity = selectedIntensity!;

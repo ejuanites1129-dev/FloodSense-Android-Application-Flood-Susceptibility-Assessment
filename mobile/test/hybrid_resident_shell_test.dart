@@ -108,6 +108,64 @@ void main() {
   });
 
   testWidgets(
+    'context sheet hides, expands, and remains draggable after navigation',
+    (tester) async {
+      final auth = FakeResidentAuthRepository()
+        ..restoration = testSession(SetupStage.authenticatedReady);
+      await _pumpApp(tester, auth: auth);
+
+      final sheet = find.byKey(const Key('resident-context-sheet'));
+      final handle = find.byKey(const Key('resident-sheet-handle'));
+      final collapse = find.byKey(const Key('resident-sheet-collapse-button'));
+      final initialHeight = tester.getSize(sheet).height;
+
+      await tester.tap(collapse);
+      await tester.pumpAndSettle();
+      final hiddenHeight = tester.getSize(sheet).height;
+      expect(hiddenHeight, lessThan(initialHeight));
+      expect(
+        find.byKey(const Key('resident-sheet-expand-tab')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const Key('resident-sheet-expand-tab')));
+      await tester.pumpAndSettle();
+      expect(tester.getSize(sheet).height, greaterThan(hiddenHeight));
+      expect(find.byKey(const Key('resident-sheet-expand-tab')), findsNothing);
+
+      await tester.tap(find.byKey(const Key('resident-nav-profile')));
+      await tester.pumpAndSettle();
+      expect(sheet, findsNothing);
+
+      await tester.tap(find.byKey(const Key('resident-nav-assess')));
+      await tester.pumpAndSettle();
+      expect(sheet, findsOneWidget);
+      final assessmentHeight = tester.getSize(sheet).height;
+
+      await tester.drag(handle, const Offset(0, 180));
+      await tester.pumpAndSettle();
+      final userChosenHeight = tester.getSize(sheet).height;
+      expect(userChosenHeight, lessThan(assessmentHeight));
+      expect(userChosenHeight, greaterThan(hiddenHeight));
+      expect(find.byKey(const Key('resident-sheet-expand-tab')), findsNothing);
+
+      await tester.drag(handle, const Offset(0, -90));
+      await tester.pumpAndSettle();
+      final raisedHeight = tester.getSize(sheet).height;
+      expect(raisedHeight, greaterThan(userChosenHeight));
+      expect(raisedHeight, lessThan(assessmentHeight));
+
+      await tester.drag(handle, const Offset(0, 900));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('resident-sheet-expand-tab')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'hybrid navigation preserves choices and assessment returns to Map result',
     (tester) async {
       final api = FakeFloodSenseApi();
@@ -212,6 +270,15 @@ void main() {
       );
       await tester.tap(preparedness);
       await tester.pumpAndSettle();
+      final validationStatus = find.text(
+        'Pending expert validation • Structured preparedness guide',
+      );
+      await _scrollTo(
+        tester,
+        validationStatus,
+        const Key('dss-flow-view'),
+      );
+      expect(validationStatus, findsOneWidget);
       final warning = find.text('This is not an evacuation order.');
       await _scrollTo(tester, warning, const Key('dss-flow-view'));
       expect(warning, findsOneWidget);

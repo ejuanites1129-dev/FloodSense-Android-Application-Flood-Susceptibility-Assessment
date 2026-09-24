@@ -599,6 +599,7 @@ DJANGO_DEBUG=true
 DJANGO_SECRET_KEY=replace-with-a-long-random-value
 DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,10.0.2.2
 FLOODSENSE_GIS_ENABLED=true
+FLOODSENSE_ENABLE_PROVISIONAL_MGB_PREVIEW=false
 DATABASE_NAME=floodsense
 DATABASE_USER=floodsense
 DATABASE_PASSWORD=replace-with-the-floodsense-database-password
@@ -615,6 +616,9 @@ Important rules:
 - Never send `server/.env` through chat or commit it to Git.
 - `10.0.2.2` allows requests from the Android emulator during development.
 - Development settings are not production deployment settings.
+- Keep `FLOODSENSE_ENABLE_PROVISIONAL_MGB_PREVIEW=false` for ordinary setup. The
+  provisional MGB data README documents the explicit local consultation-only
+  workflow; enabling it does not approve or publish that source.
 
 Generate a local Django secret key with:
 

@@ -6,7 +6,17 @@ from typing import Any
 
 from django.core.exceptions import ValidationError
 from django.db.models import Prefetch, Q
+from geography.constants import (
+    MGB_COVERAGE_LIMITATION,
+    MGB_DERIVATION_LIMITATION,
+    MGB_PROVISIONAL_WARNING,
+)
 from geography.models import GeographicArea
+from geography.services import (
+    active_consultation_dataset,
+    active_consultation_summary_for_area,
+    consultation_assessment_areas,
+)
 from provenance import policies
 
 from .models import (
@@ -35,7 +45,7 @@ class AssessmentInputError(ValidationError):
 
 def evaluate_assessment(
     *,
-    area_identifier: int | str,
+    area_identifier: int | str | GeographicArea,
     intensity_code: str,
     duration_code: str,
     mode: str,
@@ -87,9 +97,8 @@ def evaluate_assessment(
         missing_facts.append("rainfall_intensity_rank")
     if duration.derived_value is None:
         missing_facts.append("rainfall_duration_hours")
-    if (
-        "zone_baseline_rank" in conflicting_fact_keys
-        or not isinstance(area_facts.get("zone_baseline_rank"), Decimal)
+    if "zone_baseline_rank" in conflicting_fact_keys or not isinstance(
+        area_facts.get("zone_baseline_rank"), Decimal
     ):
         missing_facts.append("zone_baseline_rank")
     if missing_facts:
@@ -147,8 +156,7 @@ def evaluate_assessment(
             mode=normalized_mode,
             matched_rules=top_rules,
             summary=(
-                "Equally specific, equally prioritized rules conflict: "
-                f"{', '.join(rule_codes)}."
+                f"Equally specific, equally prioritized rules conflict: {', '.join(rule_codes)}."
             ),
         )
 
@@ -194,13 +202,21 @@ def evaluate_map_scenario(
 
     areas = GeographicArea.objects.select_related("source").filter(is_enabled=True)
     if normalized_mode == policies.DEMONSTRATION_MODE:
-        areas = areas.filter(area_type=GeographicArea.AreaType.DEMO_ZONE)
-    areas = policies.permitted_records(areas, normalized_mode).order_by("name", "id")
+        if active_consultation_dataset() is not None:
+            areas = consultation_assessment_areas()
+        else:
+            areas = policies.permitted_records(
+                areas.filter(area_type=GeographicArea.AreaType.DEMO_ZONE),
+                normalized_mode,
+            )
+    else:
+        areas = policies.permitted_records(areas, normalized_mode)
+    areas = areas.order_by("name", "id")
 
     results = []
     for area in areas:
         assessment = evaluate_assessment(
-            area_identifier=area.id,
+            area_identifier=area,
             intensity_code=intensity.code,
             duration_code=duration.code,
             mode=normalized_mode,
@@ -216,6 +232,18 @@ def evaluate_map_scenario(
             }
         )
 
+    consultation_dataset = (
+        active_consultation_dataset() if normalized_mode == policies.DEMONSTRATION_MODE else None
+    )
+    map_warnings = list(policies.warnings_for_mode(normalized_mode))
+    if consultation_dataset is not None:
+        map_warnings.extend(
+            [
+                MGB_PROVISIONAL_WARNING,
+                MGB_DERIVATION_LIMITATION,
+                MGB_COVERAGE_LIMITATION,
+            ]
+        )
     return {
         "scenario": {
             "rainfall_intensity_code": intensity.code,
@@ -223,8 +251,12 @@ def evaluate_map_scenario(
         },
         "results": results,
         "operating_mode": normalized_mode,
-        "data_status": policies.data_status_for_mode(normalized_mode),
-        "warnings": policies.warnings_for_mode(normalized_mode),
+        "data_status": (
+            "PENDING_VALIDATION"
+            if consultation_dataset is not None
+            else policies.data_status_for_mode(normalized_mode)
+        ),
+        "warnings": map_warnings,
     }
 
 
@@ -238,36 +270,54 @@ def _normalize_mode(mode: str) -> str:
         ) from None
 
 
-def _get_area(area_identifier: int | str, mode: str) -> GeographicArea:
-    lookup = {"pk": area_identifier} if isinstance(area_identifier, int) else {
-        "code": area_identifier
-    }
-    try:
-        area = GeographicArea.objects.select_related("source").get(**lookup)
-    except GeographicArea.DoesNotExist:
-        raise AssessmentInputError(
-            {"area_identifier": "The selected geographic area does not exist."}
-        ) from None
+def _get_area(
+    area_identifier: int | str | GeographicArea,
+    mode: str,
+) -> GeographicArea:
+    if isinstance(area_identifier, GeographicArea):
+        area = area_identifier
+    else:
+        lookup = (
+            {"pk": area_identifier}
+            if isinstance(area_identifier, int)
+            else {"code": area_identifier}
+        )
+        try:
+            area = GeographicArea.objects.select_related("source").get(**lookup)
+        except GeographicArea.DoesNotExist:
+            raise AssessmentInputError(
+                {"area_identifier": "The selected geographic area does not exist."}
+            ) from None
 
     if not area.is_enabled:
-        raise AssessmentInputError(
-            {"area_identifier": "The selected geographic area is disabled."}
-        )
-    if (
-        mode == RuleSet.Mode.DEMONSTRATION
-        and area.area_type != GeographicArea.AreaType.DEMO_ZONE
-    ):
-        raise AssessmentInputError(
-            {
-                "area_identifier": (
-                    "Demonstration assessments require a neutral demonstration zone."
+        raise AssessmentInputError({"area_identifier": "The selected geographic area is disabled."})
+    consultation_summary = None
+    if mode == RuleSet.Mode.DEMONSTRATION:
+        if area.area_type == GeographicArea.AreaType.BARANGAY:
+            consultation_summary = active_consultation_summary_for_area(area)
+            if consultation_summary is None:
+                raise AssessmentInputError(
+                    {
+                        "area_identifier": (
+                            "This barangay has no active provisional susceptibility "
+                            "summary for consultation."
+                        )
+                    }
                 )
-            }
-        )
-    if not policies.record_is_permitted(area, mode):
+        elif area.area_type != GeographicArea.AreaType.DEMO_ZONE:
+            raise AssessmentInputError(
+                {
+                    "area_identifier": (
+                        "Demonstration assessments require a supported consultation "
+                        "barangay or neutral demonstration zone."
+                    )
+                }
+            )
+    if consultation_summary is None and not policies.record_is_permitted(area, mode):
         raise AssessmentInputError(
             {"area_identifier": "The selected geographic area is not permitted in this mode."}
         )
+    area._active_consultation_summary = consultation_summary
     return area
 
 
@@ -303,9 +353,7 @@ def _select_ruleset(mode: str) -> tuple[RuleSet | None, str]:
         RuleSet.objects.select_related("source").filter(mode=mode, is_active=True)
     )
     usable_rulesets = [
-        ruleset
-        for ruleset in active_rulesets
-        if policies.record_is_permitted(ruleset, mode)
+        ruleset for ruleset in active_rulesets if policies.record_is_permitted(ruleset, mode)
     ]
     if len(usable_rulesets) == 1:
         return usable_rulesets[0], ""
@@ -328,9 +376,7 @@ def _assemble_area_facts(
         if not policies.record_is_permitted(area_fact, mode):
             continue
         value: str | Decimal = (
-            area_fact.numeric_value
-            if area_fact.numeric_value is not None
-            else area_fact.text_value
+            area_fact.numeric_value if area_fact.numeric_value is not None else area_fact.text_value
         )
         existing = values.get(area_fact.fact_key)
         if existing is not None and existing != value:
@@ -338,6 +384,17 @@ def _assemble_area_facts(
             values.pop(area_fact.fact_key, None)
         elif area_fact.fact_key not in conflicting_keys:
             values[area_fact.fact_key] = value
+
+    summary = getattr(area, "_active_consultation_summary", None)
+    if summary is None and area.area_type == GeographicArea.AreaType.BARANGAY:
+        summary = active_consultation_summary_for_area(area)
+    if summary is not None:
+        # The active, versioned summary owns these reserved consultation facts.
+        # Ordinary AreaFact rows cannot silently override the imported baseline.
+        for key, value in summary.consultation_facts().items():
+            if value is not None:
+                values[key] = value
+                conflicting_keys.discard(key)
 
     return values, conflicting_keys
 
@@ -477,12 +534,27 @@ def _result(
 ) -> dict[str, Any]:
     matched_rules = matched_rules or []
     rule_codes = [rule.code for rule in matched_rules]
-    warnings = policies.warnings_for_mode(mode)
+    warnings = list(policies.warnings_for_mode(mode))
+    consultation_summary = getattr(area, "_active_consultation_summary", None)
+    if consultation_summary is None and area.area_type == GeographicArea.AreaType.BARANGAY:
+        consultation_summary = active_consultation_summary_for_area(area)
+    if consultation_summary is not None:
+        warnings.extend(
+            [
+                MGB_PROVISIONAL_WARNING,
+                MGB_DERIVATION_LIMITATION,
+                MGB_COVERAGE_LIMITATION,
+                (
+                    "Mapped LF/MF/HF/VHF coverage for this barangay is "
+                    f"{consultation_summary.mapped_percent:.2f}%; "
+                    f"{consultation_summary.unmapped_percent:.2f}% is unmapped and "
+                    f"{consultation_summary.conflict_percent:.2f}% is conflicting."
+                ),
+            ]
+        )
     serialized_facts = {key: _serialize_fact(value) for key, value in facts.items()}
     facts_used = [f"{key}={value}" for key, value in serialized_facts.items()]
-    ruleset_payload = (
-        {"name": ruleset.name, "version": ruleset.version} if ruleset else None
-    )
+    ruleset_payload = {"name": ruleset.name, "version": ruleset.version} if ruleset else None
     rationale = [rule.rationale for rule in matched_rules]
     explanation_parts = [summary]
     if rationale:
@@ -513,9 +585,7 @@ def _result(
             "matched_rule_codes": rule_codes,
             "facts_used": facts_used,
             "rule_rationales": rationale,
-            "ruleset": (
-                f"{ruleset.name} v{ruleset.version}" if ruleset is not None else None
-            ),
+            "ruleset": (f"{ruleset.name} v{ruleset.version}" if ruleset is not None else None),
             "warnings": warnings,
         },
         "ruleset": ruleset_payload,

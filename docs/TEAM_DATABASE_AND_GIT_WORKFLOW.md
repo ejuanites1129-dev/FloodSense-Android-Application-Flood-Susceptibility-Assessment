@@ -84,14 +84,17 @@ server\.venv\Scripts\python.exe server\manage.py seed_demo
 ```
 
 **Current status:** `seed_demo` creates the reserved fictional demonstration
-dataset and delegates to the reviewed Bacoor boundary importer to create one
-pending-validation City record and 47 pending-validation Barangay records. The
-two sources remain separate: the reference boundaries contain no susceptibility
+dataset, one versioned structured preparedness flow for presentations, and the
+associated questions, branches, and outcomes. It delegates to the reviewed
+Bacoor boundary importer to create one pending-validation City record and 47
+pending-validation Barangay records. The structured flow is published only in
+demonstration operating mode and remains pending expert validation. The two data
+sources remain separate: the reference boundaries contain no susceptibility
 facts. The combined operation is transactional and idempotent and stops on
-unsafe stable-code, source-ownership, or active-ruleset conflicts. It must be run
-only against an explicitly authorized local development database. Manually
-created Admin records still remain local unless a reviewed seed/import process
-owns them.
+unsafe stable-code, source-ownership, published-flow, or active-ruleset
+conflicts. It must be run only against an explicitly authorized local development
+database. Manually created Admin records still remain local unless a reviewed
+seed/import process owns them.
 
 "Idempotent" means that running the command again updates or reuses the same
 demonstration records instead of creating duplicates.
@@ -281,7 +284,7 @@ The repeatable seed process should eventually create items such as:
 - fictional `Demo Zone A`, `Demo Zone B`, and similar geometries;
 - proposed rule sets intended only to exercise forward chaining;
 - sample susceptibility results;
-- sample DSS preparedness guidance; and
+- sample DSS preparedness guidance plus a structured presentation flow; and
 - provenance showing that every item is synthetic and unapproved.
 
 The Day 6 seed command is safe to run repeatedly and refuses to take over

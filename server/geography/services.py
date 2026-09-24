@@ -5,9 +5,11 @@ from dataclasses import dataclass
 from math import isfinite
 from typing import Any
 
+from django.conf import settings
 from django.contrib.gis.db.models.functions import IsEmpty, IsValid
 from django.contrib.gis.geos import Point
 from django.core.exceptions import ValidationError
+from django.db.models import Prefetch
 from provenance import policies
 from provenance.models import DataSource, PublicationStatus
 
@@ -16,7 +18,11 @@ from .constants import (
     BACOOR_REFERENCE_BARANGAY_COUNT,
     BACOOR_REFERENCE_SOURCE_NAME,
 )
-from .models import GeographicArea
+from .models import (
+    BarangaySusceptibilitySummary,
+    FloodSusceptibilityDataset,
+    GeographicArea,
+)
 from .serializers import BarangayResolutionState
 
 
@@ -62,6 +68,81 @@ def eligible_bacoor_reference_barangays():
     )
 
 
+def active_consultation_dataset() -> FloodSusceptibilityDataset | None:
+    """Return one complete provisional dataset or fail closed.
+
+    A partially imported or accidentally approved dataset must never replace
+    the neutral demonstration zones. The import command activates only after
+    all 47 current barangays have been validated and stored.
+    """
+
+    if not settings.DEBUG or not settings.ENABLE_PROVISIONAL_MGB_PREVIEW:
+        return None
+
+    datasets = list(
+        FloodSusceptibilityDataset.objects.select_related("source")
+        .filter(
+            is_active_for_consultation=True,
+            status=PublicationStatus.PENDING_VALIDATION,
+            source__source_type=DataSource.SourceType.AGENCY_DATASET,
+            source__status=PublicationStatus.PENDING_VALIDATION,
+        )
+        .order_by("id")[:2]
+    )
+    if len(datasets) != 1:
+        return None
+    dataset = datasets[0]
+    if dataset.barangay_summaries.count() != BACOOR_REFERENCE_BARANGAY_COUNT:
+        return None
+    eligible_ids = set(eligible_bacoor_reference_barangays().values_list("id", flat=True))
+    summary_ids = set(dataset.barangay_summaries.values_list("area_id", flat=True))
+    if eligible_ids != summary_ids or len(summary_ids) != BACOOR_REFERENCE_BARANGAY_COUNT:
+        return None
+    return dataset
+
+
+def consultation_assessment_areas():
+    """Return the 47 current barangays with the active summary prefetched."""
+
+    dataset = active_consultation_dataset()
+    if dataset is None:
+        return GeographicArea.objects.none()
+    summaries = BarangaySusceptibilitySummary.objects.filter(dataset=dataset).select_related(
+        "dataset", "dataset__source"
+    )
+    return (
+        eligible_bacoor_reference_barangays()
+        .filter(susceptibility_summaries__dataset=dataset)
+        .prefetch_related(
+            Prefetch(
+                "susceptibility_summaries",
+                queryset=summaries,
+                to_attr="active_consultation_summaries",
+            )
+        )
+        .distinct()
+    )
+
+
+def active_consultation_summary_for_area(
+    area: GeographicArea,
+) -> BarangaySusceptibilitySummary | None:
+    """Return the current summary for one eligible barangay, if available."""
+
+    prefetched = getattr(area, "active_consultation_summaries", None)
+    if prefetched is not None:
+        return prefetched[0] if len(prefetched) == 1 else None
+    dataset = active_consultation_dataset()
+    if dataset is None:
+        return None
+    try:
+        return BarangaySusceptibilitySummary.objects.select_related(
+            "dataset", "dataset__source"
+        ).get(dataset=dataset, area=area)
+    except BarangaySusceptibilitySummary.DoesNotExist:
+        return None
+
+
 def resolve_area_for_point(
     *,
     latitude: float,
@@ -86,18 +167,21 @@ def resolve_area_for_point(
 
     # GeoJSON and PostGIS use x/y = longitude/latitude for EPSG:4326.
     point = Point(validated_longitude, validated_latitude, srid=4326)
-    eligible_areas = GeographicArea.objects.select_related("source").filter(
-        is_enabled=True
-    )
+    eligible_areas = GeographicArea.objects.select_related("source").filter(is_enabled=True)
+    consultation_dataset = None
     if normalized_mode == policies.DEMONSTRATION_MODE:
-        eligible_areas = eligible_areas.filter(
-            area_type=GeographicArea.AreaType.DEMO_ZONE
+        consultation_dataset = active_consultation_dataset()
+        eligible_areas = (
+            consultation_assessment_areas()
+            if consultation_dataset is not None
+            else policies.permitted_records(
+                eligible_areas.filter(area_type=GeographicArea.AreaType.DEMO_ZONE),
+                normalized_mode,
+            )
         )
-    matches = list(
-        policies.permitted_records(eligible_areas, normalized_mode)
-        .filter(geometry__covers=point)
-        .order_by("name", "id")
-    )
+    else:
+        eligible_areas = policies.permitted_records(eligible_areas, normalized_mode)
+    matches = list(eligible_areas.filter(geometry__covers=point).order_by("name", "id"))
 
     if len(matches) == 1:
         state = "RESOLVED"
@@ -117,8 +201,12 @@ def resolve_area_for_point(
         },
         "area": area,
         "operating_mode": normalized_mode,
-        "data_status": policies.data_status_for_mode(normalized_mode),
-        "warnings": policies.warnings_for_mode(normalized_mode),
+        "data_status": (
+            PublicationStatus.PENDING_VALIDATION
+            if consultation_dataset is not None
+            else policies.data_status_for_mode(normalized_mode)
+        ),
+        "warnings": _point_resolution_warnings(normalized_mode, consultation_dataset),
     }
 
 
@@ -160,10 +248,7 @@ def resolve_bacoor_barangay(
     if (
         len(identities) != BACOOR_REFERENCE_BARANGAY_COUNT
         or any(
-            public_code is None
-            or not name.strip()
-            or geometry_is_empty
-            or not geometry_is_valid
+            public_code is None or not name.strip() or geometry_is_empty or not geometry_is_valid
             for public_code, (_, name, geometry_is_empty, geometry_is_valid) in zip(
                 public_codes, identities, strict=True
             )
@@ -187,18 +272,12 @@ def resolve_bacoor_barangay(
         )
         .values_list("id", "geometry_is_empty", "geometry_is_valid")[:2]
     )
-    if (
-        len(city_rows) != 1
-        or city_rows[0][1]
-        or not city_rows[0][2]
-    ):
+    if len(city_rows) != 1 or city_rows[0][1] or not city_rows[0][2]:
         return BarangayResolutionResult(BarangayResolutionState.UNAVAILABLE)
     city_id = city_rows[0][0]
 
     matches = list(
-        barangays.filter(geometry__covers=point)
-        .values_list("code", "name")
-        .order_by("code", "id")
+        barangays.filter(geometry__covers=point).values_list("code", "name").order_by("code", "id")
     )
     matched_identities = _normalized_barangay_matches(matches)
     if len(matched_identities) == 1:
@@ -211,9 +290,7 @@ def resolve_bacoor_barangay(
             barangay_name=name,
         )
     if matched_identities:
-        return BarangayResolutionResult(
-            BarangayResolutionState.AMBIGUOUS_BOUNDARY
-        )
+        return BarangayResolutionResult(BarangayResolutionState.AMBIGUOUS_BOUNDARY)
 
     if GeographicArea.objects.filter(
         id=city_id,
@@ -259,15 +336,11 @@ def _validate_coordinate(
     maximum: float,
 ) -> float:
     if isinstance(value, bool):
-        raise PointResolutionInputError(
-            {field_name: "Enter a valid numeric coordinate."}
-        )
+        raise PointResolutionInputError({field_name: "Enter a valid numeric coordinate."})
     try:
         parsed = float(value)
     except (TypeError, ValueError):
-        raise PointResolutionInputError(
-            {field_name: "Enter a valid numeric coordinate."}
-        ) from None
+        raise PointResolutionInputError({field_name: "Enter a valid numeric coordinate."}) from None
     if not isfinite(parsed) or not minimum <= parsed <= maximum:
         raise PointResolutionInputError(
             {field_name: f"Ensure this value is between {minimum} and {maximum}."}
@@ -283,3 +356,24 @@ def _serialize_resolved_area(area: GeographicArea) -> dict[str, Any]:
         "area_type": area.area_type,
         "data_status": area.status,
     }
+
+
+def _point_resolution_warnings(
+    mode: str,
+    dataset: FloodSusceptibilityDataset | None,
+) -> list[str]:
+    warnings = list(policies.warnings_for_mode(mode))
+    if dataset is None:
+        return warnings
+    from .constants import (  # Local import keeps the public constants grouped.
+        MGB_COVERAGE_LIMITATION,
+        MGB_DERIVATION_LIMITATION,
+        MGB_PROVISIONAL_WARNING,
+    )
+
+    return [
+        *warnings,
+        MGB_PROVISIONAL_WARNING,
+        MGB_DERIVATION_LIMITATION,
+        MGB_COVERAGE_LIMITATION,
+    ]

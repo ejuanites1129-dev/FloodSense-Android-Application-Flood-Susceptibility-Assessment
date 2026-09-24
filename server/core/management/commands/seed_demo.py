@@ -1,12 +1,21 @@
 """Create the repeatable local data required by the FloodSense demonstration."""
 
+from datetime import date
 from decimal import Decimal
 
 from django.contrib.gis.geos import MultiPolygon, Polygon
 from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
-from dss.models import GuidanceItem
+from django.utils import timezone
+from dss.models import (
+    DSSFlowVersion,
+    DSSOption,
+    DSSOutcome,
+    DSSQuestion,
+    GuidanceItem,
+)
+from dss.services import validate_dss_flow
 from expert.models import (
     ExpertRule,
     ExpertRuleCondition,
@@ -21,6 +30,14 @@ from provenance.policies import DEMONSTRATION_WARNING
 SOURCE_NAME = "DEMONSTRATION DATA—NOT OFFICIAL"
 RULESET_NAME = "Demonstration Rules"
 RULESET_VERSION = "1.0"
+DSS_FLOW_CODE = "preparedness"
+DSS_FLOW_VERSION = "presentation-1"
+DSS_FLOW_TITLE = "Household Preparedness Check"
+DSS_FLOW_EFFECTIVE_DATE = date(2026, 9, 24)
+DSS_OUTCOME_WARNING = (
+    "Use this as a planning checklist. Follow PAGASA, Bacoor DRRMO, emergency "
+    "services, and other authorized authorities for official instructions."
+)
 
 LEVELS = (
     ("LOW", "Low", 1, "#2E9E5B"),
@@ -88,6 +105,163 @@ GUIDANCE = (
     ),
 )
 
+DSS_QUESTIONS = (
+    (
+        "support-needs",
+        "Does anyone in your household need additional assistance during preparation?",
+        (
+            "Consider children, older adults, persons with disabilities, and anyone "
+            "who may need help with communication, medication, or mobility."
+        ),
+        10,
+        True,
+    ),
+    (
+        "support-plan",
+        "Is a trusted person assigned to provide that assistance?",
+        "Choose the answer that best matches your household plan right now.",
+        20,
+        False,
+    ),
+    (
+        "essential-items",
+        "Are essential supplies and important documents ready and accessible?",
+        (
+            "Think about water, food, medicines, lighting, communication, identification, "
+            "and important records appropriate to your household."
+        ),
+        30,
+        False,
+    ),
+    (
+        "communication-plan",
+        "Does your household have a communication and meeting plan?",
+        (
+            "A simple plan can identify who to contact, where household members should "
+            "meet, and how everyone will receive official information."
+        ),
+        40,
+        False,
+    ),
+)
+
+DSS_OUTCOMES = (
+    (
+        "arrange-support",
+        "Arrange household support",
+        (
+            "Identify a trusted person who can assist household members with mobility, "
+            "communication, medicines, or other essential needs. Share the plan and keep "
+            "important contact details accessible."
+        ),
+        "MODERATE",
+    ),
+    (
+        "prepare-essentials",
+        "Prepare essential items",
+        (
+            "Gather the supplies, medicines, identification, important documents, and "
+            "communication items your household may need. Keep them together in an "
+            "accessible place and review them regularly."
+        ),
+        "HIGH",
+    ),
+    (
+        "make-communication-plan",
+        "Create a household communication plan",
+        (
+            "Agree on important contacts and a meeting point, keep phones or other "
+            "communication devices ready, and make sure every household member "
+            "understands the plan."
+        ),
+        "MODERATE",
+    ),
+    (
+        "maintain-readiness",
+        "Maintain household readiness",
+        (
+            "Keep essential items accessible, review the needs of every household member, "
+            "and continue checking information from authorized official sources."
+        ),
+        "LOW",
+    ),
+)
+
+DSS_OPTIONS = (
+    (
+        "support-needs",
+        "yes",
+        "Yes",
+        "Continue to check whether support has been arranged.",
+        "question",
+        "support-plan",
+        10,
+    ),
+    (
+        "support-needs",
+        "no",
+        "No",
+        "Continue with the household readiness checklist.",
+        "question",
+        "essential-items",
+        20,
+    ),
+    (
+        "support-plan",
+        "yes",
+        "Yes, support is arranged",
+        "Continue with the household readiness checklist.",
+        "question",
+        "essential-items",
+        10,
+    ),
+    (
+        "support-plan",
+        "no",
+        "No, support still needs to be arranged",
+        "Show the most immediate preparedness action.",
+        "outcome",
+        "arrange-support",
+        20,
+    ),
+    (
+        "essential-items",
+        "yes",
+        "Yes, they are ready",
+        "Continue to the household communication plan.",
+        "question",
+        "communication-plan",
+        10,
+    ),
+    (
+        "essential-items",
+        "no",
+        "No, some items are not ready",
+        "Show the most immediate preparedness action.",
+        "outcome",
+        "prepare-essentials",
+        20,
+    ),
+    (
+        "communication-plan",
+        "yes",
+        "Yes, the plan is understood",
+        "Review how to maintain household readiness.",
+        "outcome",
+        "maintain-readiness",
+        10,
+    ),
+    (
+        "communication-plan",
+        "no",
+        "No, a plan is still needed",
+        "Show the most immediate preparedness action.",
+        "outcome",
+        "make-communication-plan",
+        20,
+    ),
+)
+
 
 class Command(BaseCommand):
     help = (
@@ -103,7 +277,8 @@ class Command(BaseCommand):
         areas = self._areas(source)
         ruleset = self._ruleset(source)
         self._rules(source, levels, ruleset)
-        self._guidance(source, levels)
+        guidance = self._guidance(source, levels)
+        self._structured_dss_flow(source, levels, guidance)
 
         # Keep the neutral administrative reference layer reproducible for every
         # teammate without duplicating its validation and ownership safeguards.
@@ -113,7 +288,8 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.SUCCESS(
                 f"Prepared {len(areas)} fictional zones, the demonstration knowledge "
-                "base, and the Bacoor administrative reference layer."
+                "base, the presentation preparedness flow, and the Bacoor "
+                "administrative reference layer."
             )
         )
 
@@ -373,7 +549,8 @@ class Command(BaseCommand):
         self,
         source: DataSource,
         levels: dict[str, SusceptibilityLevel],
-    ) -> None:
+    ) -> dict[str, GuidanceItem]:
+        guidance = {}
         for order, (level_code, title, instruction) in enumerate(GUIDANCE, start=1):
             matches = list(
                 GuidanceItem.objects.filter(
@@ -396,6 +573,152 @@ class Command(BaseCommand):
             item.is_enabled = True
             item.full_clean()
             item.save()
+            guidance[level_code] = item
+        return guidance
+
+    def _structured_dss_flow(
+        self,
+        source: DataSource,
+        levels: dict[str, SusceptibilityLevel],
+        guidance: dict[str, GuidanceItem],
+    ) -> DSSFlowVersion:
+        matches = list(
+            DSSFlowVersion.objects.filter(
+                code=DSS_FLOW_CODE,
+                version=DSS_FLOW_VERSION,
+            ).select_related("source")
+        )
+        if len(matches) > 1:
+            raise CommandError("Multiple flows use the reserved preparedness identity.")
+        if matches:
+            flow = matches[0]
+            self._validate_existing_dss_flow(flow, source, levels)
+            return flow
+
+        competing = DSSFlowVersion.objects.filter(
+            code=DSS_FLOW_CODE,
+            operating_mode=DSSFlowVersion.OperatingMode.DEMONSTRATION,
+            workflow_status=DSSFlowVersion.WorkflowStatus.PUBLISHED,
+        )
+        if competing.exists():
+            raise CommandError(
+                "Another demonstration preparedness flow is published. Retire it "
+                "explicitly before seeding this presentation flow."
+            )
+
+        flow = DSSFlowVersion(
+            code=DSS_FLOW_CODE,
+            title=DSS_FLOW_TITLE,
+            version=DSS_FLOW_VERSION,
+            operating_mode=DSSFlowVersion.OperatingMode.DEMONSTRATION,
+            workflow_status=DSSFlowVersion.WorkflowStatus.DRAFT,
+            source=source,
+            data_status=PublicationStatus.DEMONSTRATION,
+            effective_date=DSS_FLOW_EFFECTIVE_DATE,
+        )
+        flow.full_clean()
+        flow.save()
+        flow.susceptibility_levels.set(levels.values())
+
+        outcomes = {}
+        for code, title, instruction, guidance_level in DSS_OUTCOMES:
+            outcome = DSSOutcome(
+                flow=flow,
+                code=code,
+                title=title,
+                instruction=instruction,
+                category=GuidanceItem.Category.PREPARE,
+                source=source,
+                warning=DSS_OUTCOME_WARNING,
+                guidance_item=guidance[guidance_level],
+            )
+            outcome.full_clean()
+            outcome.save()
+            outcomes[code] = outcome
+
+        questions = {}
+        for code, prompt, explanation, order, is_start in DSS_QUESTIONS:
+            question = DSSQuestion(
+                flow=flow,
+                code=code,
+                prompt=prompt,
+                explanatory_text=explanation,
+                display_order=order,
+                is_start=is_start,
+            )
+            question.full_clean()
+            question.save()
+            questions[code] = question
+
+        for (
+            question_code,
+            code,
+            label,
+            supporting_text,
+            destination_kind,
+            destination_code,
+            order,
+        ) in DSS_OPTIONS:
+            option = DSSOption(
+                question=questions[question_code],
+                code=code,
+                label=label,
+                supporting_text=supporting_text,
+                next_question=(
+                    questions[destination_code]
+                    if destination_kind == "question"
+                    else None
+                ),
+                outcome=(
+                    outcomes[destination_code]
+                    if destination_kind == "outcome"
+                    else None
+                ),
+                display_order=order,
+            )
+            option.full_clean()
+            option.save()
+
+        validate_dss_flow(flow)
+        flow.workflow_status = DSSFlowVersion.WorkflowStatus.PUBLISHED
+        flow.published_at = timezone.now()
+        flow.full_clean()
+        flow.save(update_fields=("workflow_status", "published_at", "updated_at"))
+        return flow
+
+    def _validate_existing_dss_flow(
+        self,
+        flow: DSSFlowVersion,
+        source: DataSource,
+        levels: dict[str, SusceptibilityLevel],
+    ) -> None:
+        expected_level_codes = set(levels)
+        actual_level_codes = set(
+            flow.susceptibility_levels.values_list("code", flat=True)
+        )
+        expected_question_codes = {values[0] for values in DSS_QUESTIONS}
+        actual_question_codes = set(flow.questions.values_list("code", flat=True))
+        expected_outcome_codes = {values[0] for values in DSS_OUTCOMES}
+        actual_outcome_codes = set(flow.outcomes.values_list("code", flat=True))
+        expected_option_count = len(DSS_OPTIONS)
+        actual_option_count = DSSOption.objects.filter(question__flow=flow).count()
+        if (
+            flow.source_id != source.id
+            or flow.title != DSS_FLOW_TITLE
+            or flow.operating_mode != DSSFlowVersion.OperatingMode.DEMONSTRATION
+            or flow.data_status != PublicationStatus.DEMONSTRATION
+            or flow.workflow_status != DSSFlowVersion.WorkflowStatus.PUBLISHED
+            or flow.effective_date != DSS_FLOW_EFFECTIVE_DATE
+            or actual_level_codes != expected_level_codes
+            or actual_question_codes != expected_question_codes
+            or actual_outcome_codes != expected_outcome_codes
+            or actual_option_count != expected_option_count
+        ):
+            raise CommandError(
+                "The reserved published preparedness flow differs from the seed-owned "
+                "presentation version. Published flow history will not be overwritten."
+            )
+        validate_dss_flow(flow)
 
     def _demo_record(
         self,

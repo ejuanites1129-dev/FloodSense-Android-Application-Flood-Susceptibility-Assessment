@@ -241,6 +241,24 @@ List<GeographicArea> sampleReferenceAreas({bool empty = false}) =>
       referenceBoundaryCollectionJson(empty: empty),
     );
 
+List<GeographicArea> sampleMgbBarangayAreas() {
+  final json = referenceBoundaryCollectionJson();
+  final feature = (json['features'] as List).single as Map<String, dynamic>;
+  final properties = feature['properties'] as Map<String, dynamic>;
+  properties['susceptibility_summary'] = {
+    'method': 'DOMINANT_MAPPED_AREA',
+    'data_status': 'PENDING_VALIDATION',
+    'dataset_version': '2026-09-16-test',
+    'dominant_class_code': 'LF',
+    'dominant_class_label': 'Low',
+    'dominant_percent': 60,
+    'mapped_percent': 80,
+    'unmapped_percent': 20,
+    'conflict_percent': 0,
+  };
+  return GeographicArea.listFromFeatureCollection(json);
+}
+
 AssessmentResult sampleResult({
   String state = 'CLASSIFIED',
   bool guidance = true,

@@ -45,6 +45,20 @@ void main() {
       expect(controller.canSubmit, isTrue);
     });
 
+    test(
+      'confirmed location can select one assessment area by stable code',
+      () async {
+        final controller = AssessmentController(FakeFloodSenseApi());
+        await controller.load();
+
+        controller.selectAreaByCode('DEMO_ZONE_A');
+        expect(controller.selectedArea?.id, 7);
+
+        controller.selectAreaByCode('UNKNOWN_AREA');
+        expect(controller.selectedArea, isNull);
+      },
+    );
+
     test('24 submit forwards selected IDs and codes', () async {
       final api = FakeFloodSenseApi();
       final controller = AssessmentController(api);

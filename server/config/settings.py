@@ -27,6 +27,10 @@ SECRET_KEY = os.getenv(
 )
 DEBUG = env_bool("DJANGO_DEBUG", True)
 GIS_ENABLED = env_bool("FLOODSENSE_GIS_ENABLED", True)
+ENABLE_PROVISIONAL_MGB_PREVIEW = env_bool(
+    "FLOODSENSE_ENABLE_PROVISIONAL_MGB_PREVIEW",
+    False,
+)
 
 if not DEBUG and SECRET_KEY == DEVELOPMENT_SECRET_KEY:
     raise ImproperlyConfigured("DJANGO_SECRET_KEY must be set when DJANGO_DEBUG is false.")

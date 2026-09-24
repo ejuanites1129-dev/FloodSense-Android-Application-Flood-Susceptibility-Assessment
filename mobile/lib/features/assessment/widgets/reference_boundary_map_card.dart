@@ -144,6 +144,9 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
 
   Widget _buildCard(BuildContext context) {
     final controller = widget.controller;
+    final hasMgbSummaries = controller.areas.any(
+      (area) => area.susceptibilitySummary != null,
+    );
     final centerController = widget.nearestCenterController;
     final centers = centerController?.centers ?? const <VerifiedCenter>[];
     _centerOnTemporaryPoint();
@@ -184,7 +187,9 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
             const SizedBox(height: 10),
             Semantics(
               container: true,
-              label: 'Bacoor map data note. The 47 barangay boundaries identify administrative areas. Colored test sectors are fictional scenario outputs, not live conditions or whole-barangay classifications.',
+              label: hasMgbSummaries
+                  ? 'Bacoor map data note. Scenario colors use provisional MGB-derived dominant mapped-area baselines. They are not live conditions, forecasts, or official Bacoor classifications.'
+                  : 'Bacoor map data note. The 47 barangay boundaries identify administrative areas. Colored test sectors are fictional scenario outputs, not live conditions or whole-barangay classifications.',
               child: Container(
                 key: const Key('bacoor-map-data-note'),
                 padding: const EdgeInsets.all(10),
@@ -192,20 +197,23 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
                   color: AppColors.activeBackground,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Row(
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.info_outline,
                       size: 18,
                       color: AppColors.primary,
                     ),
-                    SizedBox(width: 8),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        '47 current barangay boundaries · research prototype\n'
-                        'Boundaries identify administrative areas. Colored test sectors are synthetic scenario outputs—not live conditions or whole-barangay classifications.',
-                        style: TextStyle(
+                        hasMgbSummaries
+                            ? '47 current barangay boundaries · provisional consultation preview\n'
+                                  'Scenario colors use a FloodSense dominant-area summary of MGB polygons. Unmapped/conflicting shares remain explicit; this is not live, forecast, or BDRRMO-approved information.'
+                            : '47 current barangay boundaries · research prototype\n'
+                                  'Boundaries identify administrative areas. Colored test sectors are synthetic scenario outputs—not live conditions or whole-barangay classifications.',
+                        style: const TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 12,
                         ),

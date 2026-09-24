@@ -145,6 +145,28 @@ void main() {
     expect(find.text('Are essential supplies ready?'), findsOneWidget);
   });
 
+  testWidgets('MGB barangays replace the separate demonstration-zone choice', (
+    tester,
+  ) async {
+    final barangays = sampleMgbBarangayAreas();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MultiStepAssessmentScreen(
+          api: FakeFloodSenseApi(areas: barangays, referenceAreas: barangays),
+          showBasemap: false,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await selectScenario(tester);
+    await tester.tap(find.byKey(const Key('assessment-continue')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Assessment demonstration zone'), findsNothing);
+    expect(find.text('Choose a barangay manually'), findsOneWidget);
+    expect(find.text('Barangay'), findsOneWidget);
+  });
+
   test(
     'DSS navigation is client-side, supports back/restart, and resets',
     () async {

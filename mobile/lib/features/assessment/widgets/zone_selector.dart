@@ -7,38 +7,41 @@ class ZoneSelector extends StatelessWidget {
     required this.areas,
     required this.selected,
     required this.onChanged,
+    this.title = 'Demonstration zone',
+    this.description =
+        'Choose a fictional zone supplied by the FloodSense API.',
+    this.hintText = 'Select a demonstration zone',
+    this.semanticLabel = 'Demonstration zone selector',
     super.key,
   });
 
   final List<GeographicArea> areas;
   final GeographicArea? selected;
   final ValueChanged<GeographicArea?> onChanged;
+  final String title;
+  final String description;
+  final String hintText;
+  final String semanticLabel;
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
       container: true,
-      label: 'Demonstration zone selector',
+      label: semanticLabel,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Demonstration zone',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
+          Text(title, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 6),
-          Text(
-            'Choose a fictional zone supplied by the FloodSense API.',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
+          Text(description, style: Theme.of(context).textTheme.bodySmall),
           const SizedBox(height: 10),
           DropdownButtonFormField<GeographicArea>(
             key: ValueKey('zone-${selected?.id ?? 'none'}'),
             initialValue: selected,
             isExpanded: true,
-            decoration: const InputDecoration(
-              hintText: 'Select a demonstration zone',
-              prefixIcon: Icon(Icons.place_outlined),
+            decoration: InputDecoration(
+              hintText: hintText,
+              prefixIcon: const Icon(Icons.place_outlined),
             ),
             items: areas
                 .map(

@@ -45,12 +45,20 @@ class ResidentShell extends StatefulWidget {
 }
 
 class _ResidentShellState extends State<ResidentShell> {
+  static const double _collapsedSheetSize = 0;
+  static const double _collapseThreshold = 0.065;
+  static const double _maximumSheetSize = 0.9;
+
   late final AssessmentController _assessment;
   late final DssController _dss;
+  final DraggableScrollableController _sheetController =
+      DraggableScrollableController();
   LocationController? _location;
   NearestCenterController? _centers;
   int _index = 0;
   int _assessmentStep = 0;
+  bool _sheetIsCollapsed = false;
+  bool _synchronizingBarangay = false;
 
   @override
   void initState() {
@@ -58,8 +66,11 @@ class _ResidentShellState extends State<ResidentShell> {
     _assessment = AssessmentController(widget.api, closeApiOnDispose: false)
       ..load();
     _dss = DssController(widget.dssRepository ?? HttpStructuredDssRepository());
+    _sheetController.addListener(_handleSheetExtentChange);
     if (widget.locationService case final service?) {
       _location = LocationController(service, resolver: widget.api);
+      _location!.addListener(_synchronizeConfirmedBarangay);
+      _assessment.addListener(_synchronizeConfirmedBarangay);
       _centers = NearestCenterController(
         _location!,
         provider: widget.nearestCenterProvider,
@@ -69,11 +80,28 @@ class _ResidentShellState extends State<ResidentShell> {
 
   @override
   void dispose() {
+    _location?.removeListener(_synchronizeConfirmedBarangay);
+    _assessment.removeListener(_synchronizeConfirmedBarangay);
+    _sheetController.removeListener(_handleSheetExtentChange);
+    _sheetController.dispose();
     _assessment.dispose();
     _dss.dispose();
     _centers?.dispose();
     _location?.dispose();
     super.dispose();
+  }
+
+  bool get _usesBarangayAssessments =>
+      _assessment.areas.isNotEmpty &&
+      _assessment.areas.every((area) => area.areaType == 'BARANGAY');
+
+  void _synchronizeConfirmedBarangay() {
+    if (_synchronizingBarangay || !_usesBarangayAssessments) return;
+    final confirmedCode = _location?.confirmedBarangay?.geographicAreaCode;
+    if (_assessment.selectedArea?.code == confirmedCode) return;
+    _synchronizingBarangay = true;
+    _assessment.selectAreaByCode(confirmedCode);
+    _synchronizingBarangay = false;
   }
 
   void _selectDestination(int value) {
@@ -83,6 +111,70 @@ class _ResidentShellState extends State<ResidentShell> {
         _assessmentStep = 0;
       }
     });
+    _restorePreferredSheetExtent();
+  }
+
+  double get _preferredSheetSize {
+    final result = _assessment.result;
+    final selected = _assessment.selectedArea;
+    return switch (_index) {
+      1 => 0.52,
+      2 => 0.58,
+      _ when result != null => 0.55,
+      _ when selected != null => 0.3,
+      _ => 0.16,
+    };
+  }
+
+  void _handleSheetExtentChange() {
+    if (!_sheetController.isAttached || !mounted) return;
+    final collapsed = _sheetController.size <= _collapseThreshold;
+    if (collapsed == _sheetIsCollapsed) return;
+    setState(() => _sheetIsCollapsed = collapsed);
+    if (collapsed && _sheetController.size > _collapsedSheetSize) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _sheetController.isAttached) {
+          _animateSheetTo(_collapsedSheetSize);
+        }
+      });
+    }
+  }
+
+  void _restorePreferredSheetExtent() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_sheetController.isAttached) return;
+      _animateSheetTo(_preferredSheetSize);
+    });
+  }
+
+  Future<void> _animateSheetTo(double size) async {
+    if (!_sheetController.isAttached) return;
+    await _sheetController.animateTo(
+      size,
+      duration: const Duration(milliseconds: 240),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  void _expandSheet() {
+    if (!_sheetController.isAttached) return;
+    _animateSheetTo(_preferredSheetSize);
+  }
+
+  void _collapseSheet() {
+    if (!_sheetController.isAttached) return;
+    _animateSheetTo(_collapsedSheetSize);
+  }
+
+  void _dragSheetHandle(DragUpdateDetails details) {
+    if (!_sheetController.isAttached) return;
+    final availableHeight = MediaQuery.sizeOf(context).height;
+    final delta = (details.primaryDelta ?? 0) / availableHeight;
+    final nextSize = (_sheetController.size - delta).clamp(
+      _collapsedSheetSize,
+      _maximumSheetSize,
+    );
+    _sheetController.jumpTo(nextSize);
   }
 
   void _changeScenario(void Function() change) {
@@ -98,6 +190,7 @@ class _ResidentShellState extends State<ResidentShell> {
     await _assessment.submit();
     if (!mounted || _assessment.result == null) return;
     setState(() => _index = 0);
+    _restorePreferredSheetExtent();
   }
 
   void _backAssessment() {
@@ -105,6 +198,7 @@ class _ResidentShellState extends State<ResidentShell> {
       setState(() => _assessmentStep--);
     } else {
       setState(() => _index = 0);
+      _restorePreferredSheetExtent();
     }
   }
 
@@ -117,6 +211,7 @@ class _ResidentShellState extends State<ResidentShell> {
         setState(() => _assessmentStep--);
       } else {
         setState(() => _index = 0);
+        _restorePreferredSheetExtent();
       }
     },
     child: Scaffold(
@@ -177,48 +272,55 @@ class _ResidentShellState extends State<ResidentShell> {
         left: 14,
         child: _ScenarioChip(
           assessment: _assessment,
-          onTap: () => setState(() {
-            _assessmentStep = 0;
-            _index = 1;
-          }),
+          onTap: () {
+            setState(() {
+              _assessmentStep = 0;
+              _index = 1;
+            });
+            _restorePreferredSheetExtent();
+          },
         ),
       ),
       _sheet(),
+      if (_sheetIsCollapsed)
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: Center(child: _CollapsedSheetTab(onTap: _expandSheet)),
+        ),
     ],
   );
 
   Widget _sheet() {
-    final result = _assessment.result;
-    final selected = _assessment.selectedArea;
-    final initialSize = switch (_index) {
-      1 => 0.52,
-      2 => 0.58,
-      _ when result != null => 0.55,
-      _ when selected != null => 0.3,
-      _ => 0.16,
-    };
-    final minimumSize = _index == 0 ? 0.13 : 0.34;
     return DraggableScrollableSheet(
-      key: ValueKey(
-        'resident-sheet-$_index-$_assessmentStep-${result?.rawState}-${selected?.id}',
-      ),
-      initialChildSize: initialSize,
-      minChildSize: minimumSize,
-      maxChildSize: 0.9,
-      snap: true,
-      snapSizes: _index == 0 ? const [0.13, 0.55, 0.9] : const [0.5, 0.9],
+      key: const Key('resident-draggable-sheet'),
+      controller: _sheetController,
+      initialChildSize: _preferredSheetSize,
+      minChildSize: _collapsedSheetSize,
+      maxChildSize: _maximumSheetSize,
+      snap: false,
       builder: (context, scrollController) => Material(
         key: const Key('resident-context-sheet'),
-        color: AppColors.surface,
-        elevation: 12,
+        color: _sheetIsCollapsed ? Colors.transparent : AppColors.surface,
+        elevation: _sheetIsCollapsed ? 0 : 12,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         clipBehavior: Clip.antiAlias,
-        child: Column(
-          children: [
-            const _SheetHandle(),
-            Expanded(child: _sheetBody(scrollController)),
-          ],
-        ),
+        child: _sheetIsCollapsed
+            ? ListView(
+                controller: scrollController,
+                padding: EdgeInsets.zero,
+                children: const [],
+              )
+            : Column(
+                children: [
+                  _SheetHandle(
+                    onCollapse: _collapseSheet,
+                    onVerticalDragUpdate: _dragSheetHandle,
+                  ),
+                  Expanded(child: _sheetBody(scrollController)),
+                ],
+              ),
       ),
     );
   }
@@ -283,10 +385,13 @@ class _ResidentShellState extends State<ResidentShell> {
           const SizedBox(height: 14),
           FilledButton.icon(
             key: const Key('map-start-assessment'),
-            onPressed: () => setState(() {
-              _assessmentStep = _assessment.hasCompleteScenario ? 1 : 0;
-              _index = 1;
-            }),
+            onPressed: () {
+              setState(() {
+                _assessmentStep = _assessment.hasCompleteScenario ? 1 : 0;
+                _index = 1;
+              });
+              _restorePreferredSheetExtent();
+            },
             icon: const Icon(Icons.search),
             label: Text(
               _assessment.hasCompleteScenario
@@ -300,12 +405,18 @@ class _ResidentShellState extends State<ResidentShell> {
             intensity: _assessment.selectedIntensity?.label ?? 'Not available',
             duration: _assessment.selectedDuration?.label ?? 'Not available',
             onPrepare: result.isClassified
-                ? () => setState(() => _index = 2)
+                ? () {
+                    setState(() => _index = 2);
+                    _restorePreferredSheetExtent();
+                  }
                 : null,
-            onRestart: () => setState(() {
-              _assessmentStep = 0;
-              _index = 1;
-            }),
+            onRestart: () {
+              setState(() {
+                _assessmentStep = 0;
+                _index = 1;
+              });
+              _restorePreferredSheetExtent();
+            },
           ),
         ],
       ],
@@ -398,31 +509,50 @@ class _ResidentShellState extends State<ResidentShell> {
         ),
         const SizedBox(height: 12),
       ],
-      Card(
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'Supported assessment area',
-                style: TextStyle(fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 10),
-              ZoneSelector(
-                areas: _assessment.areas,
-                selected: _assessment.selectedArea,
-                onChanged: _assessment.selectArea,
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'The map pin and device location are temporary and are not saved to your account.',
-                style: TextStyle(color: AppColors.secondaryText),
-              ),
-            ],
+      if (!_usesBarangayAssessments || _location == null)
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  _usesBarangayAssessments
+                      ? 'Choose a barangay manually'
+                      : 'Supported assessment area',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 10),
+                ZoneSelector(
+                  areas: _assessment.areas,
+                  selected: _assessment.selectedArea,
+                  onChanged: _assessment.selectArea,
+                  title: _usesBarangayAssessments
+                      ? 'Barangay'
+                      : 'Demonstration zone',
+                  description: _usesBarangayAssessments
+                      ? 'Choose one current Bacoor barangay for this explicit scenario.'
+                      : 'Choose a fictional zone supplied by the FloodSense API.',
+                  hintText: _usesBarangayAssessments
+                      ? 'Select a barangay'
+                      : 'Select a demonstration zone',
+                  semanticLabel: _usesBarangayAssessments
+                      ? 'Barangay selector'
+                      : 'Demonstration zone selector',
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'The map pin and device location are temporary and are not saved to your account.',
+                  style: TextStyle(color: AppColors.secondaryText),
+                ),
+              ],
+            ),
           ),
+        )
+      else
+        const _PlanningNotice(
+          text: 'Confirm one barangay through GPS, a temporary map pin, or the manual barangay selector. This selects the same polygon used by the assessment—there is no separate demo-zone choice.',
         ),
-      ),
       const SizedBox(height: 14),
       _NavigationButtons(
         backKey: const Key('hybrid-assessment-back'),
@@ -458,9 +588,18 @@ class _ResidentShellState extends State<ResidentShell> {
         value: _assessment.selectedDuration?.label ?? 'Not selected',
       ),
       _ReviewTile(
-        label: 'Assessment area',
+        label: _usesBarangayAssessments
+            ? 'Assessment barangay'
+            : 'Assessment area',
         value: _assessment.selectedArea?.name ?? 'Not selected',
       ),
+      if (_assessment.selectedArea?.susceptibilitySummary case final summary?)
+        _ReviewTile(
+          label: 'Provisional MGB-derived baseline',
+          value: summary.hasDominantClass
+              ? '${summary.dominantClassLabel} (${summary.dominantPercent!.toStringAsFixed(2)}% of barangay area; ${summary.mappedPercent.toStringAsFixed(2)}% mapped)'
+              : 'Unavailable—no mapped LF/MF/HF/VHF class covers this barangay',
+        ),
       if (_location?.confirmedBarangay case final barangay?)
         _ReviewTile(label: 'Confirmed barangay', value: barangay.name),
       const SizedBox(height: 12),
@@ -506,10 +645,13 @@ class _ResidentShellState extends State<ResidentShell> {
           ),
           const SizedBox(height: 14),
           FilledButton.icon(
-            onPressed: () => setState(() {
-              _assessmentStep = 0;
-              _index = 1;
-            }),
+            onPressed: () {
+              setState(() {
+                _assessmentStep = 0;
+                _index = 1;
+              });
+              _restorePreferredSheetExtent();
+            },
             icon: const Icon(Icons.search),
             label: const Text('Start an Assessment'),
           ),
@@ -652,19 +794,81 @@ class _ScenarioChip extends StatelessWidget {
 }
 
 class _SheetHandle extends StatelessWidget {
-  const _SheetHandle();
+  const _SheetHandle({
+    required this.onCollapse,
+    required this.onVerticalDragUpdate,
+  });
+
+  final VoidCallback onCollapse;
+  final GestureDragUpdateCallback onVerticalDragUpdate;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    label: 'Drag for more or less information',
-    child: Padding(
-      padding: const EdgeInsets.symmetric(vertical: 9),
-      child: Container(
-        width: 44,
-        height: 5,
-        decoration: BoxDecoration(
-          color: AppColors.secondaryText,
-          borderRadius: BorderRadius.circular(20),
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Drag to resize the information panel',
+      child: GestureDetector(
+        key: const Key('resident-sheet-handle'),
+        behavior: HitTestBehavior.opaque,
+        onVerticalDragUpdate: onVerticalDragUpdate,
+        child: SizedBox(
+          height: 48,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Container(
+                width: 48,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: AppColors.secondaryText,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+              Positioned(
+                right: 12,
+                child: IconButton(
+                  key: const Key('resident-sheet-collapse-button'),
+                  tooltip: 'Hide information panel',
+                  onPressed: onCollapse,
+                  icon: const Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: AppColors.secondaryText,
+                    size: 26,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CollapsedSheetTab extends StatelessWidget {
+  const _CollapsedSheetTab({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    key: const Key('resident-sheet-expand-tab'),
+    color: AppColors.surface,
+    elevation: 10,
+    borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(
+      onTap: onTap,
+      child: Semantics(
+        button: true,
+        label: 'Expand information panel',
+        child: const SizedBox(
+          width: 78,
+          height: 52,
+          child: Icon(
+            Icons.keyboard_arrow_up_rounded,
+            color: AppColors.bodyText,
+            size: 32,
+          ),
         ),
       ),
     ),

@@ -46,6 +46,7 @@ class _MultiStepAssessmentScreenState extends State<MultiStepAssessmentScreen> {
   LocationController? _location;
   NearestCenterController? _centers;
   int _step = 0;
+  bool _synchronizingBarangay = false;
 
   @override
   void initState() {
@@ -55,6 +56,8 @@ class _MultiStepAssessmentScreenState extends State<MultiStepAssessmentScreen> {
     _dss = DssController(widget.dssRepository ?? HttpStructuredDssRepository());
     if (widget.locationService case final service?) {
       _location = LocationController(service, resolver: widget.api);
+      _location!.addListener(_synchronizeConfirmedBarangay);
+      _assessment.addListener(_synchronizeConfirmedBarangay);
       _centers = NearestCenterController(
         _location!,
         provider: widget.nearestCenterProvider,
@@ -64,11 +67,26 @@ class _MultiStepAssessmentScreenState extends State<MultiStepAssessmentScreen> {
 
   @override
   void dispose() {
+    _location?.removeListener(_synchronizeConfirmedBarangay);
+    _assessment.removeListener(_synchronizeConfirmedBarangay);
     _assessment.dispose();
     _dss.dispose();
     _centers?.dispose();
     _location?.dispose();
     super.dispose();
+  }
+
+  bool get _usesBarangayAssessments =>
+      _assessment.areas.isNotEmpty &&
+      _assessment.areas.every((area) => area.areaType == 'BARANGAY');
+
+  void _synchronizeConfirmedBarangay() {
+    if (_synchronizingBarangay || !_usesBarangayAssessments) return;
+    final confirmedCode = _location?.confirmedBarangay?.geographicAreaCode;
+    if (_assessment.selectedArea?.code == confirmedCode) return;
+    _synchronizingBarangay = true;
+    _assessment.selectAreaByCode(confirmedCode);
+    _synchronizingBarangay = false;
   }
 
   void _scenarioChanged(void Function() change) {
@@ -255,30 +273,45 @@ class _MultiStepAssessmentScreenState extends State<MultiStepAssessmentScreen> {
       showBasemap: widget.showBasemap,
     ),
     const SizedBox(height: 12),
-    Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Assessment demonstration zone',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8),
-            ZoneSelector(
-              areas: _assessment.areas,
-              selected: _assessment.selectedArea,
-              onChanged: _assessment.selectArea,
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Unsupported or unresolved areas cannot proceed. Selecting a zone does not run an assessment.',
-            ),
-          ],
+    if (!_usesBarangayAssessments || _location == null)
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                _usesBarangayAssessments
+                    ? 'Choose a barangay manually'
+                    : 'Assessment demonstration zone',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              ZoneSelector(
+                areas: _assessment.areas,
+                selected: _assessment.selectedArea,
+                onChanged: _assessment.selectArea,
+                title: _usesBarangayAssessments
+                    ? 'Barangay'
+                    : 'Demonstration zone',
+                description: _usesBarangayAssessments
+                    ? 'Choose one current Bacoor barangay for this explicit scenario.'
+                    : 'Choose a fictional zone supplied by the FloodSense API.',
+                hintText: _usesBarangayAssessments
+                    ? 'Select a barangay'
+                    : 'Select a demonstration zone',
+                semanticLabel: _usesBarangayAssessments
+                    ? 'Barangay selector'
+                    : 'Demonstration zone selector',
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Unsupported or unresolved areas cannot proceed. Selecting a zone does not run an assessment.',
+              ),
+            ],
+          ),
         ),
       ),
-    ),
   ]);
 
   Widget _review() => _page([
@@ -296,9 +329,18 @@ class _MultiStepAssessmentScreenState extends State<MultiStepAssessmentScreen> {
       value: _assessment.selectedDuration?.label ?? 'Not selected',
     ),
     _ReviewRow(
-      label: 'Assessment zone',
+      label: _usesBarangayAssessments
+          ? 'Assessment barangay'
+          : 'Assessment zone',
       value: _assessment.selectedArea?.name ?? 'Not selected',
     ),
+    if (_assessment.selectedArea?.susceptibilitySummary case final summary?)
+      _ReviewRow(
+        label: 'Provisional MGB-derived baseline',
+        value: summary.hasDominantClass
+            ? '${summary.dominantClassLabel} (${summary.dominantPercent!.toStringAsFixed(2)}% of barangay area; ${summary.mappedPercent.toStringAsFixed(2)}% mapped)'
+            : 'Unavailable—no mapped LF/MF/HF/VHF class covers this barangay',
+      ),
     if (_location?.confirmedBarangay case final barangay?)
       _ReviewRow(label: 'Resolved barangay', value: barangay.name),
     _ReviewRow(

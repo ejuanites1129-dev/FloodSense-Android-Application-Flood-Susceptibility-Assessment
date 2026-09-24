@@ -5,9 +5,11 @@
 This directory documents a **provisional, unapproved research extract** of the
 DENR-MGB `Detailed Flood Susceptibility` ArcGIS FeatureServer layer. It must not
 be described as an official Bacoor City flood assessment or imported into the
-FloodSense operational database until the research team has reviewed the
-source, metadata, reuse conditions, processing report, and intended
-methodology.
+FloodSense approved/production data path until the research team has reviewed
+the source, metadata, reuse conditions, processing report, and intended
+methodology. A local consultation preview may be imported through the guarded
+command below; it remains `PENDING_VALIDATION`, non-publicly-releasable, and
+visibly provisional throughout the API and resident interface.
 
 The source service is publicly queryable, but its REST metadata currently has
 blank description and copyright fields. The team must obtain or verify the
@@ -77,3 +79,41 @@ must be treated as a new provisional version and reviewed again.
    the layer will be used by the Expert System.
 6. Build a separate reviewed, transactional, idempotent database import. Do not
    relabel this provisional extraction as approved data in place.
+
+## Local consultation-preview import
+
+After running migrations and `seed_demo` (which imports the controlled 47
+barangay boundary layer), a researcher who has reviewed the local processing
+outputs can explicitly activate this snapshot for a local consultation:
+
+Add this to the local `server/.env` only (shared/deployed environments leave it
+disabled):
+
+```dotenv
+FLOODSENSE_ENABLE_PROVISIONAL_MGB_PREVIEW=True
+```
+
+Then run:
+
+```powershell
+cd server
+.\.venv\Scripts\python.exe manage.py migrate
+.\.venv\Scripts\python.exe manage.py seed_demo
+.\.venv\Scripts\python.exe manage.py import_mgb_susceptibility --activate-consultation-preview
+```
+
+The command validates all 47 PSGC identities, names, percentages, provenance,
+CRS, and report status before an atomic import. It stores the complete
+LF/MF/HF/VHF, `CONFLICT`, and `UNMAPPED` composition. A baseline rank is derived
+only when one mapped class has a unique largest area share; a tie or zero mapped
+coverage remains unclassified. Re-running the same snapshot is idempotent, and
+a changed file hash creates a new version instead of overwriting provenance.
+
+This command does **not** approve the data, resolve MGB reuse rights, establish
+the unknown map production date, or make the ignored source files distributable
+through Git.
+
+Both `DJANGO_DEBUG` and `FLOODSENSE_ENABLE_PROVISIONAL_MGB_PREVIEW` must be true
+before the active dataset can reach the consultation API. The setting defaults
+to false, so pulling the code, running migrations, or importing an inactive
+version cannot publish it to a shared or production resident application.
