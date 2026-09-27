@@ -4,6 +4,7 @@
 {% block title %}Map and geographic data | FloodSense Admin{% endblock %}
 {% block extra_css %}
   <link rel="stylesheet" href="{{ openlayers_root }}/ol.css">
+  {% if map_config.mapbox_enabled %}<link rel="stylesheet" href="{{ map_config.mapbox_css_url }}">{% endif %}
   <link rel="stylesheet" href="{% static 'admin_portal/css/map_data.css' %}">
 {% endblock %}
 
@@ -48,13 +49,16 @@
     <section class="panel map-panel" aria-labelledby="map-heading">
       <div class="map-panel-heading">
         <div><p class="eyebrow">Administrative geography</p><h2 id="map-heading">Bacoor reference map</h2></div>
-        <button class="button button--secondary" type="button" id="fit-boundaries" disabled>Fit visible layers</button>
+        <div class="map-panel-actions">
+          <button class="button button--secondary" type="button" id="fit-boundaries" disabled>Fit visible layers</button>
+          {% if map_config.mapbox_enabled and map_config.allow_3d %}<button class="button button--secondary" type="button" id="toggle-perspective" aria-pressed="false" disabled>Perspective view</button>{% endif %}
+        </div>
       </div>
-      <p class="map-note">OpenStreetMap is visual context only, not FloodSense assessment data. Select a boundary or use the area list below.</p>
-      <div id="geographic-map" class="geographic-map" role="region" aria-label="Interactive administrative reference map of Bacoor" aria-describedby="map-keyboard-help" tabindex="0"></div>
+      <p class="map-note">{% if map_config.mapbox_enabled %}Mapbox basemap context{% else %}OpenStreetMap{% endif %} is visual context only, not FloodSense assessment data. Select a boundary or use the area list below.</p>
+      <div id="geographic-map" class="geographic-map" data-map-provider="{{ map_config.provider }}" role="region" aria-label="Interactive administrative reference map of Bacoor" aria-describedby="map-keyboard-help" tabindex="0"></div>
       <p id="map-status" class="map-message" role="status">Map loading requires JavaScript and the mapping library. You can use the area list and details independently.</p>
       <p id="map-keyboard-help" class="map-note">With the map focused, use arrow keys to pan and + or − to zoom. Use the area list to select records with the keyboard.</p>
-      <p class="map-note map-attribution">Basemap © <a href="https://www.openstreetmap.org/copyright" rel="noopener noreferrer" target="_blank">OpenStreetMap contributors</a>. Boundary sources are listed in record details.</p>
+      <p class="map-note map-attribution"><span data-provider-attribution="mapbox"{% if not map_config.mapbox_enabled %} hidden{% endif %}>Provider attribution and telemetry controls are available within the Mapbox map.</span><span data-provider-attribution="osm"{% if map_config.mapbox_enabled %} hidden{% endif %}>Basemap © <a href="https://www.openstreetmap.org/copyright" rel="noopener noreferrer" target="_blank">OpenStreetMap contributors</a>.</span> Boundary sources are listed in record details.</p>
       <ul class="map-legend" aria-label="Boundary legend">
         {% if map_data.coverage_mask_available %}
         <li><span class="map-swatch map-swatch--outside" aria-hidden="true"></span>Outside Bacoor assessment coverage</li>
@@ -63,6 +67,16 @@
         <li><span class="map-swatch map-swatch--demo" aria-hidden="true"></span>Demonstration only</li>
         <li><span class="map-swatch map-swatch--selected" aria-hidden="true"></span>Selected boundary</li>
       </ul>
+      <div class="map-palette-key" aria-label="FloodSense susceptibility presentation palette">
+        <p><b>Scenario palette, when a supported classification layer is present.</b> No susceptibility classifications are plotted on this administrative review map.</p>
+        <ul class="map-legend">
+          <li><span class="map-swatch map-swatch--low" aria-hidden="true"></span>Low</li>
+          <li><span class="map-swatch map-swatch--moderate" aria-hidden="true"></span>Moderate</li>
+          <li><span class="map-swatch map-swatch--high" aria-hidden="true"></span>High</li>
+          <li><span class="map-swatch map-swatch--very-high" aria-hidden="true"></span>Very high</li>
+          <li><span class="map-swatch map-swatch--limitation" aria-hidden="true"></span>Uncertain / insufficient data</li>
+        </ul>
+      </div>
     </section>
 
     <section class="panel layer-panel" aria-labelledby="layers-heading">
@@ -130,10 +144,12 @@
   </div>
   <p class="sr-only" id="selection-announcement" role="status" aria-live="polite" aria-atomic="true"></p>
   {{ map_data.payload|json_script:"map-data-payload" }}
+  {{ map_config|json_script:"map-provider-config" }}
 </div>
 {% endblock %}
 
 {% block extra_js %}
+  {% if map_config.mapbox_enabled %}<script src="{{ map_config.mapbox_js_url }}" defer></script>{% endif %}
   <script src="{{ openlayers_root }}/dist/ol.js" defer></script>
   <script src="{% static 'admin_portal/js/map_data.js' %}" defer></script>
 {% endblock %}

@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 
 import '../../data/models/geographic_area.dart';
+import 'flood_map_palette.dart';
 
 /// Neutral presentation color for places outside FloodSense's Bacoor coverage.
 ///
 /// This is a coverage cue only. It must not be reused as a susceptibility,
 /// hazard, warning, or safety classification.
-const bacoorOutsideCoverageColor = Color(0xA6677280);
+const bacoorOutsideCoverageColor = FloodMapPalette.outsideCoverage;
 
 List<Polygon<int>> buildBacoorCoveragePolygons(
   List<GeographicArea> barangays,

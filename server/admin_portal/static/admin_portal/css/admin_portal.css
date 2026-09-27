@@ -11,6 +11,16 @@
   --success: #2e9e5b;
   --warning: #e8b923;
   --danger: #c0392b;
+  --map-low: #2e9e5b;
+  --map-moderate: #e8b923;
+  --map-high: #e2691b;
+  --map-very-high: #c0392b;
+  --map-limitation: #8791a1;
+  --map-selection: #1a94d5;
+  --map-boundary: #64748b;
+  --map-boundary-fill: #94a3b8;
+  --map-demonstration: #665477;
+  --map-outside: #475467;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 18px;

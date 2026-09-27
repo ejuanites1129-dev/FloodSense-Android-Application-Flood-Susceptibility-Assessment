@@ -100,13 +100,37 @@ source.
 If any required collection is empty, the app explains that an administrator
 must configure demonstration records. It never substitutes local fake data.
 
-## Map networking and attribution
+## Map networking, optional Mapbox presentation, and attribution
 
-The development map uses OpenStreetMap standard tiles, identifies the Android
-package as `ph.edu.cvsu.bacoor.floodsense`, and keeps
-`© OpenStreetMap contributors` visible. Public internet is required for the
-basemap; API polygons, labels, warnings, and neutral error states remain
-separate from the basemap. Production tile-provider review is still required.
+OpenStreetMap remains the zero-configuration renderer and the automatic
+fallback. To rehearse the optional Mapbox presentation on Android, pass a
+restricted public token at build/run time without writing it to the repository:
+
+```powershell
+flutter run --dart-define=FLOODSENSE_MAP_PROVIDER=mapbox `
+  --dart-define=MAPBOX_ACCESS_TOKEN=<your-restricted-public-pk-token>
+```
+
+Perspective buildings are a presentation-only, opt-in enhancement. They remain
+off unless the additional flag is supplied, and every map starts overhead:
+
+```powershell
+flutter run --dart-define=FLOODSENSE_MAP_PROVIDER=mapbox `
+  --dart-define=MAPBOX_ACCESS_TOKEN=<your-restricted-public-pk-token> `
+  --dart-define=FLOODSENSE_MAP_3D=true
+```
+
+Use only a public `pk.` token in the client. Restrict it in Mapbox, rotate it if
+exposed outside its intended use, and never use or commit an `sk.` token. A
+missing/invalid token, an unsupported platform, or a Mapbox load failure keeps
+or restores the standard OSM map. Stable Mapbox Flutter support is used only on
+Android/iOS; the Flutter web preview deliberately remains on OSM.
+
+The OSM renderer identifies the Android package as
+`ph.edu.cvsu.bacoor.floodsense` and keeps `© OpenStreetMap contributors`
+visible. The Mapbox renderer retains the SDK wordmark and attribution control.
+Public internet is required for either basemap; API polygons, labels, warnings,
+and neutral error states remain separate from the basemap.
 
 The map adds these API calls to the Day 5 endpoints:
 
@@ -117,4 +141,6 @@ POST /api/v1/geography/resolve-point/
 
 See `../docs/DAY_5_FLUTTER_ASSESSMENT_GUIDE.md` for the detailed-result flow and
 `../docs/DAY_6_DYNAMIC_MAP_GUIDE.md` for geometry parsing, map state, endpoint
-contracts, seeding, testing, and teammate setup.
+contracts, seeding, testing, and teammate setup. See
+`../docs/MAP_PRESENTATION_PROVIDER_GUIDE.md` for provider selection, Admin setup,
+fallback behavior, and release-rehearsal checks.

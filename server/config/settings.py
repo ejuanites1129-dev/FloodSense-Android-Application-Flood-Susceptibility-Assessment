@@ -32,6 +32,21 @@ ENABLE_PROVISIONAL_MGB_PREVIEW = env_bool(
     False,
 )
 
+# Optional presentation provider. Mapbox is enabled only with a public `pk.`
+# browser token; missing, invalid, and secret tokens always fall back to the
+# existing OpenStreetMap/OpenLayers presentation.
+FLOODSENSE_MAP_PROVIDER = os.getenv("FLOODSENSE_MAP_PROVIDER", "auto").strip().lower()
+if FLOODSENSE_MAP_PROVIDER not in {"auto", "mapbox", "osm"}:
+    raise ImproperlyConfigured(
+        "FLOODSENSE_MAP_PROVIDER must be one of: auto, mapbox, osm."
+    )
+MAPBOX_ACCESS_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN", "").strip()
+FLOODSENSE_MAP_3D = env_bool("FLOODSENSE_MAP_3D", False)
+MAPBOX_GL_JS_VERSION = "v3.30.0"
+MAPBOX_GL_JS_ROOT = (
+    f"https://api.mapbox.com/mapbox-gl-js/{MAPBOX_GL_JS_VERSION}"
+)
+
 if not DEBUG and SECRET_KEY == DEVELOPMENT_SECRET_KEY:
     raise ImproperlyConfigured("DJANGO_SECRET_KEY must be set when DJANGO_DEBUG is false.")
 

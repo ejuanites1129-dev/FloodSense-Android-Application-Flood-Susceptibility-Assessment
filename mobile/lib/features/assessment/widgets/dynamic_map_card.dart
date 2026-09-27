@@ -7,6 +7,9 @@ import '../../../data/models/geojson_geometry.dart';
 import '../../../data/models/geographic_area.dart';
 import '../../../data/models/map_assessment_result.dart';
 import '../../../data/models/point_resolution.dart';
+import '../../map/flood_map_presentation.dart';
+import '../../map/flood_map_palette.dart';
+import '../../map/provider_aware_flood_map.dart';
 import '../assessment_controller.dart';
 
 class DynamicMapCard extends StatefulWidget {
@@ -79,6 +82,12 @@ class _DynamicMapCardState extends State<DynamicMapCard> {
     );
   }
 
+  void _recenterOnTemporaryPin() {
+    final pin = widget.controller.pinCoordinate;
+    if (!_mapReady || pin == null) return;
+    _mapController.move(pin.latLng, 16);
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
@@ -147,117 +156,137 @@ class _DynamicMapCardState extends State<DynamicMapCard> {
                     child: SizedBox(
                       key: const Key('dynamic-map'),
                       height: height,
-                      child: Stack(
-                        children: [
-                          FlutterMap(
-                            mapController: _mapController,
-                            options: MapOptions(
-                              initialCameraFit: CameraFit.bounds(
-                                bounds: bounds,
-                                padding: const EdgeInsets.all(24),
-                                maxZoom: 16,
-                              ),
-                              minZoom: 2,
-                              maxZoom: 18,
-                              keepAlive: true,
-                              onMapReady: () => _mapReady = true,
-                              onTap: (_, point) => controller.placePin(
-                                MapCoordinate(
-                                  latitude: point.latitude,
-                                  longitude: point.longitude,
+                      child: ProviderAwareFloodMap(
+                        presentation: FloodMapPresentation(
+                          referenceAreas: const [],
+                          scenarioAreas: controller.areas,
+                          scenarioResults: controller.mapResultsByAreaId,
+                          selectedAreaId: controller.selectedArea?.id,
+                          coordinate: pin,
+                          onCoordinateTapped: controller.placePin,
+                        ),
+                        foreground: controller.isMapAssessing
+                            ? const Positioned.fill(child: MapLoadingOverlay())
+                            : null,
+                        osmMap: Stack(
+                          children: [
+                            FlutterMap(
+                              mapController: _mapController,
+                              options: MapOptions(
+                                initialCameraFit: CameraFit.bounds(
+                                  bounds: bounds,
+                                  padding: const EdgeInsets.all(24),
+                                  maxZoom: 16,
+                                ),
+                                minZoom: 2,
+                                maxZoom: 18,
+                                keepAlive: true,
+                                onMapReady: () => _mapReady = true,
+                                onTap: (_, point) => controller.placePin(
+                                  MapCoordinate(
+                                    latitude: point.latitude,
+                                    longitude: point.longitude,
+                                  ),
                                 ),
                               ),
-                            ),
-                            children: [
-                              if (widget.showBasemap)
-                                TileLayer(
-                                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                                  userAgentPackageName:
-                                      'ph.edu.cvsu.bacoor.floodsense',
-                                  maxNativeZoom: 19,
+                              children: [
+                                if (widget.showBasemap)
+                                  TileLayer(
+                                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                    userAgentPackageName:
+                                        'ph.edu.cvsu.bacoor.floodsense',
+                                    maxNativeZoom: 19,
+                                  ),
+                                PolygonLayer<int>(
+                                  key: const Key('demonstration-polygons'),
+                                  polygons: polygons,
+                                  drawLabelsLast: true,
                                 ),
-                              PolygonLayer<int>(
-                                key: const Key('demonstration-polygons'),
-                                polygons: polygons,
-                                drawLabelsLast: true,
-                              ),
-                              if (pin != null)
-                                MarkerLayer(
-                                  markers: [
-                                    Marker(
-                                      key: const Key('temporary-pin-marker'),
-                                      point: pin.latLng,
-                                      width: 48,
-                                      height: 48,
-                                      alignment: Alignment.topCenter,
-                                      child: Semantics(
-                                        label:
-                                            'Temporary demonstration pin at latitude ${pin.latitude.toStringAsFixed(6)}, longitude ${pin.longitude.toStringAsFixed(6)}',
-                                        child: const Icon(
-                                          Icons.location_on,
-                                          size: 44,
-                                          color: AppColors.error,
-                                          shadows: [
-                                            Shadow(
-                                              blurRadius: 4,
-                                              color: Colors.white,
-                                            ),
-                                          ],
+                                if (pin != null)
+                                  MarkerLayer(
+                                    markers: [
+                                      Marker(
+                                        key: const Key('temporary-pin-marker'),
+                                        point: pin.latLng,
+                                        width: 48,
+                                        height: 48,
+                                        alignment: Alignment.topCenter,
+                                        child: Semantics(
+                                          label:
+                                              'Temporary demonstration pin at latitude ${pin.latitude.toStringAsFixed(6)}, longitude ${pin.longitude.toStringAsFixed(6)}',
+                                          child: const Icon(
+                                            Icons.location_on,
+                                            size: 44,
+                                            color: AppColors.primary,
+                                            shadows: [
+                                              Shadow(
+                                                blurRadius: 4,
+                                                color: Colors.white,
+                                              ),
+                                            ],
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              Align(
-                                alignment: Alignment.bottomRight,
-                                child: Semantics(
-                                  label: 'Basemap attribution: OpenStreetMap contributors',
-                                  child: const ColoredBox(
-                                    color: Color(0xDDFFFFFF),
-                                    child: Padding(
-                                      padding: EdgeInsets.all(4),
-                                      child: Text(
-                                        '© OpenStreetMap contributors',
-                                        key: Key('osm-attribution'),
-                                        style: TextStyle(fontSize: 10),
+                                    ],
+                                  ),
+                                Align(
+                                  alignment: Alignment.bottomRight,
+                                  child: Semantics(
+                                    label: 'Basemap attribution: OpenStreetMap contributors',
+                                    child: const ColoredBox(
+                                      color: Color(0xDDFFFFFF),
+                                      child: Padding(
+                                        padding: EdgeInsets.all(4),
+                                        child: Text(
+                                          '© OpenStreetMap contributors',
+                                          key: Key('osm-attribution'),
+                                          style: TextStyle(fontSize: 10),
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          Positioned(
-                            left: 8,
-                            top: 8,
-                            child: Column(
-                              children: [
-                                _MapControl(
-                                  key: const Key('map-zoom-in'),
-                                  label: 'Zoom in',
-                                  icon: Icons.add,
-                                  onPressed: () => _zoom(1),
-                                ),
-                                const SizedBox(height: 6),
-                                _MapControl(
-                                  key: const Key('map-zoom-out'),
-                                  label: 'Zoom out',
-                                  icon: Icons.remove,
-                                  onPressed: () => _zoom(-1),
-                                ),
-                                const SizedBox(height: 6),
-                                _MapControl(
-                                  key: const Key('map-fit-all'),
-                                  label: 'Fit all demonstration areas',
-                                  icon: Icons.fit_screen,
-                                  onPressed: _fitAll,
-                                ),
                               ],
                             ),
-                          ),
-                          if (controller.isMapAssessing)
-                            const Positioned.fill(child: MapLoadingOverlay()),
-                        ],
+                            Positioned(
+                              left: 8,
+                              top: 8,
+                              child: Column(
+                                children: [
+                                  _MapControl(
+                                    key: const Key('map-zoom-in'),
+                                    label: 'Zoom in',
+                                    icon: Icons.add,
+                                    onPressed: () => _zoom(1),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  _MapControl(
+                                    key: const Key('map-zoom-out'),
+                                    label: 'Zoom out',
+                                    icon: Icons.remove,
+                                    onPressed: () => _zoom(-1),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  _MapControl(
+                                    key: const Key('map-fit-all'),
+                                    label: 'Fit all demonstration areas',
+                                    icon: Icons.fit_screen,
+                                    onPressed: _fitAll,
+                                  ),
+                                  if (pin != null) ...[
+                                    const SizedBox(height: 6),
+                                    _MapControl(
+                                      key: const Key('map-recenter-pin'),
+                                      label: 'Recenter on temporary pin',
+                                      icon: Icons.my_location,
+                                      onPressed: _recenterOnTemporaryPin,
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -286,9 +315,7 @@ class _DynamicMapCardState extends State<DynamicMapCard> {
     for (final area in controller.areas) {
       final assessment = controller.mapResultsByAreaId[area.id];
       final selected = controller.selectedArea?.id == area.id;
-      final statusColor = assessment?.isClassified == true
-          ? Color(assessment!.susceptibility!.colorValue)
-          : AppColors.limitation;
+      final statusColor = FloodMapPalette.forAssessment(assessment);
       final statusLabel = _mapStateLabel(assessment);
       for (var index = 0; index < area.geometry.polygons.length; index++) {
         final polygon = area.geometry.polygons[index];
@@ -339,20 +366,24 @@ class _MapControl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: label,
-      child: Material(
-        color: AppColors.surface,
-        elevation: 2,
-        borderRadius: BorderRadius.circular(8),
-        child: InkWell(
-          onTap: onPressed,
+    return Tooltip(
+      message: label,
+      excludeFromSemantics: true,
+      child: Semantics(
+        button: true,
+        label: label,
+        child: Material(
+          color: AppColors.surface,
+          elevation: 2,
           borderRadius: BorderRadius.circular(8),
-          child: SizedBox(
-            width: 48,
-            height: 48,
-            child: Icon(icon, color: AppColors.primary),
+          child: InkWell(
+            onTap: onPressed,
+            borderRadius: BorderRadius.circular(8),
+            child: SizedBox(
+              width: 48,
+              height: 48,
+              child: Icon(icon, color: AppColors.primary),
+            ),
           ),
         ),
       ),

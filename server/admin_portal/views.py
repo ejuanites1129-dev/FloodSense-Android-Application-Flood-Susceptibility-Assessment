@@ -64,6 +64,7 @@ from .forms import (
     SettingsInventoryFilterForm,
     StaffAuthenticationForm,
 )
+from .map_config import get_map_client_config
 from .services.dashboard import get_dashboard_summary
 from .services.map_data import get_map_data
 from .services.settings_data import get_settings_data
@@ -288,6 +289,7 @@ def map_data(request: HttpRequest) -> HttpResponse:
         status=selected_status,
     )
     context["openlayers_root"] = OPENLAYERS_CDN_ROOT
+    context["map_config"] = get_map_client_config()
     return render(request, "admin_portal/map_data.html", context)
 
 
@@ -580,6 +582,7 @@ def evacuation_center_detail(request: HttpRequest, center_id: int) -> HttpRespon
         {
             "center": center,
             "openlayers_root": OPENLAYERS_CDN_ROOT,
+            "map_config": get_map_client_config(),
             "can_change": request.user.has_perm("evacuation.change_evacuationcenter"),
         }
     )
@@ -612,6 +615,7 @@ def evacuation_center_create(request: HttpRequest) -> HttpResponse:
             "center": None,
             "form_mode": "create",
             "openlayers_root": OPENLAYERS_CDN_ROOT,
+            "map_config": get_map_client_config(),
             "selected_source": _selected_center_source(form),
         }
     )
@@ -647,6 +651,7 @@ def evacuation_center_edit(request: HttpRequest, center_id: int) -> HttpResponse
             "center": center,
             "form_mode": "edit",
             "openlayers_root": OPENLAYERS_CDN_ROOT,
+            "map_config": get_map_client_config(),
             "selected_source": _selected_center_source(form),
         }
     )

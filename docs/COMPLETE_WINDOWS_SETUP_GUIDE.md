@@ -600,6 +600,9 @@ DJANGO_SECRET_KEY=replace-with-a-long-random-value
 DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,10.0.2.2
 FLOODSENSE_GIS_ENABLED=true
 FLOODSENSE_ENABLE_PROVISIONAL_MGB_PREVIEW=false
+FLOODSENSE_MAP_PROVIDER=auto
+MAPBOX_ACCESS_TOKEN=
+FLOODSENSE_MAP_3D=false
 DATABASE_NAME=floodsense
 DATABASE_USER=floodsense
 DATABASE_PASSWORD=replace-with-the-floodsense-database-password
@@ -619,6 +622,10 @@ Important rules:
 - Keep `FLOODSENSE_ENABLE_PROVISIONAL_MGB_PREVIEW=false` for ordinary setup. The
   provisional MGB data README documents the explicit local consultation-only
   workflow; enabling it does not approve or publish that source.
+- Leave `MAPBOX_ACCESS_TOKEN` blank for the standard OSM map. If the optional
+  Mapbox Admin presentation is rehearsed, use only a restricted public `pk.`
+  browser token in the private `server/.env`; never use an `sk.` token. See
+  `MAP_PRESENTATION_PROVIDER_GUIDE.md`.
 
 Generate a local Django secret key with:
 
@@ -830,6 +837,10 @@ flutter test
 flutter devices
 flutter build apk --debug
 ```
+
+Mapbox is optional. The commands above use OSM when no public token is supplied.
+For the Mapbox-specific Android rehearsal command and fallback checks, follow
+`docs/MAP_PRESENTATION_PROVIDER_GUIDE.md`.
 
 Expected results:
 

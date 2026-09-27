@@ -147,6 +147,18 @@ void main() {
       expect(find.bySemanticsLabel('Zoom in Bacoor map'), findsOneWidget);
       expect(find.bySemanticsLabel('Zoom out Bacoor map'), findsOneWidget);
       expect(find.bySemanticsLabel('Fit all Bacoor barangays'), findsOneWidget);
+      for (final label in [
+        'Zoom in Bacoor map',
+        'Zoom out Bacoor map',
+        'Fit all Bacoor barangays',
+      ]) {
+        expect(
+          find.byWidgetPredicate(
+            (widget) => widget is Tooltip && widget.message == label,
+          ),
+          findsOneWidget,
+        );
+      }
     });
 
     testWidgets('map taps place and reposition one temporary pin', (
@@ -158,6 +170,25 @@ void main() {
       tapMapCoordinate(tester, const LatLng(14.005, 120.005));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('temporary-pin-marker')), findsOneWidget);
+      final markerIcon = tester.widget<Icon>(
+        find.descendant(
+          of: find.byKey(const Key('temporary-pin-marker')),
+          matching: find.byType(Icon),
+        ),
+      );
+      expect(markerIcon.color, AppColors.primary);
+      expect(
+        find.bySemanticsLabel('Recenter on temporary point'),
+        findsOneWidget,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Tooltip &&
+              widget.message == 'Recenter on temporary point',
+        ),
+        findsOneWidget,
+      );
       expect(api.lastLatitude, 14.005);
 
       tapMapCoordinate(tester, const LatLng(14.006, 120.006));

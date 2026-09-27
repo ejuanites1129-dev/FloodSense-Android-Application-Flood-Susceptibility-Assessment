@@ -14,6 +14,9 @@ import '../../../data/models/verified_center.dart';
 import '../../evacuation/nearest_center_controller.dart';
 import '../../location/location_controller.dart';
 import '../../map/bacoor_coverage_mask.dart';
+import '../../map/flood_map_presentation.dart';
+import '../../map/flood_map_palette.dart';
+import '../../map/provider_aware_flood_map.dart';
 import '../assessment_controller.dart';
 import 'dynamic_map_card.dart';
 
@@ -93,6 +96,14 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
     });
   }
 
+  void _recenterOnTemporaryPoint() {
+    final coordinate =
+        widget.locationController?.lookupCoordinate ??
+        widget.controller.pinCoordinate;
+    if (!_mapReady || coordinate == null) return;
+    _mapController.move(coordinate.latLng, 16);
+  }
+
   void _handleMapTap(LatLng point) {
     final coordinate = MapCoordinate(
       latitude: point.latitude,
@@ -149,6 +160,8 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
     );
     final centerController = widget.nearestCenterController;
     final centers = centerController?.centers ?? const <VerifiedCenter>[];
+    final coordinate =
+        widget.locationController?.lookupCoordinate ?? controller.pinCoordinate;
     _centerOnTemporaryPoint();
     _centerOnSelectedCenter();
     return Card(
@@ -245,209 +258,254 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
                     child: SizedBox(
                       key: const Key('reference-boundary-map'),
                       height: height,
-                      child: Stack(
-                        children: [
-                          FlutterMap(
-                            mapController: _mapController,
-                            options: MapOptions(
-                              initialCameraFit: CameraFit.bounds(
-                                bounds: bounds,
-                                padding: const EdgeInsets.all(20),
-                                maxZoom: 14,
-                              ),
-                              minZoom: 2,
-                              maxZoom: 18,
-                              keepAlive: true,
-                              onMapReady: () {
-                                _mapReady = true;
-                                _centerOnTemporaryPoint();
-                              },
-                              onTap: (_, point) => _handleMapTap(point),
-                            ),
-                            children: [
-                              if (widget.showBasemap)
-                                TileLayer(
-                                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                                  userAgentPackageName:
-                                      'ph.edu.cvsu.bacoor.floodsense',
-                                  maxNativeZoom: 19,
+                      child: ProviderAwareFloodMap(
+                        presentation: FloodMapPresentation(
+                          referenceAreas: controller.referenceAreas,
+                          scenarioAreas: controller.areas,
+                          scenarioResults: controller.mapResultsByAreaId,
+                          selectedAreaId: controller.selectedArea?.id,
+                          confirmedAreaCode: widget
+                              .locationController
+                              ?.confirmedBarangay
+                              ?.geographicAreaCode,
+                          coordinate: coordinate,
+                          accuracyMeters: widget
+                              .locationController
+                              ?.temporaryLocation
+                              ?.accuracyMeters,
+                          centers: centers,
+                          selectedCenterIdentifier:
+                              centerController?.selectedCenterIdentifier,
+                          onCoordinateTapped: (point) {
+                            unawaited(controller.placePin(point));
+                            final location = widget.locationController;
+                            if (location != null) {
+                              unawaited(location.resolveManualPin(point));
+                            }
+                          },
+                          onCenterTapped: centerController?.selectCenter,
+                          fitPadding: const FloodMapPadding.all(20),
+                        ),
+                        foreground: controller.isMapAssessing
+                            ? const Positioned.fill(child: MapLoadingOverlay())
+                            : null,
+                        osmMap: Stack(
+                          children: [
+                            FlutterMap(
+                              mapController: _mapController,
+                              options: MapOptions(
+                                initialCameraFit: CameraFit.bounds(
+                                  bounds: bounds,
+                                  padding: const EdgeInsets.all(20),
+                                  maxZoom: 14,
                                 ),
-                              PolygonLayer<int>(
-                                key: const Key('bacoor-coverage-mask'),
-                                polygons: _coveragePolygons(
-                                  controller.referenceAreas,
+                                minZoom: 2,
+                                maxZoom: 18,
+                                keepAlive: true,
+                                onMapReady: () {
+                                  _mapReady = true;
+                                  _centerOnTemporaryPoint();
+                                },
+                                onTap: (_, point) => _handleMapTap(point),
+                              ),
+                              children: [
+                                if (widget.showBasemap)
+                                  TileLayer(
+                                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                    userAgentPackageName:
+                                        'ph.edu.cvsu.bacoor.floodsense',
+                                    maxNativeZoom: 19,
+                                  ),
+                                PolygonLayer<int>(
+                                  key: const Key('bacoor-coverage-mask'),
+                                  polygons: _coveragePolygons(
+                                    controller.referenceAreas,
+                                  ),
+                                  invertedFill: bacoorOutsideCoverageColor,
+                                  polygonLabels: false,
                                 ),
-                                invertedFill: bacoorOutsideCoverageColor,
-                                polygonLabels: false,
-                              ),
-                              PolygonLayer<int>(
-                                key: const Key('demonstration-polygons'),
-                                polygons: _scenarioPolygons(controller),
-                                drawLabelsLast: true,
-                              ),
-                              PolygonLayer<int>(
-                                key: const Key('reference-boundary-polygons'),
-                                polygons: _polygons(controller.referenceAreas),
-                              ),
-                              if (centerController
-                                  case final activeCenterController?
-                                  when centers.isNotEmpty)
-                                MarkerLayer(
-                                  key: const Key('nearest-center-markers'),
-                                  markers: [
-                                    for (final center in centers)
-                                      Marker(
-                                        key: Key(
-                                          'nearest-center-marker-${center.publicIdentifier}',
-                                        ),
-                                        point: LatLng(
-                                          center.latitude,
-                                          center.longitude,
-                                        ),
-                                        width: 52,
-                                        height: 52,
-                                        alignment: Alignment.topCenter,
-                                        child: Semantics(
-                                          button: true,
-                                          selected:
-                                              activeCenterController
-                                                  .selectedCenterIdentifier ==
-                                              center.publicIdentifier,
-                                          label:
-                                              'Center marker for ${center.name}. ${center.distanceLabel}.',
-                                          child: GestureDetector(
-                                            behavior: HitTestBehavior.opaque,
-                                            onTap: () => activeCenterController
-                                                .selectCenter(
-                                                  center.publicIdentifier,
-                                                ),
-                                            child: Icon(
-                                              Icons.home_work,
-                                              size:
+                                PolygonLayer<int>(
+                                  key: const Key('demonstration-polygons'),
+                                  polygons: _scenarioPolygons(controller),
+                                  drawLabelsLast: true,
+                                ),
+                                PolygonLayer<int>(
+                                  key: const Key('reference-boundary-polygons'),
+                                  polygons: _polygons(
+                                    controller.referenceAreas,
+                                  ),
+                                ),
+                                if (centerController
+                                    case final activeCenterController?
+                                    when centers.isNotEmpty)
+                                  MarkerLayer(
+                                    key: const Key('nearest-center-markers'),
+                                    markers: [
+                                      for (final center in centers)
+                                        Marker(
+                                          key: Key(
+                                            'nearest-center-marker-${center.publicIdentifier}',
+                                          ),
+                                          point: LatLng(
+                                            center.latitude,
+                                            center.longitude,
+                                          ),
+                                          width: 52,
+                                          height: 52,
+                                          alignment: Alignment.topCenter,
+                                          child: Semantics(
+                                            button: true,
+                                            selected:
+                                                activeCenterController
+                                                    .selectedCenterIdentifier ==
+                                                center.publicIdentifier,
+                                            label:
+                                                'Center marker for ${center.name}. ${center.distanceLabel}.',
+                                            child: GestureDetector(
+                                              behavior: HitTestBehavior.opaque,
+                                              onTap: () =>
                                                   activeCenterController
-                                                          .selectedCenterIdentifier ==
-                                                      center.publicIdentifier
-                                                  ? 46
-                                                  : 38,
-                                              color: const Color(0xFF6A1B9A),
-                                              shadows: const [
-                                                Shadow(
-                                                  blurRadius: 4,
-                                                  color: Colors.white,
-                                                ),
-                                              ],
+                                                      .selectCenter(
+                                                        center.publicIdentifier,
+                                                      ),
+                                              child: Icon(
+                                                Icons.home_work,
+                                                size:
+                                                    activeCenterController
+                                                            .selectedCenterIdentifier ==
+                                                        center.publicIdentifier
+                                                    ? 46
+                                                    : 38,
+                                                color: FloodMapPalette.center,
+                                                shadows: const [
+                                                  Shadow(
+                                                    blurRadius: 4,
+                                                    color: Colors.white,
+                                                  ),
+                                                ],
+                                              ),
                                             ),
                                           ),
                                         ),
-                                      ),
-                                  ],
-                                ),
-                              if (widget.locationController?.temporaryLocation
-                                  case final temporary?)
-                                CircleLayer<String>(
-                                  key: const Key(
-                                    'temporary-location-accuracy-circle',
+                                    ],
                                   ),
-                                  circles: [
-                                    CircleMarker<String>(
-                                      key: const Key(
-                                        'temporary-location-accuracy-circle',
-                                      ),
-                                      point: widget
-                                          .locationController!
-                                          .lookupCoordinate!
-                                          .latLng,
-                                      radius: temporary.accuracyMeters,
-                                      useRadiusInMeter: true,
-                                      color: AppColors.primary.withValues(
-                                        alpha: 0.14,
-                                      ),
-                                      borderColor: AppColors.primary,
-                                      borderStrokeWidth: 1.5,
+                                if (widget.locationController?.temporaryLocation
+                                    case final temporary?)
+                                  CircleLayer<String>(
+                                    key: const Key(
+                                      'temporary-location-accuracy-circle',
                                     ),
-                                  ],
-                                ),
-                              if ((widget
-                                          .locationController
-                                          ?.lookupCoordinate ??
-                                      controller.pinCoordinate)
-                                  case final coordinate?)
-                                MarkerLayer(
-                                  markers: [
-                                    Marker(
-                                      key: Key(
-                                        widget
-                                                    .locationController
-                                                    ?.lookupCoordinate ==
-                                                null
-                                            ? 'temporary-pin-marker'
-                                            : 'temporary-location-map-marker',
+                                    circles: [
+                                      CircleMarker<String>(
+                                        key: const Key(
+                                          'temporary-location-accuracy-circle',
+                                        ),
+                                        point: widget
+                                            .locationController!
+                                            .lookupCoordinate!
+                                            .latLng,
+                                        radius: temporary.accuracyMeters,
+                                        useRadiusInMeter: true,
+                                        color: AppColors.primary.withValues(
+                                          alpha: 0.14,
+                                        ),
+                                        borderColor: AppColors.primary,
+                                        borderStrokeWidth: 1.5,
                                       ),
-                                      point: coordinate.latLng,
-                                      width: 48,
-                                      height: 48,
-                                      alignment: Alignment.topCenter,
-                                      child: Semantics(
-                                        label: 'Temporary map marker. The coordinate is not saved.',
-                                        child: const Icon(
-                                          Icons.my_location,
-                                          size: 40,
-                                          color: AppColors.error,
-                                          shadows: [
-                                            Shadow(
-                                              blurRadius: 4,
-                                              color: Colors.white,
-                                            ),
-                                          ],
+                                    ],
+                                  ),
+                                if ((widget
+                                            .locationController
+                                            ?.lookupCoordinate ??
+                                        controller.pinCoordinate)
+                                    case final coordinate?)
+                                  MarkerLayer(
+                                    markers: [
+                                      Marker(
+                                        key: Key(
+                                          widget
+                                                      .locationController
+                                                      ?.lookupCoordinate ==
+                                                  null
+                                              ? 'temporary-pin-marker'
+                                              : 'temporary-location-map-marker',
+                                        ),
+                                        point: coordinate.latLng,
+                                        width: 48,
+                                        height: 48,
+                                        alignment: Alignment.topCenter,
+                                        child: Semantics(
+                                          label: 'Temporary map marker. The coordinate is not saved.',
+                                          child: const Icon(
+                                            Icons.my_location,
+                                            size: 40,
+                                            color: AppColors.primary,
+                                            shadows: [
+                                              Shadow(
+                                                blurRadius: 4,
+                                                color: Colors.white,
+                                              ),
+                                            ],
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              const Align(
-                                alignment: Alignment.bottomRight,
-                                child: ColoredBox(
-                                  color: Color(0xDDFFFFFF),
-                                  child: Padding(
-                                    padding: EdgeInsets.all(4),
-                                    child: Text(
-                                      '© OpenStreetMap contributors',
-                                      key: Key('osm-attribution'),
-                                      style: TextStyle(fontSize: 10),
+                                    ],
+                                  ),
+                                const Align(
+                                  alignment: Alignment.bottomRight,
+                                  child: ColoredBox(
+                                    color: Color(0xDDFFFFFF),
+                                    child: Padding(
+                                      padding: EdgeInsets.all(4),
+                                      child: Text(
+                                        '© OpenStreetMap contributors',
+                                        key: Key('osm-attribution'),
+                                        style: TextStyle(fontSize: 10),
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          Positioned(
-                            left: 8,
-                            top: 8,
-                            child: Column(
-                              children: [
-                                _ReferenceMapControl(
-                                  label: 'Zoom in Bacoor map',
-                                  icon: Icons.add,
-                                  onPressed: () => _zoom(1),
-                                ),
-                                const SizedBox(height: 6),
-                                _ReferenceMapControl(
-                                  label: 'Zoom out Bacoor map',
-                                  icon: Icons.remove,
-                                  onPressed: () => _zoom(-1),
-                                ),
-                                const SizedBox(height: 6),
-                                _ReferenceMapControl(
-                                  label: 'Fit all Bacoor barangays',
-                                  icon: Icons.fit_screen,
-                                  onPressed: _fitAll,
                                 ),
                               ],
                             ),
-                          ),
-                          if (controller.isMapAssessing)
-                            const Positioned.fill(child: MapLoadingOverlay()),
-                        ],
+                            Positioned(
+                              left: 8,
+                              top: 8,
+                              child: Column(
+                                children: [
+                                  _ReferenceMapControl(
+                                    label: 'Zoom in Bacoor map',
+                                    icon: Icons.add,
+                                    onPressed: () => _zoom(1),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  _ReferenceMapControl(
+                                    label: 'Zoom out Bacoor map',
+                                    icon: Icons.remove,
+                                    onPressed: () => _zoom(-1),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  _ReferenceMapControl(
+                                    label: 'Fit all Bacoor barangays',
+                                    icon: Icons.fit_screen,
+                                    onPressed: _fitAll,
+                                  ),
+                                  if ((widget
+                                              .locationController
+                                              ?.lookupCoordinate ??
+                                          controller.pinCoordinate) !=
+                                      null) ...[
+                                    const SizedBox(height: 6),
+                                    _ReferenceMapControl(
+                                      label: 'Recenter on temporary point',
+                                      icon: Icons.my_location,
+                                      onPressed: _recenterOnTemporaryPoint,
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   );
@@ -484,9 +542,7 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
     for (final area in controller.areas) {
       final assessment = controller.mapResultsByAreaId[area.id];
       final selected = controller.selectedArea?.id == area.id;
-      final statusColor = assessment?.isClassified == true
-          ? Color(assessment!.susceptibility!.colorValue)
-          : AppColors.limitation;
+      final statusColor = FloodMapPalette.forAssessment(assessment);
       final statusLabel = _scenarioStateLabel(assessment);
       for (var index = 0; index < area.geometry.polygons.length; index++) {
         final polygon = area.geometry.polygons[index];
@@ -605,20 +661,24 @@ class _ReferenceMapControl extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    label: label,
-    child: Material(
-      color: AppColors.surface,
-      elevation: 2,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: onPressed,
+  Widget build(BuildContext context) => Tooltip(
+    message: label,
+    excludeFromSemantics: true,
+    child: Semantics(
+      button: true,
+      label: label,
+      child: Material(
+        color: AppColors.surface,
+        elevation: 2,
         borderRadius: BorderRadius.circular(8),
-        child: SizedBox(
-          width: 48,
-          height: 48,
-          child: Icon(icon, color: AppColors.primary),
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(8),
+          child: SizedBox(
+            width: 48,
+            height: 48,
+            child: Icon(icon, color: AppColors.primary),
+          ),
         ),
       ),
     ),
