@@ -1,5 +1,8 @@
 # FloodSense
 
+For terminal commands to start, run, and safely stop the local Windows system,
+see [Start and stop FloodSense](start.md).
+
 FloodSense is a planned Android application for scenario-based flood susceptibility assessment and pre-event preparedness in Bacoor City. Its core classification component is a deterministic, rule-based Expert System. It is not a real-time forecast or official warning service.
 
 The current demonstration vertical slice includes Django-managed hypothetical

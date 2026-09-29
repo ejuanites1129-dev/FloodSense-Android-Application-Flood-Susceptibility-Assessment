@@ -67,6 +67,7 @@ from .forms import (
 from .map_config import get_map_client_config
 from .services.dashboard import get_dashboard_summary
 from .services.map_data import get_map_data
+from .services.reports import get_report_summary
 from .services.settings_data import get_settings_data
 
 SECTIONS = {
@@ -204,8 +205,8 @@ def _portal_context(request: HttpRequest, *, active_section: str) -> dict[str, A
         "user_initials": initials or "FS",
         "navigation": [
             ("dashboard", "Overview", "▦"),
+            ("reports", "Reports", "▤"),
             ("map-data", "Map data", "◇"),
-            ("settings", "Settings", "◎"),
             ("dss-content", "DSS content", "?"),
             ("rainfall-references", "Rainfall references", "≈"),
             ("evacuation-centers", "Evacuation centers", "⌂"),
@@ -271,8 +272,16 @@ def password_help(request: HttpRequest) -> HttpResponse:
 @require_GET
 def dashboard(request: HttpRequest) -> HttpResponse:
     context = _portal_context(request, active_section="dashboard")
-    context["dashboard"] = get_dashboard_summary(user=request.user)
+    context["dashboard"] = get_dashboard_summary(user=request.user, include_activity=False)
     return render(request, "admin_portal/dashboard.html", context)
+
+
+@staff_required
+@require_GET
+def reports(request: HttpRequest) -> HttpResponse:
+    context = _portal_context(request, active_section="reports")
+    context["report"] = get_report_summary(user=request.user)
+    return render(request, "admin_portal/reports.html", context)
 
 
 @staff_required

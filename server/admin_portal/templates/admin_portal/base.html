@@ -29,7 +29,7 @@
         <span class="sr-only">Open account menu</span>
       </button>
       <div class="account-menu__panel" id="account-menu" data-account-menu role="menu" hidden>
-        <a class="account-menu__item" href="{% url 'admin_portal:settings' %}" role="menuitem">
+        <a class="account-menu__item" href="{% url 'admin_portal:settings' %}" role="menuitem"{% if active_section == 'settings' %} aria-current="page"{% endif %}>
           <span aria-hidden="true">⚙</span><span>Settings</span>
         </a>
         <form method="post" action="{% url 'admin_portal:logout' %}">
@@ -44,10 +44,13 @@
 
   <div class="portal-layout">
     <aside class="sidebar" id="portal-sidebar">
-      <a class="sidebar__brand" href="{% url 'admin_portal:dashboard' %}">
-        <span class="sidebar__brand-mark" aria-hidden="true">≈</span><span>FloodSense</span>
-      </a>
-      <nav aria-label="Administration navigation">
+      <div class="sidebar__brand-area">
+        <a class="sidebar__brand" aria-label="FloodSense home" href="{% url 'admin_portal:dashboard' %}">
+          <span class="sidebar__brand-mark" aria-hidden="true">≈</span><span class="sidebar__brand-name">FloodSense</span>
+        </a>
+        <button class="sidebar-toggle" type="button" data-sidebar-toggle aria-label="Collapse Sidebar" title="Collapse Sidebar (Ctrl + B)" aria-controls="sidebar-navigation" aria-expanded="true" hidden><span aria-hidden="true">◧</span></button>
+      </div>
+      <nav id="sidebar-navigation" aria-label="Administration navigation">
         <ul class="nav-list">
           {% for slug, label, icon in navigation %}
             <li>
@@ -55,8 +58,8 @@
                 <a class="nav-link{% if active_section == slug %} nav-link--active{% endif %}" href="{% url 'admin_portal:dashboard' %}"{% if active_section == slug %} aria-current="page"{% endif %}>
               {% elif slug == 'map-data' %}
                 <a class="nav-link{% if active_section == slug %} nav-link--active{% endif %}" href="{% url 'admin_portal:map-data' %}"{% if active_section == slug %} aria-current="page"{% endif %}>
-              {% elif slug == 'settings' %}
-                <a class="nav-link{% if active_section == slug %} nav-link--active{% endif %}" href="{% url 'admin_portal:settings' %}"{% if active_section == slug %} aria-current="page"{% endif %}>
+              {% elif slug == 'reports' %}
+                <a class="nav-link{% if active_section == slug %} nav-link--active{% endif %}" href="{% url 'admin_portal:reports' %}"{% if active_section == slug %} aria-current="page"{% endif %}>
               {% elif slug == 'dss-content' %}
                 <a class="nav-link{% if active_section == slug %} nav-link--active{% endif %}" href="{% url 'admin_portal:dss-content' %}"{% if active_section == slug %} aria-current="page"{% endif %}>
               {% elif slug == 'rainfall-references' %}

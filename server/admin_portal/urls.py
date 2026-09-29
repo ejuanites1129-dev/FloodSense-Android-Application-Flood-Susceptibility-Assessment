@@ -24,6 +24,7 @@ from .views import (
     password_help,
     rainfall_reference_detail,
     rainfall_reference_list,
+    reports,
     section,
     settings_view,
 )
@@ -35,6 +36,7 @@ urlpatterns = [
     path("logout/", AdminLogoutView.as_view(), name="logout"),
     path("password-help/", password_help, name="password-help"),
     path("", dashboard, name="dashboard"),
+    path("reports/", reports, name="reports"),
     path("map-data/", map_data, name="map-data"),
     path("settings/", settings_view, name="settings"),
     path("assessment-parameters/", assessment_parameters, name="assessment-parameters"),

@@ -103,7 +103,7 @@ def _permitted_activity_modules(user):
     return {key: ACTIVITY_MODULE_LABELS[key] for key in allowed}
 
 
-def get_dashboard_summary(*, user=None):
+def get_dashboard_summary(*, user=None, include_activity=True):
     """Return a read-only snapshot using five aggregates and one activity query.
 
     Enabled and approved are independent counts. These summaries do not assert
@@ -146,7 +146,11 @@ def get_dashboard_summary(*, user=None):
                     Q(status=PublicationStatus.PENDING_VALIDATION)
                     | Q(workflow_status=GuidanceItem.WorkflowStatus.IN_REVIEW)
                 ),
-            )
+            ),
+            **{
+                f"workflow_{value}": Count("pk", filter=Q(workflow_status=value))
+                for value, _label in GuidanceItem.WorkflowStatus.choices
+            },
         },
     )
     scenario_options = _record_summary(
@@ -249,6 +253,8 @@ def get_dashboard_summary(*, user=None):
             "total": sum(module["count"] for module in review_modules),
             "modules": review_modules,
         },
-        "recent_activity": _recent_activity(_permitted_activity_modules(user)),
+        "recent_activity": (
+            _recent_activity(_permitted_activity_modules(user)) if include_activity else []
+        ),
         "activity_is_complete_audit": False,
     }

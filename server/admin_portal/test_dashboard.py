@@ -195,8 +195,8 @@ class OperationalDashboardTests(TestCase):
         self.assertEqual(response.context["dashboard"]["review_attention"]["total"], 0)
         for message in self.approved_empty_messages:
             self.assertContains(response, message)
-        self.assertContains(response, "No records currently need validation or content review.")
-        self.assertContains(response, "No recorded maintenance activity is available.")
+        self.assertNotContains(response, "No records currently need validation or content review.")
+        self.assertNotContains(response, "No recorded maintenance activity is available.")
         self.assertContains(response, "current local database")
         self.assertNotContains(response, "Everything is approved")
 
@@ -218,8 +218,8 @@ class OperationalDashboardTests(TestCase):
         for message in self.approved_empty_messages:
             self.assertContains(response, message)
         self.assertContains(response, PublicationStatus.DEMONSTRATION.label)
-        self.assertContains(response, "No records currently need validation or content review.")
-        self.assertContains(response, "No recorded maintenance activity is available.")
+        self.assertNotContains(response, "No records currently need validation or content review.")
+        self.assertNotContains(response, "No recorded maintenance activity is available.")
         self.assertEqual(response.context["dashboard"]["recent_activity"], [])
 
     def test_approved_data_removes_only_the_corresponding_empty_states(self):
@@ -261,7 +261,7 @@ class OperationalDashboardTests(TestCase):
         response = self.client.get(self.url)
 
         self.assertEqual(response.context["dashboard"]["review_attention"]["total"], 1)
-        self.assertContains(response, "Records needing review by module")
+        self.assertNotContains(response, "Records needing review by module")
 
     def test_dashboard_get_is_read_only_and_does_not_query_raw_rule_tables(self):
         self.create_records()
@@ -296,7 +296,7 @@ class OperationalDashboardTests(TestCase):
         ):
             self.assertNotContains(response, private_value)
 
-    def test_relevant_recorded_activity_uses_safe_labels_and_semantic_list(self):
+    def test_overview_omits_activity_even_when_recorded_events_exist(self):
         self.staff.user_permissions.set(
             Permission.objects.filter(
                 content_type__app_label__in=("provenance", "dss", "evacuation"),
@@ -316,31 +316,19 @@ class OperationalDashboardTests(TestCase):
         ):
             self.create_log(model, action=action)
         response = self.client.get(self.url)
-        self.assertEqual(len(response.context["dashboard"]["recent_activity"]), 5)
-        self.assertContains(response, self.activity_limitation)
-        self.assertContains(response, "Recent recorded maintenance activity")
+        self.assertEqual(response.context["dashboard"]["recent_activity"], [])
+        self.assertNotContains(response, "Recent recorded maintenance activity")
         self.assertNotContains(response, "private-object-repr-sentinel")
         self.assertNotContains(response, "private-change-message-sentinel")
-        self.assertNotContains(response, "No recorded maintenance activity is available.")
-        for label in ("Added", "Changed", "Deleted"):
-            self.assertContains(response, label)
-        html = DashboardHTML(response)
-        timestamps = html.select("time")
-        self.assertEqual(len(timestamps), 5)
-        for timestamp in timestamps:
-            self.assertTrue(timestamp["attrs"].get("datetime"))
-            self.assertIn("li", [ancestor["tag"] for ancestor in timestamp["ancestors"]])
-            self.assertTrue(
-                {"ul", "ol"}.intersection(ancestor["tag"] for ancestor in timestamp["ancestors"])
-            )
+        self.assertFalse(DashboardHTML(response).select("time"))
 
     def test_raw_rule_and_condition_logs_do_not_create_dashboard_activity(self):
         for model in (ExpertRule, ExpertRuleCondition):
             self.create_log(model)
         response = self.client.get(self.url)
         self.assertEqual(response.context["dashboard"]["recent_activity"], [])
-        self.assertContains(response, "No recorded maintenance activity is available.")
-        self.assertContains(response, self.activity_limitation)
+        self.assertNotContains(response, "No recorded maintenance activity is available.")
+        self.assertNotContains(response, self.activity_limitation)
 
     def test_activity_for_permission_controlled_modules_is_hidden_without_view_access(self):
         self.create_log(DataSource)
@@ -350,7 +338,7 @@ class OperationalDashboardTests(TestCase):
         response = self.client.get(self.url)
 
         self.assertEqual(response.context["dashboard"]["recent_activity"], [])
-        self.assertContains(response, "No recorded maintenance activity is available.")
+        self.assertNotContains(response, "No recorded maintenance activity is available.")
 
     def test_database_display_names_are_escaped_in_greeting_and_activity(self):
         self.staff.display_name = '<img src=x onerror="alert(1)">'
@@ -361,30 +349,25 @@ class OperationalDashboardTests(TestCase):
         self.assertNotContains(response, self.staff.display_name)
         self.assertFalse(DashboardHTML(response).select("img", onerror="alert(1)"))
 
-    def test_quick_actions_are_descriptive_links_to_protected_modules(self):
-        html = DashboardHTML(self.client.get(self.url))
-        for label, slug in (
-            ("Open map data", "map-data"),
-            ("Review assessment parameters", "settings"),
+    def test_removed_panels_and_anchors_are_absent(self):
+        response = self.client.get(self.url)
+        for removed in (
+            "Review attention",
+            "Recorded actions",
+            "Recent recorded maintenance activity",
+            "Attention needed",
+            "Records needing review by module",
+            "Management modules",
+            "Quick actions",
+            "Review assessment parameters",
+            'id="review-attention"',
+            'href="#review-attention"',
+            'class="content-grid dashboard-panels"',
         ):
-            with self.subTest(link=label):
-                url = reverse("admin_portal:section", kwargs={"section_slug": slug})
-                link_url = f"{url}#parameters" if slug == "settings" else url
-                self.assertTrue(
-                    any(label in html.text(link) for link in html.select("a", href=link_url))
-                )
-                protected_response = self.client.get(url)
-                self.assertContains(
-                    protected_response,
-                    {"map-data": "Map and geographic data", "settings": "Settings"}[slug],
-                )
-                self.assertRedirects(
-                    Client().get(url),
-                    f"{reverse('admin_portal:login')}?next={url}",
-                    fetch_redirect_response=False,
-                )
-        self.assertFalse(any("Open DSS content" in html.text(link) for link in html.select("a")))
-        self.assertFalse(any("Manage sources" in html.text(link) for link in html.select("a")))
+            self.assertNotContains(response, removed)
+        links = DashboardHTML(response).select("a", href=reverse("admin_portal:settings"))
+        self.assertEqual(len(links), 1)
+        self.assertEqual(links[0]["attrs"].get("role"), "menuitem")
 
     def test_dashboard_retains_accessible_safety_and_removes_foundation_and_rule_controls(self):
         response = self.client.get(self.url)

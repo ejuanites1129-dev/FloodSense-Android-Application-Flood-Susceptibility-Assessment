@@ -5,13 +5,16 @@
 .map-note { color: #475467; font-size: .85rem; }
 .map-metrics .metric-card strong { color: #344054; font-size: 1.9rem; }
 .map-workspace { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); align-items: start; gap: 20px; }
-.map-panel, .detail-panel { grid-column: span 8; }
-.layer-panel, .area-panel { grid-column: span 4; }
+.map-panel, .layer-panel { grid-column: 1 / -1; }
+.detail-panel { grid-column: span 8; }
+.area-panel { grid-column: span 4; }
+.layer-panel { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; }
+.layer-panel > :is(h2, .eyebrow, .map-note) { grid-column: 1 / -1; }
 .map-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
 .map-panel-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .map-panel-heading .button { flex-shrink: 0; padding: 9px 12px; font-size: .8rem; }
 .map-data button:disabled { cursor: default; opacity: .65; }
-.geographic-map { width: 100%; height: 440px; min-height: 320px; background: #edf0f2; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; }
+.geographic-map { width: 100%; height: clamp(420px, 65vh, 760px); min-height: 320px; background: #edf0f2; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; }
 .map-data :is(input, button, a, [tabindex]):focus-visible { outline: 3px solid var(--brand-dark); outline-offset: 3px; }
 .map-message { margin: 12px 0; padding: 10px 12px; background: #f0f3f6; border-radius: 6px; font-size: .85rem; }
 .map-attribution { margin-bottom: 10px; }

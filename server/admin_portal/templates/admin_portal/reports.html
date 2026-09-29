@@ -1,0 +1,68 @@
+{% extends "admin_portal/base.html" %}
+{% block title %}Reports | FloodSense Admin{% endblock %}
+{% block content %}
+<div class="dashboard reports">
+  <section class="page-heading">
+    <div><p class="eyebrow">Administrative reporting</p><h1>Reports</h1><p>The state of stored administrative records in this database, not current flood conditions.</p></div>
+    <span class="status-pill status-pill--development">Read-only · On page load</span>
+  </section>
+  <section class="notice notice--warning portal-notice" aria-label="Data safety notice">
+    <strong>Recorded status is not an operational recommendation.</strong>
+    <p>Demonstration data are not official Bacoor flood information. Pending-validation records remain provisional. Local records differ between teammates; these are not citywide statistics.</p>
+  </section>
+  <section class="metric-grid report-summary" aria-label="Administrative summary">
+    <article class="metric-card"><h2 class="metric-card__label">Records in accessible modules</h2><p class="dashboard-total"><span>{{ report.total }}</span>rows across {{ report.visible_modules }} of 5 modules</p><p>Includes every recorded status and disabled rows. Counts records, not unique places or people.</p></article>
+    <article class="metric-card"><h2 class="metric-card__label">Review workload</h2><p class="dashboard-total"><span>{{ report.review_total }}</span>records in accessible review queues</p><p>Definitions and follow-up links appear below.</p></article>
+    <article class="metric-card"><h2 class="metric-card__label">Restricted access</h2><p class="dashboard-total"><span>{{ report.restricted_modules }}</span>modules withheld from this report</p><p>Restricted access is not a zero-record count.</p></article>
+  </section>
+  <section class="panel report-section" aria-labelledby="report-status-heading">
+    <p class="eyebrow">Data and publication status</p><h2 id="report-status-heading">Recorded status by module</h2>
+    <p class="dashboard-note">Each row covers all stored records in that module. Status columns are mutually exclusive and sum to its total. “Restricted” in a status column describes records; “Access restricted” describes your permissions.</p>
+    <p class="dashboard-note report-table-help">On smaller screens, scroll the table horizontally to read all statuses.</p>
+    <div class="report-table-scroll" role="region" aria-label="Recorded status table" tabindex="0">
+      <table class="report-table">
+        <caption>Record counts by stored approval / publication status</caption>
+        <thead><tr><th scope="col">Module</th><th scope="col">Total</th><th scope="col">Demonstration<br>not official</th><th scope="col">Pending validation</th><th scope="col">Approved</th><th scope="col">Restricted</th><th scope="col">Retired</th></tr></thead>
+        <tbody>{% for module in report.modules %}<tr>
+          <th scope="row">{{ module.label }}</th>
+          {% if module.allowed %}<td>{{ module.summary.total }}</td>{% for status in module.summary.statuses %}<td>{{ status.count }}</td>{% endfor %}
+          {% else %}<td colspan="6">Access restricted — counts withheld</td>{% endif %}
+        </tr>{% endfor %}</tbody>
+      </table>
+    </div>
+    <p class="dashboard-note">Zero means no matching stored records. Approved is the record’s stored status, not independent confirmation of its source, scientific validity, or resident-facing availability.</p>
+    <div class="report-state-grid">
+      {% for module in report.modules %}{% if module.allowed %}
+      <article class="report-state"><h3>{{ module.label }}</h3>
+        {% if not module.summary.total %}<p class="dashboard-empty">No records in this module.</p>{% endif %}
+        {% if module.key == 'data_sources' %}<p>{{ module.summary.approved_public }} approved and publicly releasable sources.</p>
+        {% elif module.key == 'evacuation_centers' %}<dl class="dashboard-counts">{% for state in module.summary.verifications %}<div><dt>{{ state.label }}</dt><dd>{{ state.count }}</dd></div>{% endfor %}</dl><p class="dashboard-note">Verification is separate from publication. No live occupancy is recorded here.</p>
+        {% else %}<p>{{ module.summary.enabled }} enabled out of {{ module.summary.total }} records.</p>{% endif %}
+        {% if module.workflows %}<dl class="dashboard-counts">{% for state in module.workflows %}<div><dt>{{ state.label }} workflow</dt><dd>{{ state.count }}</dd></div>{% endfor %}</dl><p class="dashboard-note">Published counts the explicit workflow state across all data statuses, including demonstration. It does not establish current API eligibility.</p>{% endif %}
+      </article>
+      {% endif %}{% endfor %}
+    </div>
+  </section>
+  <section class="panel report-section" aria-labelledby="report-review-heading">
+    <p class="eyebrow">Review workload</p><h2 id="report-review-heading">Records awaiting review</h2>
+    {% if not report.review_total %}<p class="dashboard-empty">No records currently await review in the modules accessible to your account.</p>{% endif %}
+    <ul class="report-review-list">{% for module in report.modules %}{% if module.allowed %}<li>
+      <a href="{% url 'admin_portal:section' section_slug=module.slug %}?{{ module.review.filter_query }}">{{ module.label }} <span class="dashboard-review-count">{{ module.review.count }}<span class="sr-only"> awaiting review</span></span></a>
+      <p class="dashboard-note">{{ module.definition }}</p>
+    </li>{% endif %}{% endfor %}</ul>
+  </section>
+  <section class="panel report-section" aria-labelledby="report-interpretation-heading">
+    <p class="eyebrow">Interpretation</p><h2 id="report-interpretation-heading">How to read this report</h2>
+    <p>Enabled, approved, published, and verified describe different conditions. These counts do not evaluate whether a resident can receive a record. Source restrictions and existing publication checks still apply.</p>
+    <p>Administrative boundaries identify areas; they do not establish susceptibility. Scenario references describe hypothetical inputs, not observed rainfall.</p>
+    <p class="dashboard-note">Historical trends and time-to-review measures are unavailable in this report. Modification timestamps cannot establish either. No percentages or inferred activity are shown.</p>
+  </section>
+  <section class="panel report-section" aria-labelledby="report-modules-heading">
+    <p class="eyebrow">Follow up</p><h2 id="report-modules-heading">Related management modules</h2>
+    <div class="quick-links report-module-links">
+      {% for module in report.modules %}{% if module.allowed %}<a href="{% url 'admin_portal:section' section_slug=module.slug %}"><span>{{ module.label }}</span><small>Open module →</small></a>{% endif %}{% endfor %}
+      {% if perms.admin.view_logentry %}<a href="{% url 'admin_portal:audit-history' %}"><span>Audit history</span><small>Recorded actions →</small></a>{% endif %}
+    </div>
+  </section>
+</div>
+{% endblock %}

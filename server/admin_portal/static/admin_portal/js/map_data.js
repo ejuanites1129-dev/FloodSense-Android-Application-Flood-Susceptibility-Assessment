@@ -274,11 +274,28 @@
       }
       fitVisible();
       updateMapStatus();
+      observeMapSize(() => map.updateSize());
       return true;
     } catch {
       unavailableMapStatus();
       return false;
     }
+  }
+
+  // Observe actual container dimensions during sidebar transitions; never refit
+  // bounds here, so zoom, selected record, and layer visibility survive resizing.
+  let stopMapResize = () => {};
+  function observeMapSize(resize) {
+    stopMapResize();
+    const observer = typeof ResizeObserver === "function" ? new ResizeObserver(resize) : null;
+    observer?.observe(mapElement);
+    window.addEventListener("resize", resize);
+    document.addEventListener("portal:layoutchange", resize);
+    stopMapResize = () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", resize);
+      document.removeEventListener("portal:layoutchange", resize);
+    };
   }
 
   function geometryPositions(geometry) {
@@ -338,6 +355,7 @@
         bearing: 0,
         attributionControl: true,
       });
+      observeMapSize(() => map.resize());
       map.addControl(new window.mapboxgl.NavigationControl({showCompass: true}), "top-right");
       let loaded = false;
       let fallbackStarted = false;
@@ -353,6 +371,7 @@
         if (fallbackStarted) return;
         fallbackStarted = true;
         providerFallback = true;
+        stopMapResize();
         try { map.remove(); } catch { /* The provider may already be detached. */ }
         initializeOpenLayers();
       }

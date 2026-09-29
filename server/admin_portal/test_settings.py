@@ -362,7 +362,7 @@ class SettingsTests(TestCase):
         ):
             self.assertTrue(html.select("a", href=f"#{anchor}"))
             self.assertTrue(html.select(id=anchor))
-        self.assertContains(
+        self.assertNotContains(
             self.client.get(reverse("admin_portal:dashboard")), f"{self.url}#parameters"
         )
         self.assertContains(
