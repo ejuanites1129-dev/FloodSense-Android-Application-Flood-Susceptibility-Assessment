@@ -54,7 +54,8 @@ Reports (`/management/reports/`) follows Overview in the sidebar and contains
 permission-aware status tables, review workloads, interpretation, and related
 management links. Settings is reached through the account menu only; its direct
 URLs and compatibility redirect remain supported. Desktop navigation now has a
-persistent collapsible rail, and the geographic map spans the content width with
+persistent collapsible rail with permission-aware clickable navigation icons and
+hover labels, and the geographic map spans the content width with
 layer controls below it. Scientific, permission, and publication policies remain
 unchanged. See `ADMIN_REPORTS_AND_LAYOUT_HANDOFF.md` for definitions and validation.
 

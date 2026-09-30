@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="FloodSense administration console">
   <title>{% block title %}FloodSense Admin{% endblock %}</title>
-  <link rel="stylesheet" href="{% static 'admin_portal/css/admin_portal.css' %}">
+  <link rel="stylesheet" href="{% static 'admin_portal/css/admin_portal.css' %}?v=sidebar-20260930-4">
   <noscript><link rel="stylesheet" href="{% static 'admin_portal/css/no_script.css' %}"></noscript>
   {% block extra_css %}{% endblock %}
 </head>
@@ -48,32 +48,32 @@
         <a class="sidebar__brand" aria-label="FloodSense home" href="{% url 'admin_portal:dashboard' %}">
           <span class="sidebar__brand-mark" aria-hidden="true">≈</span><span class="sidebar__brand-name">FloodSense</span>
         </a>
-        <button class="sidebar-toggle" type="button" data-sidebar-toggle aria-label="Collapse Sidebar" title="Collapse Sidebar (Ctrl + B)" aria-controls="sidebar-navigation" aria-expanded="true" hidden><span aria-hidden="true">◧</span></button>
+        <button class="sidebar-toggle" type="button" data-sidebar-toggle data-sidebar-tooltip="Close sidebar" aria-label="Collapse Sidebar" title="Collapse Sidebar (Ctrl + B)" aria-controls="sidebar-navigation" aria-expanded="true" hidden><svg class="sidebar-toggle__icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg></button>
       </div>
       <nav id="sidebar-navigation" aria-label="Administration navigation">
         <ul class="nav-list">
           {% for slug, label, icon in navigation %}
             <li>
               {% if slug == 'dashboard' %}
-                <a class="nav-link{% if active_section == slug %} nav-link--active{% endif %}" href="{% url 'admin_portal:dashboard' %}"{% if active_section == slug %} aria-current="page"{% endif %}>
+                <a aria-label="{{ label }}" class="nav-link{% if active_section == slug %} nav-link--active{% endif %}" href="{% url 'admin_portal:dashboard' %}"{% if active_section == slug %} aria-current="page"{% endif %}>
               {% elif slug == 'map-data' %}
-                <a class="nav-link{% if active_section == slug %} nav-link--active{% endif %}" href="{% url 'admin_portal:map-data' %}"{% if active_section == slug %} aria-current="page"{% endif %}>
+                <a aria-label="{{ label }}" class="nav-link{% if active_section == slug %} nav-link--active{% endif %}" href="{% url 'admin_portal:map-data' %}"{% if active_section == slug %} aria-current="page"{% endif %}>
               {% elif slug == 'reports' %}
-                <a class="nav-link{% if active_section == slug %} nav-link--active{% endif %}" href="{% url 'admin_portal:reports' %}"{% if active_section == slug %} aria-current="page"{% endif %}>
+                <a aria-label="{{ label }}" class="nav-link{% if active_section == slug %} nav-link--active{% endif %}" href="{% url 'admin_portal:reports' %}"{% if active_section == slug %} aria-current="page"{% endif %}>
               {% elif slug == 'dss-content' %}
-                <a class="nav-link{% if active_section == slug %} nav-link--active{% endif %}" href="{% url 'admin_portal:dss-content' %}"{% if active_section == slug %} aria-current="page"{% endif %}>
+                <a aria-label="{{ label }}" class="nav-link{% if active_section == slug %} nav-link--active{% endif %}" href="{% url 'admin_portal:dss-content' %}"{% if active_section == slug %} aria-current="page"{% endif %}>
               {% elif slug == 'rainfall-references' %}
-                <a class="nav-link{% if active_section == slug %} nav-link--active{% endif %}" href="{% url 'admin_portal:rainfall-references' %}"{% if active_section == slug %} aria-current="page"{% endif %}>
+                <a aria-label="{{ label }}" class="nav-link{% if active_section == slug %} nav-link--active{% endif %}" href="{% url 'admin_portal:rainfall-references' %}"{% if active_section == slug %} aria-current="page"{% endif %}>
               {% elif slug == 'evacuation-centers' %}
-                <a class="nav-link{% if active_section == slug %} nav-link--active{% endif %}" href="{% url 'admin_portal:evacuation-centers' %}"{% if active_section == slug %} aria-current="page"{% endif %}>
+                <a aria-label="{{ label }}" class="nav-link{% if active_section == slug %} nav-link--active{% endif %}" href="{% url 'admin_portal:evacuation-centers' %}"{% if active_section == slug %} aria-current="page"{% endif %}>
               {% elif slug == 'sources-content' %}
-                <a class="nav-link{% if active_section == slug %} nav-link--active{% endif %}" href="{% url 'admin_portal:sources-content' %}"{% if active_section == slug %} aria-current="page"{% endif %}>
+                <a aria-label="{{ label }}" class="nav-link{% if active_section == slug %} nav-link--active{% endif %}" href="{% url 'admin_portal:sources-content' %}"{% if active_section == slug %} aria-current="page"{% endif %}>
               {% elif slug == 'audit-history' %}
-                <a class="nav-link{% if active_section == slug %} nav-link--active{% endif %}" href="{% url 'admin_portal:audit-history' %}"{% if active_section == slug %} aria-current="page"{% endif %}>
+                <a aria-label="{{ label }}" class="nav-link{% if active_section == slug %} nav-link--active{% endif %}" href="{% url 'admin_portal:audit-history' %}"{% if active_section == slug %} aria-current="page"{% endif %}>
               {% else %}
-                <a class="nav-link{% if active_section == slug %} nav-link--active{% endif %}" href="{% url 'admin_portal:section' section_slug=slug %}"{% if active_section == slug %} aria-current="page"{% endif %}>
+                <a aria-label="{{ label }}" class="nav-link{% if active_section == slug %} nav-link--active{% endif %}" href="{% url 'admin_portal:section' section_slug=slug %}"{% if active_section == slug %} aria-current="page"{% endif %}>
               {% endif %}
-                <span class="nav-link__icon" aria-hidden="true">{{ icon }}</span><span>{{ label }}</span>
+                <span class="nav-link__icon" aria-hidden="true">{{ icon }}</span><span class="nav-link__label">{{ label }}</span>
               </a>
             </li>
           {% endfor %}
@@ -94,7 +94,7 @@
     </main>
   </div>
   <div class="sidebar-scrim" data-menu-scrim></div>
-  <script src="{% static 'admin_portal/js/admin_portal.js' %}" defer></script>
+  <script src="{% static 'admin_portal/js/admin_portal.js' %}?v=sidebar-20260930-4" defer></script>
   {% block extra_js %}{% endblock %}
 </body>
 </html>

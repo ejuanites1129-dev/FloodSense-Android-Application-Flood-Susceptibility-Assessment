@@ -90,25 +90,71 @@ def test_portal_layout_browser(live_server, settings):
         assert page.locator("#review-attention").count() == 0
         nav = page.locator("#sidebar-navigation")
         toggle = page.locator("[data-sidebar-toggle]")
+        # A mouse collapse must not reveal the control merely because it retains focus.
+        toggle.click()
+        page.mouse.move(700, 400)
+        pw.expect(nav).to_be_visible()
+        pw.expect(page.locator("body")).to_have_class("portal-page sidebar-collapsed")
+        pw.expect(toggle).to_have_css("opacity", "0")
+        pw.expect(page.locator(".sidebar__brand")).to_have_css("opacity", "1")
+        page.wait_for_function(
+            "getComputedStyle(document.querySelector('[data-sidebar-toggle]'), "
+            "'::after').opacity === '0'"
+        )
+        page.locator(".sidebar__brand-area").hover()
+        pw.expect(toggle).to_have_css("opacity", "1")
+        toggle.click()
         # Keyboard shortcut, repeat suppression, focus transfer and hidden links.
         nav.get_by_role("link", name="Reports").focus()
         page.keyboard.down("Control")
         page.keyboard.down("b")
-        pw.expect(nav).to_be_hidden()
-        pw.expect(toggle).to_be_focused()
+        pw.expect(nav).to_be_visible()
+        pw.expect(page.locator("body")).to_have_class("portal-page sidebar-collapsed")
+        pw.expect(nav.get_by_role("link", name="Reports")).to_be_focused()
         page.keyboard.down("b")
-        pw.expect(nav).to_be_hidden()
+        pw.expect(nav).to_be_visible()
+        pw.expect(page.locator("body")).to_have_class("portal-page sidebar-collapsed")
         page.keyboard.up("b")
         page.keyboard.up("Control")
-        assert not nav.locator("a").first.evaluate(
+        assert nav.locator("a").first.evaluate(
             "el => {el.focus(); return document.activeElement === el;}"
         )
+        links = [
+            (link.get_attribute("aria-label"), link.get_attribute("href"))
+            for link in nav.locator("a").all()
+        ]
+        for name, href in links:
+            link = nav.get_by_role("link", name=name, exact=True)
+            pw.expect(link.locator(".nav-link__label")).to_be_hidden()
+            pw.expect(link.locator(".nav-link__icon")).to_be_visible()
+            link.hover()
+            assert link.evaluate("el => getComputedStyle(el, '::after').opacity") == "1"
+            assert link.evaluate("el => getComputedStyle(el, '::after').content") == f'"{name}"'
+            link.click()
+            pw.expect(page).to_have_url(live_server.url + href)
+            pw.expect(nav.get_by_role("link", name=name, exact=True)).to_have_attribute(
+                "aria-current", "page"
+            )
+            pw.expect(page.locator("body")).to_have_class("portal-page sidebar-collapsed")
+        page.goto(live_server.url + "/management/")
+        nav.get_by_role("link", name="Reports", exact=True).hover()
+        page.screenshot(path=str(OUTPUT / "sidebar-navigation-tooltip.png"), animations="disabled")
         page.locator("h1").click()
         page.mouse.move(700, 400)
         pw.expect(toggle).to_have_css("opacity", "0")
-        page.locator(".sidebar__brand").hover()
+        page.locator(".sidebar__brand-area").hover()
         pw.expect(toggle).to_have_css("opacity", "1")
+        pw.expect(page.locator(".sidebar__brand")).to_have_css("opacity", "0")
+        pw.expect(toggle).to_have_attribute("data-sidebar-tooltip", "Open sidebar")
+        assert toggle.inner_text() == ""
+        assert toggle.evaluate("el => getComputedStyle(el, '::after').position") == "fixed"
+        brand_box = page.locator(".sidebar__brand").bounding_box()
+        toggle_box = toggle.bounding_box()
+        assert abs(brand_box["x"] - toggle_box["x"]) < 1
+        assert abs(brand_box["y"] - toggle_box["y"]) < 1
+        page.screenshot(path=str(OUTPUT / "sidebar-hover.png"), animations="disabled")
         page.mouse.move(700, 400)
+        page.keyboard.press("Tab")
         page.locator(".sidebar__brand").focus()
         pw.expect(toggle).to_have_css("opacity", "1")
         page.keyboard.press("Tab")
@@ -151,7 +197,7 @@ def test_portal_layout_browser(live_server, settings):
                         )
                         != collapsed
                     ):
-                        toggle.focus()
+                        page.locator(".sidebar__brand-area").hover()
                         toggle.click()
                     settled(page)
                     no_overflow(page)
@@ -164,7 +210,8 @@ def test_portal_layout_browser(live_server, settings):
                         animations="disabled",
                     )
                 page.reload()
-                pw.expect(nav).to_be_hidden()
+                pw.expect(nav).to_be_visible()
+                pw.expect(page.locator("body")).to_have_class("portal-page sidebar-collapsed")
         # Real map resize preserves view and data selection; list search and keyboard selection.
         page.set_viewport_size({"width": 1440, "height": 1000})
         page.locator("#area-search").fill("QA-1")
@@ -178,7 +225,7 @@ def test_portal_layout_browser(live_server, settings):
             "({zoom:qaMap.getView().getZoom(), center:qaMap.getView().getCenter(), "
             'selected:document.querySelector("#record-details").dataset.selectedId})'
         )
-        toggle.focus()
+        page.locator(".sidebar__brand-area").hover()
         toggle.click()
         settled(page)
         page.wait_for_function(
@@ -279,7 +326,8 @@ def test_portal_layout_browser(live_server, settings):
         broken_page = broken.new_page()
         login(broken_page, live_server.url)
         broken_page.locator("[data-sidebar-toggle]").click()
-        pw.expect(broken_page.locator("#sidebar-navigation")).to_be_hidden()
+        pw.expect(broken_page.locator("#sidebar-navigation")).to_be_visible()
+        pw.expect(broken_page.locator("body")).to_have_class("portal-page sidebar-collapsed")
         # Server-rendered navigation, profile menu and record selection without JS.
         noscript = browser.new_context(
             java_script_enabled=False, viewport={"width": 390, "height": 844}

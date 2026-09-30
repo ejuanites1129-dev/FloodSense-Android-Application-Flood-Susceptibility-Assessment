@@ -4,9 +4,15 @@ Implemented 30 September 2026 for the custom `/management/` portal.
 
 ## Delivered
 
-- Desktop sidebar collapses to a 72px branded rail. Navigation is hidden from
-  layout, keyboard focus, and accessibility APIs. Hover, focus, and touch expose
-  expansion; Ctrl+B uses the same toggle, ignores repeats/modifiers/editors, and
+- Desktop sidebar collapses to a 72px branded rail. Authorized navigation icons
+  remain visible, clickable, and keyboard accessible; only their text labels are
+  hidden. Every icon retains an accessible name, active-page state, and a page-name
+  tooltip on hover or keyboard focus. In the collapsed rail, hover
+  replaces the compact logo with a sidebar icon in the same position and an
+  “Open sidebar” tooltip. Mouse focus after collapsing does not reveal either.
+  Keyboard focus reveals the button without the hover tooltip; touch exposes the
+  control directly.
+  The brand link and toggle remain separate elements. Ctrl+B uses the same toggle, ignores repeats/modifiers/editors, and
   preserves the desktop preference when storage works. Mobile retains its drawer,
   scrim, Escape behavior, and focus return, with a keyboard focus loop.
 - Settings is linked only from the account menu. Direct Settings and legacy
@@ -80,7 +86,7 @@ conditions. Review links use the same filters as the counted queues.
 - Chromium browser acceptance script: **1 passed**, covering all three affected
   pages at 1440, 1024, and 768px in expanded/collapsed states and 390/320px with
   the drawer open/closed. It checks horizontal page overflow, active navigation,
-  keyboard/repeat/modifier/editor handling, focus visibility and hidden links,
+  keyboard/repeat/modifier/editor handling, focus visibility, icon navigation and hover labels,
   hover/focus/touch expansion, reload/navigation persistence, storage failure,
   mobile preference isolation, reduced motion, drawer focus return/loop, account
   Settings/sign-out, long record names, search/selection, layer states, map size,

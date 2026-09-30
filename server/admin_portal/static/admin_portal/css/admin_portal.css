@@ -261,7 +261,7 @@ h2 { margin-bottom: 8px; font-size: 1.25rem; }
 .portal-layout { min-height: 100vh; padding-top: 68px; }
 .sidebar {
   position: fixed;
-  z-index: 30;
+  z-index: 41;
   top: 0;
   bottom: 0;
   left: 0;
@@ -368,6 +368,9 @@ h2 { margin-bottom: 8px; font-size: 1.25rem; }
 .sidebar__brand { min-width: 0; margin: 0; gap: 7px; flex: 1; font-size: 1.16rem; }
 .sidebar__brand-mark { flex: 0 0 34px; }
 .sidebar-toggle { display: grid; place-items: center; flex: 0 0 36px; width: 36px; height: 44px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: white; cursor: pointer; font-size: 1.35rem; }
+.sidebar-toggle::after { content: attr(data-sidebar-tooltip); white-space: nowrap; position: fixed; top: 16px; left: calc(var(--sidebar-width) + 10px); z-index: 80; width: max-content; padding: 7px 11px; border: 1px solid #344054; border-radius: 8px; background: #1d2939; color: white; font-size: .78rem; font-weight: 600; line-height: 1.4; opacity: 0; pointer-events: none; transition: opacity 120ms ease; }
+.sidebar-toggle:is(:hover, :focus-visible)::after { opacity: 1; }
+@media (max-width: 760px) { .sidebar-toggle::after { display: none; } }
 .sidebar-toggle:hover { background: rgba(255,255,255,.18); }
 .sidebar :is(a, button):focus-visible { outline: 3px solid white; outline-offset: 2px; }
 .sidebar { transition: width 200ms ease, transform 180ms ease; overflow-x: hidden; }
@@ -379,14 +382,24 @@ h2 { margin-bottom: 8px; font-size: 1.25rem; }
 @media (min-width: 761px) {
   .sidebar-collapsed { --sidebar-width: 72px; }
   .sidebar-collapsed .sidebar { padding-inline: 14px; }
-  .sidebar-collapsed .sidebar__brand-area { flex-direction: column; min-height: 120px; gap: 0; }
-  .sidebar-collapsed .sidebar__brand { flex: 0 0 68px; }
+  .sidebar-collapsed .sidebar__brand-area { display: grid; grid-template-columns: 44px; min-height: 44px; height: 44px; margin-top: 12px; margin-bottom: 28px; gap: 0; }
+  .sidebar-collapsed .sidebar__brand { grid-area: 1 / 1; min-height: 44px; height: 44px; justify-content: center; transition: opacity 120ms ease; }
   .sidebar-collapsed .sidebar__brand-name { display: none; }
-  .sidebar-collapsed .sidebar-toggle { opacity: 0; pointer-events: none; flex-basis: 44px; width: 44px; }
-  .sidebar-collapsed .sidebar__brand-area:is(:hover, :focus-within) .sidebar-toggle { opacity: 1; pointer-events: auto; }
+  .sidebar-collapsed .nav-link { width: 44px; height: 44px; justify-content: center; padding: 0; gap: 0; }
+  .sidebar-collapsed .nav-link__label { display: none; }
+  .sidebar-collapsed .nav-link__icon { font-size: 1.1rem; }
+  .sidebar-collapsed .nav-link::after { content: attr(aria-label); position: fixed; top: var(--nav-tooltip-top, 100px); left: calc(var(--sidebar-width) + 10px); transform: translateY(-50%); z-index: 80; width: max-content; max-width: calc(100vw - 100px); padding: 7px 11px; border: 1px solid #344054; border-radius: 8px; background: #1d2939; color: white; font-size: .78rem; font-weight: 600; line-height: 1.4; white-space: normal; opacity: 0; pointer-events: none; }
+  .sidebar-collapsed .nav-link:is(:hover, :focus-visible)::after { opacity: 1; }
+  .sidebar-collapsed .sidebar-toggle { grid-area: 1 / 1; z-index: 1; opacity: 0; pointer-events: none; width: 44px; transition: opacity 120ms ease, background-color 120ms ease; }
+  .sidebar-collapsed .sidebar__brand-area:is(:hover, :has(:focus-visible)) .sidebar-toggle { opacity: 1; pointer-events: auto; background: rgba(255,255,255,.18); }
+  .sidebar-collapsed .sidebar__brand-area:is(:hover, :has(:focus-visible)) .sidebar__brand { opacity: 0; }
+  .sidebar-collapsed .sidebar__brand-area:has(.sidebar__brand:focus-visible) .sidebar-toggle { outline: 3px solid white; outline-offset: 2px; }
+  .sidebar-collapsed .sidebar-toggle::after { opacity: 0; }
+  .sidebar-collapsed .sidebar__brand-area:hover .sidebar-toggle::after { opacity: 1; }
 }
 @media (hover: none) and (min-width: 761px) {
   .sidebar-collapsed .sidebar-toggle { opacity: 1; pointer-events: auto; }
+  .sidebar-collapsed .sidebar__brand { opacity: 0; }
 }
 .report-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .reports { overflow-wrap: anywhere; }

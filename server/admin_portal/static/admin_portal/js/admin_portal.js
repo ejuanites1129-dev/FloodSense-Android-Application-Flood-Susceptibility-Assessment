@@ -33,19 +33,20 @@
   const setSidebar = (expanded, {persist = true, focus = false} = {}) => {
     if (!sidebar || !sidebarToggle || !navigation) return;
     const isMobile = mobile.matches;
-    if (!expanded && sidebar.contains(document.activeElement)) {
-      (isMobile ? menuButton : sidebarToggle).focus();
+    if (isMobile && !expanded && sidebar.contains(document.activeElement)) {
+      menuButton.focus();
     }
     document.body.classList.toggle("sidebar-collapsed", !isMobile && !expanded);
     sidebar.classList.toggle("sidebar--open", isMobile && expanded);
     document.body.classList.toggle("menu-open", isMobile && expanded);
-    navigation.hidden = !isMobile && !expanded;
+    navigation.hidden = false;
     sidebar.inert = isMobile && !expanded;
     menuButton.setAttribute("aria-expanded", String(isMobile && expanded));
     sidebarToggle.setAttribute("aria-expanded", String(expanded));
     const label = isMobile ? "Close navigation" : expanded ? "Collapse Sidebar" : "Expand Sidebar";
     sidebarToggle.setAttribute("aria-label", label);
-    sidebarToggle.title = `${label} (Ctrl + B)`;
+    sidebarToggle.removeAttribute("title");
+    sidebarToggle.setAttribute("data-sidebar-tooltip", expanded ? "Close sidebar" : "Open sidebar");
     if (!isMobile && persist) {
       collapsed = !expanded;
       try { localStorage.setItem(storageKey, String(collapsed)); } catch { /* Keep in-memory state. */ }
@@ -92,6 +93,17 @@
     });
   }
   if (scrim) scrim.addEventListener("click", closeMenu);
+
+  // Fixed tooltips sit outside the narrow rail without clipping its scroll area.
+  navigation?.querySelectorAll(".nav-link").forEach(link => {
+    const positionTooltip = () => {
+      const rect = link.getBoundingClientRect();
+      const top = Math.max(20, Math.min(window.innerHeight - 20, rect.top + rect.height / 2));
+      link.style.setProperty("--nav-tooltip-top", `${top}px`);
+    };
+    link.addEventListener("pointerenter", positionTooltip);
+    link.addEventListener("focus", positionTooltip);
+  });
 
   const closeAccountMenu = () => {
     if (!accountToggle || !accountMenu) return;
