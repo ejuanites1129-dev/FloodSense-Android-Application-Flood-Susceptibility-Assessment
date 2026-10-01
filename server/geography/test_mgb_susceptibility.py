@@ -116,7 +116,7 @@ def DecimalString(value: str) -> str:
     return f"{float(value):.3f}"
 
 
-@override_settings(ENABLE_PROVISIONAL_MGB_PREVIEW=True)
+@override_settings(DEBUG=True, ENABLE_PROVISIONAL_MGB_PREVIEW=True)
 class MgbSusceptibilityImportTests(ProvisionalMgbFixtureMixin, TestCase):
     def test_import_is_complete_versioned_provisional_and_idempotent(self):
         output = self._import()
@@ -151,7 +151,7 @@ class MgbSusceptibilityImportTests(ProvisionalMgbFixtureMixin, TestCase):
         )
 
 
-@override_settings(ENABLE_PROVISIONAL_MGB_PREVIEW=True)
+@override_settings(DEBUG=True, ENABLE_PROVISIONAL_MGB_PREVIEW=True)
 class MgbConsultationApiTests(ProvisionalMgbFixtureMixin, TestCase):
     def setUp(self):
         super().setUp()

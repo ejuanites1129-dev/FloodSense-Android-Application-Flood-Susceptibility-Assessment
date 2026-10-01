@@ -65,7 +65,7 @@ def test_map_attribution_neutrality_and_unavailable_layers_are_server_rendered(c
     assert html.select("a", href="https://www.openstreetmap.org/copyright")
     text = response.content.decode()
     for notice in (
-        "OpenStreetMap is visual context only",
+        "is visual context only, not FloodSense assessment data.",
         "No data are published.",
         "not City-verified",
         "Not real Bacoor classifications.",
