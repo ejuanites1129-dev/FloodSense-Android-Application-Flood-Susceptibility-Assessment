@@ -77,11 +77,19 @@ class AdminPortalAuthenticationTests(TestCase):
                 )
                 self.assertEqual(response.status_code, 403)
 
-    def test_dashboard_uses_account_menu_instead_of_sidebar_footer(self):
+    def test_dashboard_places_account_menu_in_sidebar_without_topbar(self):
         self.client.force_login(self.staff_user)
 
         response = self.client.get(reverse("admin_portal:dashboard"))
 
+        from .test_dashboard import DashboardHTML
+
+        html = DashboardHTML(response)
+        self.assertFalse(html.select("header", **{"class": "topbar"}))
+        profile = html.select("button", **{"aria-controls": "account-menu"})[0]
+        self.assertTrue(any(item["tag"] == "aside" for item in profile["ancestors"]))
+        self.assertIn("Test Maintainer", profile["attrs"]["aria-label"])
+        self.assertIn("Development environment", html.text(profile))
         self.assertContains(response, ">Settings<")
         self.assertContains(response, ">Sign out<")
         self.assertNotContains(response, "Authorized maintainers only")

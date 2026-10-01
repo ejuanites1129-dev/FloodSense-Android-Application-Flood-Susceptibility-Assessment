@@ -32,11 +32,10 @@ def no_overflow(page):
 def settled(page):
     page.wait_for_function("""() => {
         const sidebar = document.querySelector('.sidebar').getBoundingClientRect();
-        const topbar = document.querySelector('.topbar').getBoundingClientRect();
         const main = document.querySelector('.portal-main').getBoundingClientRect();
         const width = document.body.classList.contains('sidebar-collapsed') ? 72 : 250;
-        return innerWidth <= 760 || (Math.abs(sidebar.right - topbar.left) < 1 &&
-            Math.abs(sidebar.right - main.left) < 1 && Math.abs(sidebar.width - width) < 1);
+        return innerWidth <= 760 || (Math.abs(sidebar.right - main.left) < 1
+            && Math.abs(sidebar.width - width) < 1);
     }""")
 
 
@@ -90,6 +89,42 @@ def test_portal_layout_browser(live_server, settings):
         assert page.locator("#review-attention").count() == 0
         nav = page.locator("#sidebar-navigation")
         toggle = page.locator("[data-sidebar-toggle]")
+        assert page.locator(".topbar").count() == 0
+        profile = page.locator("[data-account-toggle]")
+        pw.expect(profile.locator(".account-summary__name")).to_be_visible()
+        pw.expect(profile.locator(".system-state")).to_be_visible()
+        assert profile.bounding_box()["y"] > 900
+        assert page.locator(".portal-main").bounding_box()["y"] == 0
+        for compact in [False, True]:
+            if compact:
+                toggle.click()
+                settled(page)
+                pw.expect(profile.locator(".account-summary")).to_be_hidden()
+                profile.hover()
+                assert profile.evaluate("el => getComputedStyle(el, '::after').opacity") == "1"
+                assert "Isolated QA Maintainer" in profile.evaluate(
+                    "el => getComputedStyle(el, '::after').content"
+                )
+            profile.click()
+            panel = page.locator("[data-account-menu]")
+            pw.expect(panel).to_be_visible()
+            pw.expect(page.get_by_role("menuitem", name="Settings")).to_be_focused()
+            assert (
+                panel.bounding_box()["y"] + panel.bounding_box()["height"]
+                <= profile.bounding_box()["y"]
+            )
+            no_overflow(page)
+            page.screenshot(
+                path=str(OUTPUT / f"profile-{'collapsed' if compact else 'expanded'}.png"),
+                animations="disabled",
+            )
+            page.keyboard.press("ArrowDown")
+            pw.expect(page.get_by_role("menuitem", name="Sign out")).to_be_focused()
+            page.keyboard.press("Escape")
+            pw.expect(profile).to_be_focused()
+            pw.expect(panel).to_be_hidden()
+        page.locator(".sidebar__brand-area").hover()
+        toggle.click()
         # A mouse collapse must not reveal the control merely because it retains focus.
         toggle.click()
         page.mouse.move(700, 400)
@@ -284,7 +319,7 @@ def test_portal_layout_browser(live_server, settings):
                     full_page=True,
                     animations="disabled",
                 )
-                nav.locator("a").last.focus()
+                page.locator("[data-account-toggle]").focus()
                 page.keyboard.press("Tab")
                 pw.expect(page.locator(".sidebar__brand")).to_be_focused()
                 page.keyboard.press("Escape")
@@ -299,13 +334,15 @@ def test_portal_layout_browser(live_server, settings):
         settled(page)
         pw.expect(nav).to_be_visible()  # Mobile drawer did not overwrite desktop preference.
         page.set_viewport_size({"width": 390, "height": 844})
-        # Account menu Settings and sign-out still work, including Escape.
+        # Account menu now belongs to the mobile drawer.
+        page.locator("[data-menu-toggle]").click()
         page.locator("[data-account-toggle]").click()
         page.keyboard.press("Escape")
         pw.expect(page.locator("[data-account-toggle]")).to_be_focused()
         page.locator("[data-account-toggle]").click()
         page.get_by_role("menuitem", name="Settings").click()
         pw.expect(page.locator("h1")).to_have_text("Settings")
+        page.locator("[data-menu-toggle]").click()
         page.locator("[data-account-toggle]").click()
         page.get_by_role("menuitem", name="Sign out").click()
         pw.expect(page).to_have_url(live_server.url + "/management/login/")

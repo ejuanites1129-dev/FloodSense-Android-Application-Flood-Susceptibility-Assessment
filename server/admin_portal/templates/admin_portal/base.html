@@ -6,41 +6,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="FloodSense administration console">
   <title>{% block title %}FloodSense Admin{% endblock %}</title>
-  <link rel="stylesheet" href="{% static 'admin_portal/css/admin_portal.css' %}?v=sidebar-20260930-4">
-  <noscript><link rel="stylesheet" href="{% static 'admin_portal/css/no_script.css' %}"></noscript>
+  <link rel="stylesheet" href="{% static 'admin_portal/css/admin_portal.css' %}?v=sidebar-20261001-1">
+  <noscript><link rel="stylesheet" href="{% static 'admin_portal/css/no_script.css' %}?v=sidebar-20261001-1"></noscript>
   {% block extra_css %}{% endblock %}
 </head>
 <body class="portal-page">
   <a class="skip-link" href="#main-content">Skip to main content</a>
-  <header class="topbar">
-    <button class="mobile-menu-button" type="button" data-menu-toggle aria-controls="portal-sidebar" aria-expanded="false">
-      <span aria-hidden="true">☰</span><span class="sr-only">Open navigation</span>
-    </button>
-    <a class="brand mobile-brand" href="{% url 'admin_portal:dashboard' %}">
-      <span class="brand__mark" aria-hidden="true">≈</span>
-      <span>FloodSense</span>
-    </a>
-    <div class="topbar__spacer"></div>
-    <span class="system-state"><span class="status-dot" aria-hidden="true"></span>Development environment</span>
-    <div class="account-menu">
-      <button class="account-menu__toggle" type="button" data-account-toggle aria-controls="account-menu" aria-expanded="false" aria-haspopup="menu">
-        <span class="account-summary__name">{{ display_name }}</span>
-        <span class="avatar" aria-hidden="true">{{ user_initials }}</span>
-        <span class="sr-only">Open account menu</span>
-      </button>
-      <div class="account-menu__panel" id="account-menu" data-account-menu role="menu" hidden>
-        <a class="account-menu__item" href="{% url 'admin_portal:settings' %}" role="menuitem"{% if active_section == 'settings' %} aria-current="page"{% endif %}>
-          <span aria-hidden="true">⚙</span><span>Settings</span>
-        </a>
-        <form method="post" action="{% url 'admin_portal:logout' %}">
-          {% csrf_token %}
-          <button class="account-menu__item" type="submit" role="menuitem">
-            <span aria-hidden="true">↪</span><span>Sign out</span>
-          </button>
-        </form>
-      </div>
-    </div>
-  </header>
+
 
   <div class="portal-layout">
     <aside class="sidebar" id="portal-sidebar">
@@ -79,10 +51,33 @@
           {% endfor %}
         </ul>
       </nav>
-      <noscript><form method="post" action="{% url 'admin_portal:logout' %}">{% csrf_token %}<button class="button button--secondary" type="submit">Sign out</button></form></noscript>
+    <div class="account-menu">
+      <button class="account-menu__toggle" type="button" data-account-toggle data-profile-name="{{ display_name }}" aria-label="Open account menu for {{ display_name }}" aria-controls="account-menu" aria-expanded="false" aria-haspopup="menu">
+        <span class="avatar" aria-hidden="true">{{ user_initials }}</span>
+        <span class="account-summary">
+          <span class="account-summary__name">{{ display_name }}</span>
+          <span class="system-state"><span class="status-dot" aria-hidden="true"></span>Development environment</span>
+        </span>
+      </button>
+      <div class="account-menu__panel" id="account-menu" data-account-menu role="menu" hidden>
+        <a class="account-menu__item" href="{% url 'admin_portal:settings' %}" role="menuitem"{% if active_section == 'settings' %} aria-current="page"{% endif %}>
+          <span aria-hidden="true">⚙</span><span>Settings</span>
+        </a>
+        <form method="post" action="{% url 'admin_portal:logout' %}">
+          {% csrf_token %}
+          <button class="account-menu__item" type="submit" role="menuitem">
+            <span aria-hidden="true">↪</span><span>Sign out</span>
+          </button>
+        </form>
+      </div>
+    </div>
+
     </aside>
 
     <main class="portal-main" id="main-content" tabindex="-1">
+      <button class="mobile-menu-button" type="button" data-menu-toggle aria-controls="portal-sidebar" aria-expanded="false">
+        <span aria-hidden="true">☰</span><span class="sr-only">Open navigation</span>
+      </button>
       {% if messages %}
         <div class="portal-messages" aria-live="polite">
           {% for message in messages %}
@@ -94,7 +89,7 @@
     </main>
   </div>
   <div class="sidebar-scrim" data-menu-scrim></div>
-  <script src="{% static 'admin_portal/js/admin_portal.js' %}?v=sidebar-20260930-4" defer></script>
+  <script src="{% static 'admin_portal/js/admin_portal.js' %}?v=sidebar-20261001-1" defer></script>
   {% block extra_js %}{% endblock %}
 </body>
 </html>

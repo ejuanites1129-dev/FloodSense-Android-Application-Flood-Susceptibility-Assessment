@@ -59,6 +59,11 @@ hover labels, and the geographic map spans the content width with
 layer controls below it. Scientific, permission, and publication policies remain
 unchanged. See `ADMIN_REPORTS_AND_LAYOUT_HANDOFF.md` for definitions and validation.
 
+On 1 October 2026, the top bar was removed and the account menu moved to the
+sidebar footer. Expanded navigation shows the avatar, name, and system state;
+collapsed navigation shows the avatar with a name tooltip. The same profile
+control opens Settings and Sign out in both states and in the mobile drawer.
+
 | Day | Status | Main outcome |
 | --- | --- | --- |
 | 1 | Complete | Authentication, responsive shell, navigation, Settings placeholder |

@@ -33,6 +33,8 @@
   const setSidebar = (expanded, {persist = true, focus = false} = {}) => {
     if (!sidebar || !sidebarToggle || !navigation) return;
     const isMobile = mobile.matches;
+    if (accountMenu) accountMenu.hidden = true;
+    if (accountToggle) accountToggle.setAttribute("aria-expanded", "false");
     if (isMobile && !expanded && sidebar.contains(document.activeElement)) {
       menuButton.focus();
     }
@@ -117,6 +119,20 @@
       const open = accountMenu.hidden;
       accountMenu.hidden = !open;
       accountToggle.setAttribute("aria-expanded", String(open));
+      if (open) accountMenu.querySelector("[role='menuitem']")?.focus();
+    });
+    accountMenu.addEventListener("keydown", event => {
+      const items = [...accountMenu.querySelectorAll("[role='menuitem']")];
+      const index = items.indexOf(document.activeElement);
+      if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+        event.preventDefault();
+        const next = event.key === "Home" ? 0 : event.key === "End" ? items.length - 1
+          : (index + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+        items[next].focus();
+      }
+    });
+    accountMenu.parentElement.addEventListener("focusout", event => {
+      if (!event.currentTarget.contains(event.relatedTarget)) closeAccountMenu();
     });
     accountMenu.addEventListener("click", (event) => event.stopPropagation());
     document.addEventListener("click", closeAccountMenu);

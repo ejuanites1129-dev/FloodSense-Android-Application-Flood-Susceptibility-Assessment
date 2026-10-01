@@ -1,6 +1,7 @@
 # Admin Reports and layout handoff
 
-Implemented 30 September 2026 for the custom `/management/` portal.
+Implemented 30 September 2026 for the custom `/management/` portal; sidebar profile
+placement updated 1 October 2026.
 
 ## Delivered
 
@@ -17,6 +18,11 @@ Implemented 30 September 2026 for the custom `/management/` portal.
   scrim, Escape behavior, and focus return, with a keyboard focus loop.
 - Settings is linked only from the account menu. Direct Settings and legacy
   assessment-parameter URLs remain supported, including without JavaScript.
+- The top bar is removed. The sidebar footer contains the avatar, user name, and
+  system state below the name. Collapsing leaves only the avatar, with a user-name
+  tooltip on hover or keyboard focus. Clicking opens Settings and Sign out above
+  the footer; arrow keys move between options and Escape closes the menu.
+  Navigation scrolls independently so the profile stays at the bottom.
 - Overview remains the landing/sign-in/home destination. It contains five
   rebalanced summary cards, their empty states, and safety messaging. Review,
   activity, attention, and quick-action sections and their anchors were removed.
@@ -89,7 +95,8 @@ conditions. Review links use the same filters as the counted queues.
   keyboard/repeat/modifier/editor handling, focus visibility, icon navigation and hover labels,
   hover/focus/touch expansion, reload/navigation persistence, storage failure,
   mobile preference isolation, reduced motion, drawer focus return/loop, account
-  Settings/sign-out, long record names, search/selection, layer states, map size,
+  Settings/sign-out, expanded/collapsed footer placement, profile tooltip and menu
+  keyboard handling, long record names, search/selection, layer states, map size,
   preserved zoom/center/selection/layer visibility, and no-JavaScript browsing.
 - Real OpenLayers rendering and resizing passed. Simulated Mapbox asset failure
   activated OpenLayers; loss of both libraries preserved list/search/details.
@@ -125,6 +132,8 @@ Open [the screenshot index](../tmp/portal-layout-qa/SCREENSHOTS.md) for 31 captu
 - [Geography](../tmp/portal-layout-qa/geography-1440-expanded.png)
 - [Mobile Reports](../tmp/portal-layout-qa/reports-390-drawer-closed.png)
 - [Mobile drawer](../tmp/portal-layout-qa/overview-390-drawer-open.png)
+- [Expanded profile menu](../tmp/portal-layout-qa/profile-expanded.png)
+- [Collapsed profile menu](../tmp/portal-layout-qa/profile-collapsed.png)
 
 These screenshots are local handoff artifacts, not files synchronized by Git.
 
