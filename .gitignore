@@ -27,6 +27,15 @@ Thumbs.db
 # Local review and generated temporary files
 tmp/
 
+# Restricted/local research deliveries and signed request artifacts
+/FILES/data gathered/HMDAS-S1026001/
+/FILES/data gathered/BDDRMO INTERVIEW - LATEST.docx
+/FILES/data gathered/BDDRMO INTERVIEW - LATEST.pdf
+/output/docx/FloodSense_LiPAD_DTM_Request_Letter.docx
+/output/docx/FloodSense_Mayor_Historical_Flood_Records_Request.docx
+/output/lipad/
+/output/pdf/
+
 # Large national-scale GIS source files (preserve locally; do not commit)
 research_data/administrative_boundaries/phl_admin*.geojson
 

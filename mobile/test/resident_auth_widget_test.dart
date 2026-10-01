@@ -254,7 +254,7 @@ void main() {
     await pumpResidentApp(tester, repository);
     await tester.tap(find.byIcon(Icons.person_outline));
     await tester.pumpAndSettle();
-    final deleteAccount = find.text('Delete account');
+    final deleteAccount = find.byKey(const Key('profile-delete-account'));
     await tester.scrollUntilVisible(
       deleteAccount,
       400,
@@ -263,6 +263,11 @@ void main() {
         matching: find.byType(Scrollable),
       ),
     );
+    await tester.drag(
+      find.byKey(const Key('profile-secondary-options')),
+      const Offset(0, -140),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(deleteAccount);
     await tester.pumpAndSettle();
     expect(find.textContaining('30 days'), findsOneWidget);

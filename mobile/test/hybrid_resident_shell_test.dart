@@ -115,6 +115,11 @@ void main() {
       await _pumpApp(tester, auth: auth);
 
       final sheet = find.byKey(const Key('resident-context-sheet'));
+      final retainedMap = find.byKey(
+        const Key('resident-hybrid-map'),
+        skipOffstage: false,
+      );
+      final mapState = tester.state(retainedMap);
       final handle = find.byKey(const Key('resident-sheet-handle'));
       final collapse = find.byKey(const Key('resident-sheet-collapse-button'));
       final initialHeight = tester.getSize(sheet).height;
@@ -136,10 +141,13 @@ void main() {
       await tester.tap(find.byKey(const Key('resident-nav-profile')));
       await tester.pumpAndSettle();
       expect(sheet, findsNothing);
+      expect(retainedMap, findsOneWidget);
+      expect(tester.state(retainedMap), same(mapState));
 
       await tester.tap(find.byKey(const Key('resident-nav-assess')));
       await tester.pumpAndSettle();
       expect(sheet, findsOneWidget);
+      expect(tester.state(retainedMap), same(mapState));
       final assessmentHeight = tester.getSize(sheet).height;
 
       await tester.drag(handle, const Offset(0, 180));
@@ -273,11 +281,7 @@ void main() {
       final validationStatus = find.text(
         'Pending expert validation • Structured preparedness guide',
       );
-      await _scrollTo(
-        tester,
-        validationStatus,
-        const Key('dss-flow-view'),
-      );
+      await _scrollTo(tester, validationStatus, const Key('dss-flow-view'));
       expect(validationStatus, findsOneWidget);
       final warning = find.text('This is not an evacuation order.');
       await _scrollTo(tester, warning, const Key('dss-flow-view'));
@@ -301,6 +305,16 @@ void main() {
     expect(find.byKey(const Key('profile-secondary-options')), findsOneWidget);
     expect(find.byKey(const Key('profile-preferences')), findsOneWidget);
     expect(find.textContaining('Live alerts are not enabled'), findsOneWidget);
+    final sources = find.byKey(const Key('profile-data-sources'));
+    await _scrollTo(tester, sources, const Key('profile-secondary-options'));
+    expect(sources, findsOneWidget);
+    await tester.tap(sources);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('data-sources-screen')), findsOneWidget);
+    expect(find.text('FloodSense data register'), findsOneWidget);
+    expect(find.text('Background map'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
     final methodology = find.text('Data & methodology');
     await _scrollTo(
       tester,

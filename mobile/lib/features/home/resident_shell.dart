@@ -22,6 +22,7 @@ import '../evacuation/nearest_centers_section.dart';
 import '../location/location_card.dart';
 import '../location/location_controller.dart';
 import '../location/location_service.dart';
+import '../profile/data_sources_screen.dart';
 import 'hybrid_map_surface.dart';
 
 class ResidentShell extends StatefulWidget {
@@ -215,12 +216,16 @@ class _ResidentShellState extends State<ResidentShell> {
       }
     },
     child: Scaffold(
-      body: _index == 3
-          ? AccountScreen(session: widget.session, api: widget.api)
-          : AnimatedBuilder(
-              animation: _assessment,
-              builder: (context, _) => _mapExperience(context),
-            ),
+      body: IndexedStack(
+        index: _index == 3 ? 1 : 0,
+        children: [
+          AnimatedBuilder(
+            animation: _assessment,
+            builder: (context, _) => _mapExperience(context),
+          ),
+          AccountScreen(session: widget.session, api: widget.api),
+        ],
+      ),
       bottomNavigationBar: NavigationBar(
         key: const Key('resident-bottom-navigation'),
         selectedIndex: _index,
@@ -379,7 +384,7 @@ class _ResidentShellState extends State<ResidentShell> {
           const SizedBox(height: 12),
           Text(
             _assessment.selectedArea == null
-                ? 'Tap the map to place a temporary pin, or begin the guided assessment to select a supported area.'
+                ? 'Drag the map pin to choose a temporary point, or begin the guided assessment to select a supported area.'
                 : 'Selected area: ${_assessment.selectedArea!.name}. Continue through the guided review before running an assessment.',
           ),
           const SizedBox(height: 14),
@@ -1360,6 +1365,20 @@ class AccountScreen extends StatelessWidget {
           _ProfileGroup(
             children: [
               ListTile(
+                key: const Key('profile-data-sources'),
+                leading: const Icon(Icons.dataset_outlined),
+                title: const Text('Data sources'),
+                subtitle: const Text(
+                  'Map, research, requested, and demonstration datasets',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const DataSourcesScreen(),
+                  ),
+                ),
+              ),
+              ListTile(
                 leading: const Icon(Icons.description_outlined),
                 title: const Text('Data & methodology'),
                 trailing: const Icon(Icons.chevron_right),
@@ -1423,6 +1442,7 @@ class AccountScreen extends StatelessWidget {
                   },
                 ),
               ListTile(
+                key: const Key('profile-delete-account'),
                 leading: const Icon(Icons.delete_outline),
                 title: const Text('Delete account'),
                 subtitle: const Text(

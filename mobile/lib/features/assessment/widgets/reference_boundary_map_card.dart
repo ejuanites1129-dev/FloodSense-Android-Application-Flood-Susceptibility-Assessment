@@ -73,8 +73,11 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
   void _zoom(double change) {
     if (!_mapReady) return;
     final camera = _mapController.camera;
+    final coordinate =
+        widget.locationController?.lookupCoordinate ??
+        widget.controller.pinCoordinate;
     _mapController.move(
-      camera.center,
+      coordinate?.latLng ?? camera.center,
       (camera.zoom + change).clamp(2, 18).toDouble(),
     );
   }
@@ -222,10 +225,10 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
                     Expanded(
                       child: Text(
                         hasMgbSummaries
-                            ? '47 current barangay boundaries · provisional consultation preview\n'
-                                  'Scenario colors use a FloodSense dominant-area summary of MGB polygons. Unmapped/conflicting shares remain explicit; this is not live, forecast, or BDRRMO-approved information.'
-                            : '47 current barangay boundaries · research prototype\n'
-                                  'Boundaries identify administrative areas. Colored test sectors are synthetic scenario outputs—not live conditions or whole-barangay classifications.',
+                            ? '47 current barangay boundaries\n'
+                                  'Susceptibility overlay: provisional consultation preview. Scenario colors use a FloodSense dominant-area summary of MGB polygons. Unmapped/conflicting shares remain explicit; this is not live or forecast information.'
+                            : '47 current barangay boundaries\n'
+                                  'Scenario overlay: demonstration data. Boundaries identify administrative areas; colored test sectors are not live conditions or whole-barangay classifications.',
                         style: const TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 12,
@@ -437,8 +440,8 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
                                         child: Semantics(
                                           label: 'Temporary map marker. The coordinate is not saved.',
                                           child: const Icon(
-                                            Icons.my_location,
-                                            size: 40,
+                                            Icons.location_on,
+                                            size: 44,
                                             color: AppColors.primary,
                                             shadows: [
                                               Shadow(

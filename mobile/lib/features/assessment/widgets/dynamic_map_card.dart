@@ -76,8 +76,9 @@ class _DynamicMapCardState extends State<DynamicMapCard> {
   void _zoom(double change) {
     if (!_mapReady) return;
     final camera = _mapController.camera;
+    final pin = widget.controller.pinCoordinate;
     _mapController.move(
-      camera.center,
+      pin?.latLng ?? camera.center,
       (camera.zoom + change).clamp(2, 18).toDouble(),
     );
   }
@@ -119,7 +120,7 @@ class _DynamicMapCardState extends State<DynamicMapCard> {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        'Pan, zoom, or tap to place a temporary pin.',
+                        'Drag the pin to choose a point, then pan or zoom as needed.',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
@@ -150,7 +151,7 @@ class _DynamicMapCardState extends State<DynamicMapCard> {
                 final height = constraints.maxWidth < 360 ? 280.0 : 330.0;
                 return Semantics(
                   container: true,
-                  label: 'Interactive demonstration map. Drag to pan, pinch to zoom, or tap to place a temporary pin.',
+                  label: 'Interactive demonstration map. Drag the pin to choose a point, drag the map to pan, or pinch to zoom. On the standard-map fallback, tap to place the pin.',
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: SizedBox(
@@ -551,7 +552,7 @@ class PointResolutionStatus extends StatelessWidget {
   Widget build(BuildContext context) {
     if (controller.pinCoordinate == null) {
       return const Text(
-        'Tap the map to place a temporary pin. Django and PostGIS—not the phone—will determine the containing zone.',
+        'Drag the pin to choose a temporary point. On the standard-map fallback, tap the map. Django and PostGIS—not the phone—will determine the containing zone.',
       );
     }
     if (controller.isResolvingPoint) {

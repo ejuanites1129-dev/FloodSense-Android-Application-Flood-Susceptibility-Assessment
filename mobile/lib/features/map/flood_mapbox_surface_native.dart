@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
@@ -6,6 +8,7 @@ import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import '../../app/theme/app_colors.dart';
 import '../../data/models/geojson_geometry.dart';
 import '../../data/models/point_resolution.dart';
+import 'flood_map_camera.dart';
 import 'flood_map_palette.dart';
 import 'flood_map_presentation.dart';
 import 'map_provider_config.dart';
@@ -45,6 +48,10 @@ class _FloodMapboxSurfaceState extends State<_FloodMapboxSurface> {
   static const _centerLayerId = 'floodsense-center-points';
 
   MapboxMap? _map;
+  PointAnnotationManager? _pinManager;
+  PointAnnotation? _pinAnnotation;
+  Cancelable? _pinDragEvents;
+  Uint8List? _pinImage;
   GeoJsonSource? _maskSource;
   GeoJsonSource? _boundarySource;
   GeoJsonSource? _scenarioSource;
@@ -53,6 +60,9 @@ class _FloodMapboxSurfaceState extends State<_FloodMapboxSurface> {
   bool _styleReady = false;
   bool _perspective = false;
   bool _reportedUnavailable = false;
+  late final CameraViewportState _initialViewport;
+  double _mapViewportHeight = 600;
+  String _cameraHeightLabel = '—';
   Timer? _loadGuard;
   int? _lastSelectedAreaId;
   String? _lastSelectedCenterIdentifier;
@@ -69,12 +79,22 @@ class _FloodMapboxSurfaceState extends State<_FloodMapboxSurface> {
     // Configuration guarantees this is a public `pk.` token. It is set only
     // when the optional native renderer is actually selected.
     MapboxOptions.setAccessToken(widget.config.mapboxPublicToken);
+    final bounds = widget.presentation.bounds;
+    _initialViewport = CameraViewportState(
+      center: Point(
+        coordinates: Position(bounds.centerLongitude, bounds.centerLatitude),
+      ),
+      zoom: 12.5,
+      pitch: 0,
+      bearing: 0,
+    );
     _loadGuard = Timer(const Duration(seconds: 12), _reportUnavailable);
   }
 
   @override
   void dispose() {
     _loadGuard?.cancel();
+    _pinDragEvents?.cancel();
     super.dispose();
   }
 
@@ -83,15 +103,29 @@ class _FloodMapboxSurfaceState extends State<_FloodMapboxSurface> {
     super.didUpdateWidget(oldWidget);
     if (!_styleReady) return;
     final currentPresentation = widget.presentation;
-    _sourceRefresh = _sourceRefresh.then(
-      (_) => _refreshSources(oldWidget.presentation, currentPresentation),
+    final coordinateChanged = !_sameCoordinate(
+      oldWidget.presentation.coordinate,
+      currentPresentation.coordinate,
     );
+    _sourceRefresh = _sourceRefresh
+        .then((_) async {
+          await _refreshSources(oldWidget.presentation, currentPresentation);
+          if (!coordinateChanged) return;
+          await _syncPinAnnotation();
+          final coordinate = currentPresentation.coordinate;
+          if (coordinate == null) {
+            await _fitAll();
+          } else {
+            await _focusCoordinateAtHeight(coordinate);
+          }
+        })
+        .catchError((_) => _reportUnavailable());
     if (widget.presentation.selectedAreaId != _lastSelectedAreaId) {
       _lastSelectedAreaId = widget.presentation.selectedAreaId;
       final selected = widget.presentation.scenarioAreas.where(
         (area) => area.id == _lastSelectedAreaId,
       );
-      if (selected.length == 1) {
+      if (selected.length == 1 && widget.presentation.coordinate == null) {
         unawaited(_fitGeometry(selected.single.geometry));
       }
     }
@@ -116,7 +150,6 @@ class _FloodMapboxSurfaceState extends State<_FloodMapboxSurface> {
 
   @override
   Widget build(BuildContext context) {
-    final mapBounds = widget.presentation.bounds;
     final controls = Positioned(
       top: 8,
       left: widget.presentation.controlsOnRight ? null : 8,
@@ -126,13 +159,13 @@ class _FloodMapboxSurfaceState extends State<_FloodMapboxSurface> {
           _MapboxControl(
             label: 'Zoom in',
             icon: Icons.add,
-            onPressed: () => _zoom(1),
+            onPressed: () => _zoom(0.5),
           ),
           const SizedBox(height: 6),
           _MapboxControl(
             label: 'Zoom out',
             icon: Icons.remove,
-            onPressed: () => _zoom(-1),
+            onPressed: () => _zoom(-0.5),
           ),
           const SizedBox(height: 6),
           _MapboxControl(
@@ -162,35 +195,41 @@ class _FloodMapboxSurfaceState extends State<_FloodMapboxSurface> {
         ],
       ),
     );
-    return Stack(
-      key: const Key('mapbox-flood-map'),
-      fit: StackFit.expand,
-      children: [
-        MapWidget(
-          key: const ValueKey('floodsense-mapbox-widget'),
-          styleUri: MapboxStyles.STANDARD,
-          viewport: CameraViewportState(
-            center: Point(
-              coordinates: Position(
-                mapBounds.centerLongitude,
-                mapBounds.centerLatitude,
-              ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxHeight.isFinite && constraints.maxHeight > 0) {
+          _mapViewportHeight = constraints.maxHeight;
+        }
+        return Stack(
+          key: const Key('mapbox-flood-map'),
+          fit: StackFit.expand,
+          children: [
+            MapWidget(
+              key: const ValueKey('floodsense-mapbox-widget'),
+              styleUri: MapboxStyles.STANDARD,
+              viewport: _initialViewport,
+              onMapCreated: (map) {
+                _map = map;
+                map.addInteraction(
+                  TapInteraction.onMap(
+                    (gesture) => unawaited(_handleTap(gesture)),
+                  ),
+                );
+              },
+              onCameraChangeListener: _handleCameraChanged,
+              onStyleLoadedListener: (_) => unawaited(_onStyleLoaded()),
+              onMapLoadErrorListener: (_) => _reportUnavailable(),
             ),
-            zoom: 12.5,
-            pitch: 0,
-            bearing: 0,
-          ),
-          onMapCreated: (map) {
-            _map = map;
-            map.addInteraction(
-              TapInteraction.onMap((gesture) => unawaited(_handleTap(gesture))),
-            );
-          },
-          onStyleLoadedListener: (_) => unawaited(_onStyleLoaded()),
-          onMapLoadErrorListener: (_) => _reportUnavailable(),
-        ),
-        controls,
-      ],
+            controls,
+            Positioned(
+              top: 8,
+              left: widget.presentation.controlsOnRight ? 8 : null,
+              right: widget.presentation.controlsOnRight ? null : 8,
+              child: _CameraHeightBadge(label: _cameraHeightLabel),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -407,28 +446,18 @@ class _FloodMapboxSurfaceState extends State<_FloodMapboxSurface> {
           ],
         ),
       );
-      await map.style.addLayer(
-        CircleLayer(
-          id: 'floodsense-temporary-point',
-          sourceId: _pointSourceId,
-          slot: 'top',
-          filter: [
-            '==',
-            'temporary-point',
-            ['get', 'kind'],
-          ],
-          circleColor: AppColors.primary.toARGB32(),
-          circleStrokeColor: Colors.white.toARGB32(),
-          circleStrokeWidth: 3,
-          circleRadius: 10,
-        ),
-      );
+      await _createDraggablePin();
       _styleReady = true;
       _loadGuard?.cancel();
       _lastSelectedAreaId = widget.presentation.selectedAreaId;
       _lastSelectedCenterIdentifier =
           widget.presentation.selectedCenterIdentifier;
-      await _fitAll();
+      final coordinate = widget.presentation.coordinate;
+      if (coordinate == null) {
+        await _fitAll();
+      } else {
+        await _focusCoordinateAtHeight(coordinate);
+      }
     } catch (_) {
       _reportUnavailable();
     }
@@ -515,15 +544,8 @@ class _FloodMapboxSurfaceState extends State<_FloodMapboxSurface> {
         }
       }
     } catch (_) {
-      // A feature-query failure must not prevent manual pin placement.
+      // A feature-query failure must not move the temporary location pin.
     }
-    final coordinates = gesture.point.coordinates;
-    widget.presentation.onCoordinateTapped(
-      MapCoordinate(
-        latitude: coordinates.lat.toDouble(),
-        longitude: coordinates.lng.toDouble(),
-      ),
-    );
   }
 
   Future<void> _fitAll() => _fitBounds(widget.presentation.bounds);
@@ -562,16 +584,165 @@ class _FloodMapboxSurfaceState extends State<_FloodMapboxSurface> {
     final map = _map;
     if (map == null) return;
     final camera = await map.getCameraState();
+    final pin = _displayPinCoordinate;
     await map.easeTo(
-      CameraOptions(zoom: (camera.zoom + change).clamp(2, 18).toDouble()),
-      MapAnimationOptions(duration: 220),
+      CameraOptions(
+        center: Point(coordinates: Position(pin.longitude, pin.latitude)),
+        zoom: (camera.zoom + change).clamp(2, 22).toDouble(),
+      ),
+      MapAnimationOptions(duration: 350),
     );
   }
 
   Future<void> _recenterOnTemporaryPoint() async {
     final point = widget.presentation.coordinate;
     if (point == null) return;
-    await _recenter(point.latitude, point.longitude, minimumZoom: 15.5);
+    await _focusCoordinateAtHeight(point);
+  }
+
+  MapCoordinate get _displayPinCoordinate {
+    final coordinate = widget.presentation.coordinate;
+    if (coordinate != null) return coordinate;
+    final bounds = widget.presentation.bounds;
+    return MapCoordinate(
+      latitude: bounds.centerLatitude,
+      longitude: bounds.centerLongitude,
+    );
+  }
+
+  Future<void> _createDraggablePin() async {
+    final map = _map;
+    if (map == null) return;
+    _pinDragEvents?.cancel();
+    final manager = _pinManager ??= await map.annotations
+        .createPointAnnotationManager();
+    await manager.setIconAllowOverlap(true);
+    _pinImage ??= await _drawPinImage();
+    final coordinate = _displayPinCoordinate;
+    _pinAnnotation = await manager.create(
+      PointAnnotationOptions(
+        geometry: Point(
+          coordinates: Position(coordinate.longitude, coordinate.latitude),
+        ),
+        image: _pinImage,
+        iconAnchor: IconAnchor.BOTTOM,
+        iconSize: 0.62,
+        isDraggable: true,
+      ),
+    );
+    _pinDragEvents = manager.dragEvents(
+      onChanged: (annotation) => _pinAnnotation = annotation,
+      onEnd: _handlePinDragEnd,
+    );
+  }
+
+  Future<void> _syncPinAnnotation() async {
+    final manager = _pinManager;
+    final annotation = _pinAnnotation;
+    if (manager == null || annotation == null) return;
+    final coordinate = _displayPinCoordinate;
+    final current = annotation.geometry.coordinates;
+    if (current.lat == coordinate.latitude &&
+        current.lng == coordinate.longitude) {
+      return;
+    }
+    annotation.geometry = Point(
+      coordinates: Position(coordinate.longitude, coordinate.latitude),
+    );
+    await manager.update(annotation);
+  }
+
+  void _handlePinDragEnd(PointAnnotation annotation) {
+    _pinAnnotation = annotation;
+    final coordinates = annotation.geometry.coordinates;
+    final coordinate = MapCoordinate(
+      latitude: coordinates.lat.toDouble(),
+      longitude: coordinates.lng.toDouble(),
+    );
+    widget.presentation.onCoordinateTapped(coordinate);
+    unawaited(_focusCoordinateAtHeight(coordinate));
+  }
+
+  Future<void> _focusCoordinateAtHeight(MapCoordinate coordinate) async {
+    final map = _map;
+    if (map == null) return;
+    final camera = await map.getCameraState();
+    final zoom = zoomForCameraHeightMeters(
+      cameraHeightMeters: selectedLocationCameraHeightMeters,
+      latitude: coordinate.latitude,
+      pitchDegrees: camera.pitch,
+      viewportHeightPixels: _mapViewportHeight,
+    ).clamp(2, 22).toDouble();
+    await map.easeTo(
+      CameraOptions(
+        center: Point(
+          coordinates: Position(coordinate.longitude, coordinate.latitude),
+        ),
+        zoom: zoom,
+      ),
+      MapAnimationOptions(duration: 700),
+    );
+  }
+
+  void _handleCameraChanged(CameraChangedEventData data) {
+    final camera = data.cameraState;
+    final coordinates = camera.center.coordinates;
+    final label = formatCameraHeight(
+      approximateCameraHeightMeters(
+        zoom: camera.zoom,
+        latitude: coordinates.lat.toDouble(),
+        pitchDegrees: camera.pitch,
+        viewportHeightPixels: _mapViewportHeight,
+      ),
+    );
+    if (!mounted || label == _cameraHeightLabel) return;
+    setState(() => _cameraHeightLabel = label);
+  }
+
+  Future<Uint8List> _drawPinImage() async {
+    const width = 80.0;
+    const height = 104.0;
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    final path = Path()
+      ..moveTo(width / 2, height - 5)
+      ..cubicTo(34, 88, 8, 62, 8, 38)
+      ..cubicTo(8, 18, 21, 5, width / 2, 5)
+      ..cubicTo(59, 5, 72, 18, 72, 38)
+      ..cubicTo(72, 62, 46, 88, width / 2, height - 5)
+      ..close();
+    canvas.drawShadow(path, const Color(0x66000000), 5, true);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = AppColors.primary
+        ..style = PaintingStyle.fill,
+    );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 4,
+    );
+    canvas.drawCircle(
+      const Offset(width / 2, 37),
+      13,
+      Paint()..color = Colors.white,
+    );
+    canvas.drawCircle(
+      const Offset(width / 2, 37),
+      6,
+      Paint()..color = AppColors.primary,
+    );
+    final image = await recorder.endRecording().toImage(
+      width.toInt(),
+      height.toInt(),
+    );
+    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+    image.dispose();
+    if (bytes == null) throw StateError('Unable to render map pin image.');
+    return bytes.buffer.asUint8List();
   }
 
   Future<void> _recenter(
@@ -642,6 +813,30 @@ class _MapboxControl extends StatelessWidget {
             height: 48,
             child: Icon(icon, color: AppColors.primary),
           ),
+        ),
+      ),
+    ),
+  );
+}
+
+class _CameraHeightBadge extends StatelessWidget {
+  const _CameraHeightBadge({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: 'Approximate camera height $label',
+    child: Material(
+      key: const Key('mapbox-camera-height'),
+      color: const Color(0xEFFFFFFF),
+      elevation: 2,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+        child: Text(
+          'Height ≈ $label',
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
         ),
       ),
     ),

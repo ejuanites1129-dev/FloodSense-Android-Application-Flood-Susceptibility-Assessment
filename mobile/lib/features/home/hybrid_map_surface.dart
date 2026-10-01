@@ -78,8 +78,11 @@ class _HybridMapSurfaceState extends State<HybridMapSurface> {
   void _zoom(double delta) {
     if (!_mapReady) return;
     final camera = _mapController.camera;
+    final coordinate =
+        widget.locationController?.lookupCoordinate ??
+        widget.controller.pinCoordinate;
     _mapController.move(
-      camera.center,
+      coordinate?.latLng ?? camera.center,
       (camera.zoom + delta).clamp(2, 18).toDouble(),
     );
   }
@@ -189,7 +192,7 @@ class _HybridMapSurfaceState extends State<HybridMapSurface> {
 
     return Semantics(
       container: true,
-      label: 'Interactive Bacoor scenario map. Bacoor is clear and areas outside assessment coverage are gray. Drag to pan, pinch to zoom, or tap to place a temporary pin.',
+      label: 'Interactive Bacoor scenario map. Bacoor is clear and areas outside assessment coverage are gray. Drag the pin to choose a point, drag the map to pan, or pinch to zoom. On the standard-map fallback, tap to place the pin.',
       child: ProviderAwareFloodMap(
         presentation: FloodMapPresentation(
           referenceAreas: controller.referenceAreas,
