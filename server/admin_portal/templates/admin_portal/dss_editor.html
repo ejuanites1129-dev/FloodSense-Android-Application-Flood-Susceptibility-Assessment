@@ -1,0 +1,19 @@
+{% extends "admin_portal/base.html" %}
+{% load static %}
+{% block title %}{{ title }} | FloodSense{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'admin_portal/css/guidance.css' %}">{% endblock %}
+{% block content %}
+<div class="guidance-page guidance-confirm-page">
+  <section class="page-heading"><div><p class="eyebrow">Structured Prepare</p><h1>{{ title }}</h1><p>{% if flow %}{{ flow.code }} · {{ flow.version }} · {{ flow.get_workflow_status_display }}{% else %}Create the flow, then add outcomes, questions, branch options, and content blocks.{% endif %}</p></div></section>
+  <section class="notice notice--warning"><strong>{% if transition %}Confirm the version and content state{% else %}Draft content remains non-public{% endif %}</strong><p>Published versions are preserved. Board transcriptions require BDRRMO validation and public-release review. Saving a draft does not publish it or change susceptibility.</p></section>
+  <section class="panel">
+    {% if form.non_field_errors %}<div class="notice notice--warning" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+    <form class="guidance-form" method="post" novalidate>{% csrf_token %}
+      {% for field in form %}{% if field.is_hidden %}{{ field }}{% for error in field.errors %}<p class="field-error" role="alert">{{ error }}</p>{% endfor %}{% else %}
+      <div class="field-group"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<p class="field-help">{{ field.help_text }}</p>{% endif %}{% for error in field.errors %}<p class="field-error" role="alert">{{ error }}</p>{% endfor %}</div>
+      {% endif %}{% endfor %}
+      <div class="guidance-form-actions">{% if save_actions %}{% include 'admin_portal/includes/save_actions.html' %}{% else %}<button class="button button--primary" type="submit">{% if transition %}Confirm action{% else %}Save draft{% endif %}</button>{% endif %}{% if flow %}<a class="button button--secondary" href="{% url 'admin_portal:dss-flow-detail' flow.pk %}">Cancel</a>{% else %}<a class="button button--secondary" href="{% url 'admin_portal:dss-flow-list' %}">Cancel</a>{% endif %}</div>
+    </form>
+  </section>
+</div>
+{% endblock %}

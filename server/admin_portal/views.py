@@ -117,6 +117,11 @@ AUDIT_MODULES = (
     (("geography", "geographicarea"), "Map data"),
     (("provenance", "datasource"), "Sources and content"),
     (("dss", "guidanceitem"), "DSS content"),
+    (("dss", "dssflowversion"), "Structured Prepare versions"),
+    (("dss", "dssquestion"), "Prepare questions"),
+    (("dss", "dssoption"), "Prepare options"),
+    (("dss", "dssoutcome"), "Prepare outcomes"),
+    (("dss", "dsscontentblock"), "Prepare content blocks"),
     (("expert", "scenariooption"), "Rainfall references"),
     (("evacuation", "evacuationcenter"), "Evacuation centers"),
 )
@@ -226,6 +231,7 @@ def _portal_context(request: HttpRequest, *, active_section: str) -> dict[str, A
         for item in context["navigation"]
         if item[0] not in required_permissions
         or request.user.has_perm(required_permissions[item[0]])
+        or (item[0] == "dss-content" and request.user.has_perm("dss.view_dssflowversion"))
     ]
     return context
 
@@ -327,9 +333,12 @@ def assessment_parameters(request: HttpRequest) -> HttpResponse:
 
 
 @staff_required
-@portal_permission_required("dss.view_guidanceitem")
 @require_GET
 def guidance_list(request: HttpRequest) -> HttpResponse:
+    if not request.user.has_perm("dss.view_guidanceitem"):
+        if request.user.has_perm("dss.view_dssflowversion"):
+            return redirect("admin_portal:dss-flow-list")
+        raise PermissionDenied
     filters = GuidanceFilterForm(request.GET)
     queryset = GuidanceItem.objects.select_related("susceptibility_level", "source").order_by(
         "susceptibility_level__display_order", "display_order", "id"
@@ -370,6 +379,7 @@ def guidance_list(request: HttpRequest) -> HttpResponse:
             "can_change": request.user.has_perm("dss.change_guidanceitem"),
             "can_approve": request.user.has_perm("dss.approve_guidanceitem"),
             "can_publish": request.user.has_perm("dss.publish_guidanceitem"),
+            "can_view_flows": request.user.has_perm("dss.view_dssflowversion"),
         }
     )
     for item in page.object_list:
@@ -470,6 +480,7 @@ def guidance_transition(request: HttpRequest, item_id: int, action: str) -> Http
                 action=action,
                 actor=request.user,
                 expected_status=form.cleaned_data["expected_status"],
+                expected_updated_at=form.cleaned_data.get("expected_updated_at"),
             )
         except GuidanceItem.DoesNotExist as error:
             raise Http404 from error
@@ -581,6 +592,8 @@ def evacuation_center_list(request: HttpRequest) -> HttpResponse:
 @portal_permission_required("evacuation.view_evacuationcenter")
 @require_GET
 def evacuation_center_detail(request: HttpRequest, center_id: int) -> HttpResponse:
+    from .operations_views import resident_checklist
+
     center = get_object_or_404(
         EvacuationCenter.objects.select_related("geographic_area", "source"),
         pk=center_id,
@@ -593,6 +606,7 @@ def evacuation_center_detail(request: HttpRequest, center_id: int) -> HttpRespon
             "openlayers_root": OPENLAYERS_CDN_ROOT,
             "map_config": get_map_client_config(),
             "can_change": request.user.has_perm("evacuation.change_evacuationcenter"),
+            "resident_checklist": resident_checklist(center),
         }
     )
     return render(request, "admin_portal/evacuation_center_detail.html", context)
@@ -697,6 +711,7 @@ def evacuation_center_transition(request: HttpRequest, center_id: int, action: s
                 expected_status=form.cleaned_data["expected_status"],
                 verified_on=form.cleaned_data.get("verified_on"),
                 capacity=form.cleaned_data.get("capacity"),
+                expected_updated_at=form.cleaned_data.get("expected_updated_at"),
             )
         except EvacuationCenter.DoesNotExist:
             raise Http404 from None
@@ -858,6 +873,7 @@ def data_source_transition(request: HttpRequest, source_id: int, action: str) ->
                 actor=request.user,
                 expected_status=form.cleaned_data["expected_status"],
                 expected_public=form.cleaned_data["expected_public"],
+                expected_updated_at=form.cleaned_data.get("expected_updated_at"),
             )
         except DataSource.DoesNotExist:
             raise Http404 from None

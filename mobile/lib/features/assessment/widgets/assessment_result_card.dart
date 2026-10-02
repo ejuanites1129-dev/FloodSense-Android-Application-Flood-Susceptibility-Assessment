@@ -10,12 +10,14 @@ class AssessmentResultCard extends StatelessWidget {
     required this.result,
     required this.intensity,
     required this.duration,
+    this.showGuidance = true,
     super.key,
   });
 
   final AssessmentResult result;
   final ScenarioOption intensity;
   final ScenarioOption duration;
+  final bool showGuidance;
 
   @override
   Widget build(BuildContext context) {
@@ -129,7 +131,7 @@ class AssessmentResultCard extends StatelessWidget {
           const SizedBox(height: 12),
           _Warnings(warnings: result.warnings),
           const SizedBox(height: 12),
-          GuidanceSection(items: result.guidance),
+          if (showGuidance) GuidanceSection(items: result.guidance),
         ],
       ),
     );

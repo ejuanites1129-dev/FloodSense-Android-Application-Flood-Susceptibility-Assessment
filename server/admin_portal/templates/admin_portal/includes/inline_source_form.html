@@ -1,0 +1,6 @@
+<form method="post" class="operations-form" data-inline-source-form novalidate>{% csrf_token %}
+  {% if form.non_field_errors %}<div class="notice notice--error field-group--wide" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+  {% for field in form %}{% if field.is_hidden %}{{ field }}{% else %}<div class="field-group"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<p class="field-help">{{ field.help_text }}</p>{% endif %}{% for error in field.errors %}<p class="field-error" role="alert">{{ error }}</p>{% endfor %}</div>{% endif %}{% endfor %}
+  {% include 'admin_portal/includes/save_actions.html' %}
+  <p class="field-help field-group--wide">Approval and public release use the normal permissions and validation. Saving pending metadata does not verify the center.</p>
+</form>

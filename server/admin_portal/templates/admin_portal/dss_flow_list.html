@@ -1,0 +1,29 @@
+{% extends "admin_portal/base.html" %}
+{% load static %}
+{% block title %}Structured Prepare flows | FloodSense{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'admin_portal/css/guidance.css' %}">{% endblock %}
+{% block content %}
+<div class="guidance-page">
+  {% include 'admin_portal/includes/review_link.html' with review_module='flows' %}
+  <section class="page-heading"><div><p class="eyebrow">DSS content</p><h1>Structured Prepare flow versions</h1><p>The same versioned records serve the resident app, this portal, and technical Django Admin.</p></div>
+    {% if can_add %}<a class="button button--primary" href="{% url 'admin_portal:dss-flow-create' %}">Create flow draft</a>{% endif %}
+  </section>
+  <nav class="panel guidance-form-actions" aria-label="DSS inventories">
+    {% if perms.dss.view_guidanceitem %}<a href="{% url 'admin_portal:dss-content' %}">Assessment guidance items</a>{% endif %}
+    <span aria-current="page">Structured Prepare flow versions</span>
+  </nav>
+  <section class="notice notice--warning"><strong>Publication requires validation</strong><p>Pending BDRRMO validation — not public guidance. Board alert stages, water markers, PAGASA warnings, and FloodSense susceptibility are distinct systems. There is no automatic mapping.</p></section>
+  <section class="panel">
+    <form class="guidance-form" method="get"><div class="field-group"><label for="flow-search">Search code, title, or source</label><input id="flow-search" name="q" value="{{ query }}" maxlength="120" type="search"></div><button class="button button--secondary" type="submit">Search flows</button></form>
+    <div class="guidance-table-wrap"><table class="guidance-table"><thead><tr><th>Version</th><th>Mode / status</th><th>Source</th><th>Graph</th></tr></thead><tbody>
+    {% for flow in flows %}<tr>
+      <td data-label="Version"><div><a href="{% url 'admin_portal:dss-flow-detail' flow.pk %}"><strong>{{ flow.title }}</strong></a><p>{{ flow.code }} · {{ flow.version }}</p></div></td>
+      <td data-label="Mode / status"><div>{{ flow.get_operating_mode_display }}<p>{{ flow.get_data_status_display }}</p><span class="workflow-badge">{{ flow.get_workflow_status_display }}</span></div></td>
+      <td data-label="Source"><div>{{ flow.source.name }}<p>Effective: {{ flow.effective_date|default:"Not recorded" }}</p></div></td>
+      <td data-label="Graph"><div>{{ flow.question_count }} questions · {{ flow.option_count }} options · {{ flow.outcome_count }} outcomes · {{ flow.block_count }} content blocks · {{ flow.linked_guidance_count }} linked guidance items</div></td>
+    </tr>{% empty %}<tr><td colspan="4">No structured flows are available. A missing published flow produces an unavailable state for residents.</td></tr>{% endfor %}
+    </tbody></table></div>
+    {% if flows.paginator.num_pages > 1 %}<nav class="pagination" aria-label="Flow pages">{% if flows.has_previous %}<a href="?q={{ query|urlencode }}&amp;page={{ flows.previous_page_number }}">Previous</a>{% endif %}<span>Page {{ flows.number }} of {{ flows.paginator.num_pages }}</span>{% if flows.has_next %}<a href="?q={{ query|urlencode }}&amp;page={{ flows.next_page_number }}">Next</a>{% endif %}</nav>{% endif %}
+  </section>
+</div>
+{% endblock %}

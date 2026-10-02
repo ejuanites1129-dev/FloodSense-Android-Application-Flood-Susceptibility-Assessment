@@ -27,15 +27,17 @@
       <form method="post" class="guidance-form" novalidate>
         {% csrf_token %}
         {% for field in form %}
+          {% if field.is_hidden %}{{ field }}{% else %}
           <div class="field-group{% if field.errors %} field-group--error{% endif %}">
             <label for="{{ field.id_for_label }}">{{ field.label }}</label>
             {{ field }}
             {% if field.help_text %}<p class="field-help">{{ field.help_text }}</p>{% endif %}
             {% for error in field.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
           </div>
+          {% endif %}
         {% endfor %}
         <div class="guidance-form-actions">
-          <button class="button button--primary" type="submit">Save draft</button>
+          {% include 'admin_portal/includes/save_actions.html' %}
           <a class="button button--secondary" href="{% url 'admin_portal:dss-content' %}">Cancel</a>
         </div>
       </form>

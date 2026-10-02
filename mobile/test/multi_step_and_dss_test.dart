@@ -4,6 +4,7 @@ import 'package:floodsense/data/dss/structured_dss_repository.dart';
 import 'package:floodsense/data/models/geographic_area.dart';
 import 'package:floodsense/features/assessment/multi_step_assessment_screen.dart';
 import 'package:floodsense/features/dss/dss_controller.dart';
+import 'package:floodsense/features/dss/dss_assessment_context.dart';
 
 import 'test_data.dart';
 
@@ -11,7 +12,10 @@ class FakeDssRepository implements StructuredDssRepository {
   int starts = 0;
   int answers = 0;
   @override
-  Future<DssStep> start(String susceptibilityCode) async {
+  Future<DssStep> start(
+    String susceptibilityCode, {
+    required String operatingMode,
+  }) async {
     starts++;
     return const DssStep(
       flowCode: 'preparedness',
@@ -41,6 +45,7 @@ class FakeDssRepository implements StructuredDssRepository {
   Future<DssStep> answer({
     required DssStep current,
     required String susceptibilityCode,
+    required String operatingMode,
     required String optionCode,
   }) async {
     answers++;
@@ -142,6 +147,14 @@ void main() {
     expect(find.text('High susceptibility'), findsOneWidget);
     await tester.tap(find.byKey(const Key('assessment-continue')));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Are essential supplies ready?'),
+      250,
+      scrollable: find.descendant(
+        of: find.byKey(const Key('dss-flow-view')),
+        matching: find.byType(Scrollable),
+      ),
+    );
     expect(find.text('Are essential supplies ready?'), findsOneWidget);
   });
 
@@ -172,7 +185,13 @@ void main() {
     () async {
       final repository = FakeDssRepository();
       final controller = DssController(repository);
-      await controller.start('HIGH');
+      await controller.start(
+        DssAssessmentContext.fromAssessment(
+          sampleResult(),
+          intensities: sampleOptions().intensityOptions,
+          durations: sampleOptions().durationOptions,
+        ),
+      );
       controller.select('yes');
       await controller.continueFlow();
       expect(controller.current!.isOutcome, isTrue);

@@ -110,7 +110,13 @@ def log_source_action(*, actor, source, message, action_flag=CHANGE) -> None:
 
 @transaction.atomic
 def transition_source(
-    *, source_id: int, action: str, actor, expected_status: str, expected_public: bool
+    *,
+    source_id: int,
+    action: str,
+    actor,
+    expected_status: str,
+    expected_public: bool,
+    expected_updated_at=None,
 ) -> DataSource:
     transition = TRANSITIONS.get(action)
     if transition is None:
@@ -118,6 +124,10 @@ def transition_source(
     if not actor.has_perm(transition.permission):
         raise PermissionDenied
     source = DataSource.objects.select_for_update().get(pk=source_id)
+    if expected_updated_at is not None:
+        from core.record_workflow import require_fresh
+
+        require_fresh(source, expected_updated_at)
     if source.status != expected_status or source.is_publicly_releasable != expected_public:
         raise ValidationError(
             "This source changed after the confirmation page opened. Review it and try again."

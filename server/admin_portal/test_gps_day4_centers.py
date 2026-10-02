@@ -283,6 +283,7 @@ def test_edit_audit_names_changed_fields_without_values(client, center_admin_rec
             latitude=str(center.latitude),
             longitude=str(center.longitude),
             limitations=center.limitations,
+            expected_updated_at=center.updated_at.isoformat(),
         ),
     )
     assert response.status_code == 302

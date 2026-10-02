@@ -181,6 +181,7 @@ class EvacuationCenterForm(forms.ModelForm):
 
 
 class EvacuationTransitionForm(forms.Form):
+    expected_updated_at = forms.DateTimeField(required=False, widget=forms.HiddenInput)
     expected_status = forms.CharField(widget=forms.HiddenInput)
     verified_on = forms.DateField(
         label="Verification date",
@@ -273,6 +274,7 @@ class DataSourceForm(forms.ModelForm):
 
 
 class DataSourceTransitionForm(forms.Form):
+    expected_updated_at = forms.DateTimeField(required=False, widget=forms.HiddenInput)
     expected_status = forms.CharField(widget=forms.HiddenInput)
     expected_public = forms.BooleanField(required=False, widget=forms.HiddenInput)
     confirm = forms.BooleanField(
@@ -427,6 +429,7 @@ class GuidanceItemForm(forms.ModelForm):
 
 
 class GuidanceTransitionForm(forms.Form):
+    expected_updated_at = forms.DateTimeField(required=False, widget=forms.HiddenInput)
     expected_status = forms.CharField(widget=forms.HiddenInput)
     confirm = forms.BooleanField(
         label="I understand that this changes the content workflow state.",

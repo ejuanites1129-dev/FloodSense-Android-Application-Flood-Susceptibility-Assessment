@@ -106,13 +106,25 @@ def transition_center(
     expected_status: str,
     verified_on: date | None = None,
     capacity: int | None = None,
+    expected_updated_at=None,
 ) -> EvacuationCenter:
     transition = TRANSITIONS.get(action)
     if transition is None:
         raise ValidationError("Unknown verification action.")
     if not actor.has_perm(transition.permission):
         raise PermissionDenied
-    center = EvacuationCenter.objects.select_for_update().select_related("source").get(pk=center_id)
+    from core.record_workflow import require_fresh
+    from provenance.models import DataSource
+
+    source_id = EvacuationCenter.objects.values_list("source_id", flat=True).get(pk=center_id)
+    DataSource.objects.select_for_update().get(pk=source_id)
+    center = (
+        EvacuationCenter.objects.select_for_update(of=("self",))
+        .select_related("source")
+        .get(pk=center_id)
+    )
+    if expected_updated_at is not None:
+        require_fresh(center, expected_updated_at)
     if center.verification_status != expected_status:
         raise ValidationError(
             "This center changed after the confirmation page opened. Review it and try again."

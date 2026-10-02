@@ -73,3 +73,16 @@
   .operations-table td { grid-template-columns: 1fr; }
   .operations-actions .button { width: 100%; }
 }
+/* In-place provenance and review flows; usable with keyboard and narrow screens. */
+.source-dialog { width: min(900px, calc(100vw - 32px)); max-height: 90vh; overflow-y: auto; border: 1px solid #ccd5e0; border-radius: 16px; padding: 24px; color: #173153; }
+.source-dialog::backdrop { background: rgba(15, 31, 52, .55); }
+[data-batch-map] { height: 360px; }
+.operations-actions { flex-wrap: wrap; }
+.operations-form input[type="checkbox"], .operations-table input[type="checkbox"] { width: auto; }
+.review-form { display: grid; gap: 16px; }
+.review-reasons { padding-left: 20px; margin: 8px 0; }
+.workflow-inline { margin: 12px 0; padding: 12px; border: 1px solid #d7e1eb; border-radius: 8px; }
+.workflow-inline summary { cursor: pointer; font-weight: 600; }
+.workflow-inline form { display: grid; gap: 12px; margin-top: 12px; }
+.operations-page, .source-dialog, .review-form { overflow-wrap: anywhere; }
+.operations-form input[type="search"] { margin-bottom: 8px; }

@@ -15,6 +15,7 @@ import '../auth/auth_screens.dart';
 import '../auth/session_controller.dart';
 import '../auth/setup_screens.dart';
 import '../dss/dss_controller.dart';
+import '../dss/dss_assessment_context.dart';
 import '../dss/dss_flow_view.dart';
 import '../evacuation/nearest_center_controller.dart';
 import '../evacuation/nearest_center_provider.dart';
@@ -664,31 +665,22 @@ class _ResidentShellState extends State<ResidentShell> {
       );
     }
     return DssFlowView(
-      key: ValueKey('dss-${result.susceptibility!.code}'),
       controller: _dss,
-      susceptibilityCode: result.susceptibility!.code,
+      assessmentContext: DssAssessmentContext.fromAssessment(
+        result,
+        intensities: _assessment.intensities,
+        durations: _assessment.durations,
+      ),
       scrollController: scrollController,
       padding: const EdgeInsets.fromLTRB(18, 0, 18, 28),
       header: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(result.area.name, style: Theme.of(context).textTheme.bodySmall),
           Text(
             'Preparedness',
             style: Theme.of(context).textTheme.headlineSmall,
           ),
-          const Text('Based on your scenario result'),
           const SizedBox(height: 12),
-          _SusceptibilityBanner(
-            result: result,
-            intensity: _assessment.selectedIntensity?.label ?? 'Not available',
-            duration: _assessment.selectedDuration?.label ?? 'Not available',
-          ),
-          const SizedBox(height: 10),
-          const _PlanningNotice(
-            text: 'Follow official authorities and emergency services during an emergency.',
-          ),
-          const SizedBox(height: 16),
         ],
       ),
       footer: _centers == null

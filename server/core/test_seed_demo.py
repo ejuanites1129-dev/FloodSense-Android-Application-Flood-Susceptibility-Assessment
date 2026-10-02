@@ -2,6 +2,7 @@ from decimal import Decimal
 from io import StringIO
 
 from django.contrib.gis.geos import MultiPolygon, Polygon
+from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
@@ -187,7 +188,11 @@ class SeedDemoCommandTests(TestCase):
         area.save(update_fields=("name",))
         guidance = GuidanceItem.objects.get(susceptibility_level__code="LOW")
         guidance.title = "Temporary local title"
-        guidance.save(update_fields=("title",))
+        # This library record is part of published presentation-1 history.
+        # Scenario/area demo refresh is still supported; linked DSS wording is
+        # append-only and must be revised through a new record/draft version.
+        with self.assertRaisesMessage(ValidationError, "is frozen"):
+            guidance.save(update_fields=("title",))
 
         self._seed()
 

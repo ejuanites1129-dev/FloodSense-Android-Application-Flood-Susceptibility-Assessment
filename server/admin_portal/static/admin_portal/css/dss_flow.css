@@ -1,0 +1,13 @@
+.dss-detail { overflow-wrap: anywhere; }
+.dss-record { border-top: 1px solid var(--border); padding: 18px 0; }
+.dss-record p { white-space: pre-wrap; line-height: 1.55; }
+.dss-record a { display: inline-block; margin: 6px 14px 6px 0; }
+.dss-record li { margin: 14px 0; }
+.dss-preview-host { max-width: 390px; width: 100%; margin: 20px auto; border: 3px solid #344054; border-radius: 16px; padding: 18px; overflow-wrap: anywhere; }
+.dss-preview-host h2 { font-size: 1.3rem; }
+.dss-preview-host p, .dss-preview-host li { white-space: pre-wrap; line-height: 1.6; }
+.dss-preview-host button { white-space: normal; width: 100%; margin: 5px 0; }
+.dss-preview-host a { overflow-wrap: anywhere; }
+.dss-preview-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+.dss-preview-controls button { flex: 1; }
+.dss-preview-source { border-top: 1px solid var(--border); font-size: .88rem; margin-top: 14px; }

@@ -1,0 +1,3 @@
+<div class="operations-actions field-group--wide">
+  {% for action, label in save_actions %}<button class="button {% if action == 'save' %}button--primary{% else %}button--secondary{% endif %}" type="submit" name="save_action" value="{{ action }}">{{ label }}</button>{% endfor %}
+</div>

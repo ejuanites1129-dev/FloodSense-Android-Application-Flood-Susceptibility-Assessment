@@ -168,7 +168,8 @@ class GuidanceManagementTests(TestCase):
         edit_url = reverse("admin_portal:guidance-edit", args=(self.item.pk,))
         response = self.client.post(
             edit_url,
-            self._form_data(title="Edited draft", display_order=5),
+            self._form_data(title="Edited draft", display_order=5,
+                            expected_updated_at=self.item.updated_at.isoformat()),
         )
         self.assertRedirects(response, reverse("admin_portal:dss-content"))
         self.item.refresh_from_db()

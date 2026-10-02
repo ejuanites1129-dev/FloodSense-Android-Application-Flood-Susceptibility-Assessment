@@ -1,0 +1,13 @@
+{% extends "admin_portal/base.html" %}
+{% load static %}
+{% block title %}Prepare preview | FloodSense{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'admin_portal/css/guidance.css' %}"><link rel="stylesheet" href="{% static 'admin_portal/css/dss_flow.css' %}">{% endblock %}
+{% block content %}
+<div class="guidance-page">
+  <section class="page-heading"><div><p class="eyebrow">Staff-only preview</p><h1>Resident-width Prepare preview</h1><p>{{ flow.title }} · {{ flow.version }} · {{ flow.get_workflow_status_display }}</p></div><a class="button button--secondary" href="{% url 'admin_portal:dss-flow-detail' flow.pk %}">Back to flow</a></section>
+  <section class="notice notice--warning"><strong>Preview only — not public guidance</strong><p>This preview reads the same serialized graph and content used by the resident API. Draft content requires validation and publication. Answers are temporary and are not stored.</p></section>
+  <section class="panel"><div id="dss-resident-preview" class="dss-preview-host" aria-live="polite"></div><noscript><p>Enable JavaScript for interactive preview. All ordered questions, outcomes, and source details remain available on the flow detail page.</p></noscript></section>
+  {{ structure|json_script:"dss-preview-structure" }}
+</div>
+{% endblock %}
+{% block extra_js %}<script src="{% static 'admin_portal/js/dss_flow_preview.js' %}" defer></script>{% endblock %}

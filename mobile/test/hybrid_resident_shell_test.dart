@@ -11,7 +11,10 @@ import 'test_data.dart';
 
 class _FakeDssRepository implements StructuredDssRepository {
   @override
-  Future<DssStep> start(String susceptibilityCode) async => const DssStep(
+  Future<DssStep> start(
+    String susceptibilityCode, {
+    required String operatingMode,
+  }) async => const DssStep(
     flowCode: 'preparedness',
     flowVersion: '1',
     title: 'Preparedness guidance',
@@ -38,6 +41,7 @@ class _FakeDssRepository implements StructuredDssRepository {
   Future<DssStep> answer({
     required DssStep current,
     required String susceptibilityCode,
+    required String operatingMode,
     required String optionCode,
   }) async => const DssStep(
     flowCode: 'preparedness',
@@ -279,7 +283,7 @@ void main() {
       await tester.tap(preparedness);
       await tester.pumpAndSettle();
       final validationStatus = find.text(
-        'Pending expert validation • Structured preparedness guide',
+        'Guidance data status: Demonstration — pending expert validation',
       );
       await _scrollTo(tester, validationStatus, const Key('dss-flow-view'));
       expect(validationStatus, findsOneWidget);

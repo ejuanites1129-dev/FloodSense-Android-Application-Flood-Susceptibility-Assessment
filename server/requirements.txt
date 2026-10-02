@@ -12,3 +12,5 @@ gunicorn>=23,<24
 pytest>=8,<9
 pytest-django>=4.11,<5
 ruff>=0.12,<1
+openpyxl>=3.1.5,<3.2
+defusedxml>=0.7.1,<0.8

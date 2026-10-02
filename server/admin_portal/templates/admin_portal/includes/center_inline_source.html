@@ -1,0 +1,16 @@
+<section class="panel" aria-labelledby="inline-source-heading">
+  <h2 id="inline-source-heading">Source workflow without losing this draft</h2>
+  <p>Review metadata or create a source in a dialog. Your unsaved center fields stay on this page.</p>
+  <div class="operations-actions">
+    {% if perms.provenance.add_datasource %}<button class="button button--secondary" type="button" data-inline-source-new data-url="{% url 'admin_portal:source-inline-create' %}">Create source here</button>{% endif %}
+    {% if perms.provenance.change_datasource %}<button class="button button--secondary" type="button" data-inline-source-edit data-url-pattern="{% url 'admin_portal:source-inline-edit' 0 %}">Review / correct selected pending source</button>{% endif %}
+  </div>
+  <p data-source-result role="status" aria-live="polite"></p>
+  <dl class="detail-grid" data-live-source-context></dl>
+  <noscript><p>JavaScript is required for the inline dialog. Save this center as a draft first, then open Sources to review it; no form values are silently discarded.</p></noscript>
+</section>
+<dialog class="source-dialog" data-source-dialog aria-labelledby="source-dialog-heading">
+  <div class="operations-actions"><h2 id="source-dialog-heading">Source metadata</h2><button type="button" class="button button--secondary" data-source-close>Close and keep center fields</button></div>
+  <p data-source-dialog-status role="status" aria-live="polite"></p><div data-source-dialog-body></div>
+</dialog>
+{{ source_metadata|json_script:'center-source-metadata' }}

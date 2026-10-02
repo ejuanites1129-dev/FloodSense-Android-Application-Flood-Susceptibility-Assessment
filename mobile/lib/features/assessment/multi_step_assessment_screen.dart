@@ -4,6 +4,7 @@ import '../../app/theme/app_colors.dart';
 import '../../data/api/floodsense_api_client.dart';
 import '../../data/dss/structured_dss_repository.dart';
 import '../dss/dss_controller.dart';
+import '../dss/dss_assessment_context.dart';
 import '../dss/dss_flow_view.dart';
 import '../evacuation/nearest_center_controller.dart';
 import '../evacuation/nearest_center_provider.dart';
@@ -380,6 +381,7 @@ class _MultiStepAssessmentScreenState extends State<MultiStepAssessmentScreen> {
           result: result,
           intensity: _assessment.selectedIntensity!,
           duration: _assessment.selectedDuration!,
+          showGuidance: false,
         )
       else
         LimitationResultCard(result: result),
@@ -404,7 +406,11 @@ class _MultiStepAssessmentScreenState extends State<MultiStepAssessmentScreen> {
         Expanded(
           child: DssFlowView(
             controller: _dss,
-            susceptibilityCode: result.susceptibility!.code,
+            assessmentContext: DssAssessmentContext.fromAssessment(
+              result,
+              intensities: _assessment.intensities,
+              durations: _assessment.durations,
+            ),
           ),
         ),
         if (_centers case final centers?)

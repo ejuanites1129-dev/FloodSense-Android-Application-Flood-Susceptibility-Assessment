@@ -2,10 +2,11 @@
 {% load static %}
 
 {% block title %}DSS content | FloodSense Admin{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{% static 'admin_portal/css/guidance.css' %}">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'admin_portal/css/guidance.css' %}"><link rel="stylesheet" href="{% static 'admin_portal/css/operations.css' %}">{% endblock %}
 
 {% block content %}
 <div class="guidance-page">
+  {% include 'admin_portal/includes/review_link.html' with review_module='guidance' %}
   <section class="page-heading guidance-heading">
     <div>
       <p class="eyebrow">Preparedness guidance</p>
@@ -14,6 +15,11 @@
     </div>
     {% if can_add %}<a class="button button--primary" href="{% url 'admin_portal:guidance-create' %}">Create guidance</a>{% endif %}
   </section>
+
+  <nav class="panel guidance-form-actions" aria-label="DSS inventories">
+    <span aria-current="page">Assessment guidance items</span>
+    {% if can_view_flows %}<a href="{% url 'admin_portal:dss-flow-list' %}">Structured Prepare flow versions</a>{% endif %}
+  </nav>
 
   <section class="notice notice--warning" aria-label="DSS safety boundary">
     <strong>Guidance never changes an assessment result</strong>
@@ -89,7 +95,7 @@
                   <div class="guidance-actions">
                     {% if can_change and item.workflow_status == 'DRAFT' %}<a href="{% url 'admin_portal:guidance-edit' item_id=item.pk %}">Edit draft</a>{% endif %}
                     {% for transition in item.portal_transitions %}
-                      <a href="{% url 'admin_portal:guidance-transition' item_id=item.pk action=transition.action %}">{{ transition.label }}</a>
+                      <details class="workflow-inline"><summary>{{ transition.label }}</summary><p>{{ transition.confirmation }}</p><form method="post" action="{% url 'admin_portal:guidance-transition' item.pk transition.action %}">{% csrf_token %}<input name="expected_status" type="hidden" value="{{ item.workflow_status }}"><input name="expected_updated_at" type="hidden" value="{{ item.updated_at|date:'c' }}"><label><input type="checkbox" name="confirm" required> I confirm this workflow action.</label><button type="submit" class="button button--secondary">{{ transition.label }}</button></form></details>
                     {% empty %}
                       {% if not can_change %}<span class="guidance-meta">View only</span>{% endif %}
                     {% endfor %}

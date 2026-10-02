@@ -119,15 +119,16 @@ def test_center_create_ignores_excluded_mass_assignment_and_requires_csrf(day5_r
 def test_center_create_and_audit_are_atomic(day5_records, client):
     source, area, _, actor = day5_records
     client.force_login(actor)
-    with patch("admin_portal.views.log_center_action", side_effect=RuntimeError("audit failed")):
+    # The save now lives in the shared combined-action service, not the legacy view.
+    with patch(
+        "admin_portal.record_workflows.log_center_action", side_effect=RuntimeError("audit failed")
+    ):
         with pytest.raises(RuntimeError, match="audit failed"):
             client.post(
                 reverse("admin_portal:evacuation-center-create"),
                 _center_form_data(source, area),
             )
-    assert not EvacuationCenter.objects.filter(
-        name="SYNTHETIC CRAFTED CENTER - NOT REAL"
-    ).exists()
+    assert not EvacuationCenter.objects.filter(name="SYNTHETIC CRAFTED CENTER - NOT REAL").exists()
 
 
 def test_sensitive_workflows_roll_back_when_audit_fails(day5_records):
@@ -158,9 +159,7 @@ def test_sensitive_workflows_roll_back_when_audit_fails(day5_records):
     assert LogEntry.objects.count() == 0
 
 
-def test_deleted_center_and_source_during_confirmed_transition_are_not_found(
-    day5_records, client
-):
+def test_deleted_center_and_source_during_confirmed_transition_are_not_found(day5_records, client):
     source, _, center, actor = day5_records
     client.force_login(actor)
     with patch(

@@ -44,9 +44,7 @@ TRANSITIONS = {
             source_status=GuidanceItem.WorkflowStatus.IN_REVIEW,
             target_status=GuidanceItem.WorkflowStatus.APPROVED,
             permission="dss.approve_guidanceitem",
-            confirmation=(
-                "Approval records review completion but does not publish this item."
-            ),
+            confirmation=("Approval records review completion but does not publish this item."),
         ),
         Transition(
             action="revise",
@@ -73,9 +71,7 @@ TRANSITIONS = {
             source_status=GuidanceItem.WorkflowStatus.PUBLISHED,
             target_status=GuidanceItem.WorkflowStatus.APPROVED,
             permission="dss.publish_guidanceitem",
-            confirmation=(
-                "The item will stop appearing in new resident-facing DSS responses."
-            ),
+            confirmation=("The item will stop appearing in new resident-facing DSS responses."),
         ),
     )
 }
@@ -104,7 +100,7 @@ def log_guidance_action(
 
 @transaction.atomic
 def transition_guidance(
-    *, item_id: int, action: str, actor, expected_status: str
+    *, item_id: int, action: str, actor, expected_status: str, expected_updated_at=None
 ) -> GuidanceItem:
     transition = TRANSITIONS.get(action)
     if transition is None:
@@ -117,6 +113,10 @@ def transition_guidance(
         .select_related("source", "susceptibility_level")
         .get(pk=item_id)
     )
+    if expected_updated_at is not None:
+        from core.record_workflow import require_fresh
+
+        require_fresh(item, expected_updated_at)
     if item.workflow_status != expected_status:
         raise ValidationError(
             "This guidance item changed after the confirmation page was opened. "
