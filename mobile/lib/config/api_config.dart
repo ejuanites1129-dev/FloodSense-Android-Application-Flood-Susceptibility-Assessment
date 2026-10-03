@@ -3,6 +3,10 @@ import 'package:flutter/foundation.dart';
 abstract final class ApiConfig {
   static const androidEmulatorBaseUrl = 'http://10.0.2.2:8000/api/v1';
   static const webDevelopmentBaseUrl = 'http://127.0.0.1:8000/api/v1';
+  static const localCenterPreviewRequested = bool.fromEnvironment(
+    'FLOODSENSE_ENABLE_LOCAL_CENTER_PREVIEW',
+    defaultValue: false,
+  );
 
   static const _configuredBaseUrl = String.fromEnvironment(
     'FLOODSENSE_API_BASE_URL',

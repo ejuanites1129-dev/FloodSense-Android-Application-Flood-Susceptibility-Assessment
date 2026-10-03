@@ -20,7 +20,9 @@ class NearestCentersSection extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Nearby verified center information',
+              controller.isDemonstration
+                  ? 'Local test center preview'
+                  : 'Nearby verified center information',
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 6),
@@ -96,17 +98,14 @@ class _CenterCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final selected =
         controller.selectedCenterIdentifier == center.publicIdentifier;
-    final verifiedDate =
-        '${center.verifiedOn.year.toString().padLeft(4, '0')}-'
-        '${center.verifiedOn.month.toString().padLeft(2, '0')}-'
-        '${center.verifiedOn.day.toString().padLeft(2, '0')}';
+    final verificationLabel = center.verificationLabel;
     return Semantics(
       button: true,
       selected: selected,
       excludeSemantics: true,
       label:
           '${center.name}. ${center.distanceLabel}. '
-          'Verified on $verifiedDate. '
+          '$verificationLabel. '
           '${center.barangay.name}, PSGC ${center.barangay.psgcCode}. '
           'Address: ${center.address}. '
           'Source: ${center.sourceAttribution}. '
@@ -142,7 +141,7 @@ class _CenterCard extends StatelessWidget {
                 key: Key('nearest-center-distance-${center.publicIdentifier}'),
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
-              Text('Verified on $verifiedDate'),
+              Text(verificationLabel),
               Text('Source: ${center.sourceAttribution}'),
               for (final limitation in center.limitations)
                 Padding(

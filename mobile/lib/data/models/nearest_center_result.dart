@@ -2,6 +2,9 @@ import 'json_parsing.dart';
 import 'verified_center.dart';
 
 const nearestCenterDistanceMethod = 'APPROXIMATE_STRAIGHT_LINE';
+const localCenterPreviewWarning =
+    'LOCAL DEMONSTRATION - NOT A REAL EVACUATION CENTER. '
+    'Display test only; not verified, open, or available for use.';
 const nearestCenterDistanceWarning =
     'Distances are approximate straight-line measurements. They do not '
     'represent road distance, route safety, accessibility, availability, or '
@@ -27,21 +30,27 @@ final class NearestCenterResult {
     required List<VerifiedCenter> centers,
     required this.distanceMethod,
     required List<String> warnings,
+    this.isDemonstration = false,
   }) : centers = List.unmodifiable(centers),
        warnings = List.unmodifiable(warnings);
 
   factory NearestCenterResult.fromJson(
     Map<String, dynamic> json, {
     int requestedLimit = 3,
+    bool localPreview = false,
   }) {
     if (requestedLimit < 1 || requestedLimit > 10) {
       throw const ModelParsingException('Invalid requested center limit.');
     }
-    _requireExactKeys(json, const {
+    _requireExactKeys(json, {
       'centers',
       'distance_method',
       'warnings',
+      if (localPreview) 'data_status',
     }, 'nearest-center response');
+    if (localPreview && json['data_status'] != 'DEMONSTRATION') {
+      throw const ModelParsingException('Invalid local preview status.');
+    }
 
     final distanceMethod = _strictText(json, 'distance_method');
     if (distanceMethod != nearestCenterDistanceMethod) {
@@ -53,7 +62,12 @@ final class NearestCenterResult {
       throw const ModelParsingException('Too many centers in response.');
     }
     final centers = centerItems
-        .map((item) => _parseCenter(requireMap(item, 'center')))
+        .map(
+          (item) => _parseCenter(
+            requireMap(item, 'center'),
+            localPreview: localPreview,
+          ),
+        )
         .toList(growable: false);
     if (centers.map((item) => item.publicIdentifier).toSet().length !=
         centers.length) {
@@ -61,7 +75,14 @@ final class NearestCenterResult {
     }
 
     final warnings = _strictTextList(json['warnings'], 'warnings');
-    final expectedWarnings = centers.isEmpty
+    final expectedWarnings = localPreview
+        ? [
+            localCenterPreviewWarning,
+            centers.isEmpty
+                ? nearestCenterEmptyDistanceWarning
+                : nearestCenterDistanceWarning,
+          ]
+        : centers.isEmpty
         ? const [nearestCenterEmptyWarning, nearestCenterEmptyDistanceWarning]
         : const [nearestCenterDistanceWarning];
     if (!_sameStrings(warnings, expectedWarnings)) {
@@ -72,16 +93,21 @@ final class NearestCenterResult {
       centers: centers,
       distanceMethod: distanceMethod,
       warnings: warnings,
+      isDemonstration: localPreview,
     );
   }
 
   final List<VerifiedCenter> centers;
   final String distanceMethod;
   final List<String> warnings;
+  final bool isDemonstration;
 }
 
-VerifiedCenter _parseCenter(Map<String, dynamic> json) {
-  _requireExactKeys(json, const {
+VerifiedCenter _parseCenter(
+  Map<String, dynamic> json, {
+  bool localPreview = false,
+}) {
+  _requireExactKeys(json, {
     'public_identifier',
     'name',
     'address',
@@ -93,7 +119,14 @@ VerifiedCenter _parseCenter(Map<String, dynamic> json) {
     'verified_on',
     'source_attribution',
     'limitations',
+    if (localPreview) 'data_status',
   }, 'center');
+  if (localPreview &&
+      (json['data_status'] != 'DEMONSTRATION' ||
+          json['verified_on'] != null ||
+          !_strictText(json, 'name').startsWith('LOCAL TEST -'))) {
+    throw const ModelParsingException('Invalid synthetic center.');
+  }
 
   final identifier = _strictText(json, 'public_identifier');
   if (!RegExp(
@@ -126,8 +159,10 @@ VerifiedCenter _parseCenter(Map<String, dynamic> json) {
   }
 
   final limitations = _strictTextList(json['limitations'], 'limitations');
-  const requiredLimitations = [
-    nearestCenterVerificationLimitation,
+  final requiredLimitations = [
+    localPreview
+        ? localCenterPreviewWarning
+        : nearestCenterVerificationLimitation,
     nearestCenterReferenceWarning,
     nearestCenterBoundaryLimitation,
   ];
@@ -153,7 +188,8 @@ VerifiedCenter _parseCenter(Map<String, dynamic> json) {
       longitude: longitude,
       approximateDistance: distance,
       distanceUnit: CenterDistanceUnit.meters,
-      verifiedOn: _strictDate(json, 'verified_on'),
+      verifiedOn: localPreview ? null : _strictDate(json, 'verified_on'),
+      isDemonstration: localPreview,
       sourceAttribution: _strictText(json, 'source_attribution'),
       limitations: limitations,
     );

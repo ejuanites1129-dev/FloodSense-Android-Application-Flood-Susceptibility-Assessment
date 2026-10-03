@@ -46,12 +46,14 @@ final class NearestCenterController extends ChangeNotifier {
   _ConfirmedLocationKey? _activeLocation;
   int _generation = 0;
   bool _disposed = false;
+  bool _isDemonstration = false;
 
   NearestCenterPhase get phase => _phase;
   List<VerifiedCenter> get centers => _centers;
   List<String> get warnings => _warnings;
   String? get distanceMethod => _distanceMethod;
   String? get selectedCenterIdentifier => _selectedCenterIdentifier;
+  bool get isDemonstration => _isDemonstration;
   bool get canRetry => switch (_phase) {
     NearestCenterPhase.offline ||
     NearestCenterPhase.timeout ||
@@ -68,8 +70,11 @@ final class NearestCenterController extends ChangeNotifier {
     NearestCenterPhase.loading =>
       'Requesting nearby verified center information...',
     NearestCenterPhase.resultsAvailable =>
-      '${_centers.length} verified center${_centers.length == 1 ? '' : 's'} returned in the service order.',
-    NearestCenterPhase.empty => 'No verified eligible center information is currently available for this request. This does not mean that no evacuation centers exist in Bacoor.',
+      _isDemonstration
+          ? '${_centers.length} local test center${_centers.length == 1 ? '' : 's'} - not real facilities.'
+          : '${_centers.length} verified center${_centers.length == 1 ? '' : 's'} returned in the service order.',
+    NearestCenterPhase.empty =>
+      _isDemonstration ? 'No local demonstration centers match this request.' : 'No verified eligible center information is currently available for this request. This does not mean that no evacuation centers exist in Bacoor.',
     NearestCenterPhase.offline => 'Center information could not be requested while offline. Your confirmed location and assessment choices are unchanged.',
     NearestCenterPhase.timeout => 'The center request timed out. Your confirmed location and assessment choices are unchanged.',
     NearestCenterPhase.serverUnavailable => 'Verified center information is temporarily unavailable. Your confirmed location and assessment choices are unchanged.',
@@ -176,6 +181,7 @@ final class NearestCenterController extends ChangeNotifier {
         return;
       }
       _centers = List.unmodifiable(centers);
+      _isDemonstration = result.isDemonstration;
       _warnings = List.unmodifiable(result.warnings);
       _distanceMethod = result.distanceMethod;
       _setPhase(
@@ -214,6 +220,7 @@ final class NearestCenterController extends ChangeNotifier {
       !_disposed && generation == _generation && location == _activeLocation;
 
   void _invalidate() {
+    _isDemonstration = false;
     _generation++;
     _activeLocation = null;
     _centers = const [];

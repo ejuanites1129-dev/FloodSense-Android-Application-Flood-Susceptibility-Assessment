@@ -217,15 +217,18 @@ class _ResidentShellState extends State<ResidentShell> {
       }
     },
     child: Scaffold(
-      body: IndexedStack(
-        index: _index == 3 ? 1 : 0,
-        children: [
-          AnimatedBuilder(
-            animation: _assessment,
-            builder: (context, _) => _mapExperience(context),
-          ),
-          AccountScreen(session: widget.session, api: widget.api),
-        ],
+      body: SafeArea(
+        bottom: false,
+        child: IndexedStack(
+          index: _index == 3 ? 1 : 0,
+          children: [
+            AnimatedBuilder(
+              animation: _assessment,
+              builder: (context, _) => _mapExperience(context),
+            ),
+            AccountScreen(session: widget.session, api: widget.api),
+          ],
+        ),
       ),
       bottomNavigationBar: NavigationBar(
         key: const Key('resident-bottom-navigation'),
@@ -272,10 +275,10 @@ class _ResidentShellState extends State<ResidentShell> {
         nearestCenterController: _centers,
         showBasemap: widget.showBasemap,
       ),
-      const _MapBrandBar(),
       Positioned(
-        top: MediaQuery.paddingOf(context).top + 68,
+        top: 10,
         left: 14,
+        right: 76,
         child: _ScenarioChip(
           assessment: _assessment,
           onTap: () {
@@ -699,49 +702,34 @@ class _ResidentShellState extends State<ResidentShell> {
   }
 }
 
-class _MapBrandBar extends StatelessWidget {
-  const _MapBrandBar();
+class _FloodSenseBrand extends StatelessWidget {
+  const _FloodSenseBrand();
 
   @override
-  Widget build(BuildContext context) => Positioned(
-    top: 0,
-    left: 0,
-    right: 0,
-    child: Material(
-      color: AppColors.surface,
-      elevation: 2,
-      child: SafeArea(
-        bottom: false,
-        child: SizedBox(
-          height: 58,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.waves, color: Colors.white),
-                ),
-                const SizedBox(width: 10),
-                const Text(
-                  'FloodSense',
-                  style: TextStyle(
-                    color: AppColors.primary,
-                    fontSize: 21,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
+  Widget build(BuildContext context) => Row(
+    key: const Key('profile-brand'),
+    children: [
+      Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: AppColors.primary,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: const Icon(Icons.waves, color: Colors.white),
+      ),
+      const SizedBox(width: 10),
+      const Flexible(
+        child: Text(
+          'FloodSense',
+          style: TextStyle(
+            color: AppColors.primary,
+            fontSize: 21,
+            fontWeight: FontWeight.w800,
           ),
         ),
       ),
-    ),
+    ],
   );
 }
 
@@ -777,13 +765,15 @@ class _ScenarioChip extends StatelessWidget {
                 size: 20,
               ),
               const SizedBox(width: 8),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 220),
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+              Flexible(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 220),
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
                 ),
               ),
               const SizedBox(width: 4),
@@ -1252,19 +1242,12 @@ class AccountScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = session.user!;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'FloodSense',
-          style: TextStyle(
-            color: AppColors.primary,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-      ),
       body: ListView(
         key: const Key('profile-secondary-options'),
         padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
         children: [
+          const _FloodSenseBrand(),
+          const SizedBox(height: 14),
           Text('Profile', style: Theme.of(context).textTheme.headlineMedium),
           const SizedBox(height: 14),
           Card(

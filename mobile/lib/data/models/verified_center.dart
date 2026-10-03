@@ -14,6 +14,7 @@ final class VerifiedCenter {
     required this.approximateDistance,
     required this.distanceUnit,
     required this.verifiedOn,
+    this.isDemonstration = false,
     required String sourceAttribution,
     List<String> limitations = const [],
   }) : publicIdentifier = _requiredText(publicIdentifier, 'publicIdentifier'),
@@ -28,6 +29,9 @@ final class VerifiedCenter {
        ) {
     _coordinate(latitude, 'latitude', -90, 90);
     _coordinate(longitude, 'longitude', -180, 180);
+    if (isDemonstration ? verifiedOn != null : verifiedOn == null) {
+      throw ArgumentError('Only verified records have a verification date.');
+    }
     if (!approximateDistance.isFinite || approximateDistance < 0) {
       throw ArgumentError.value(
         approximateDistance,
@@ -45,9 +49,20 @@ final class VerifiedCenter {
   final double longitude;
   final double approximateDistance;
   final CenterDistanceUnit distanceUnit;
-  final DateTime verifiedOn;
+  final DateTime? verifiedOn;
+  final bool isDemonstration;
   final String sourceAttribution;
   final List<String> limitations;
+
+  String get verificationLabel {
+    if (isDemonstration) {
+      return 'LOCAL TEST - not verified; not a real facility';
+    }
+    final date = verifiedOn!;
+    return 'Verified on ${date.year.toString().padLeft(4, '0')}-'
+        '${date.month.toString().padLeft(2, '0')}-'
+        '${date.day.toString().padLeft(2, '0')}';
+  }
 
   String get distanceLabel => switch (distanceUnit) {
     CenterDistanceUnit.meters =>

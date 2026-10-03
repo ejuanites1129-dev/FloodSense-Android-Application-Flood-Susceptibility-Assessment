@@ -109,6 +109,17 @@ def current_published_legal_documents():
     ).prefetch_related("sections")
 
 
+def _local_tester_setup_bypass(user: User) -> bool:
+    return bool(
+        settings.DEBUG
+        and settings.DATABASES["default"].get("HOST")
+        in {"localhost", "127.0.0.1", "::1"}
+        and user.is_active
+        and user.email_verified_at is not None
+        and user.email.strip().lower() in settings.LOCAL_TESTER_EMAILS
+    )
+
+
 def setup_status_for(user: User) -> dict[str, object]:
     legal = list(current_published_legal_documents())
     configured_types = {document.document_type for document in legal}
@@ -133,8 +144,11 @@ def setup_status_for(user: User) -> dict[str, object]:
         ).exists()
     )
     setup_configured = legal_configured and onboarding is not None
+    tester_bypass = _local_tester_setup_bypass(user)
     if user.email_verified_at is None:
         stage = "awaiting_email_verification"
+    elif tester_bypass:
+        stage = "authenticated_ready"
     elif not setup_configured:
         stage = "configuration_required"
     elif missing:
@@ -150,6 +164,7 @@ def setup_status_for(user: User) -> dict[str, object]:
         "onboarding_version": onboarding.version if onboarding else None,
         "onboarding_pending": onboarding_pending,
         "setup_configured": setup_configured,
+        "setup_bypassed_for_testing": tester_bypass,
         "missing_configuration": [
             *([] if LegalDocumentVersion.DocumentType.TERMS in configured_types else ["TERMS"]),
             *([] if LegalDocumentVersion.DocumentType.PRIVACY in configured_types else ["PRIVACY"]),

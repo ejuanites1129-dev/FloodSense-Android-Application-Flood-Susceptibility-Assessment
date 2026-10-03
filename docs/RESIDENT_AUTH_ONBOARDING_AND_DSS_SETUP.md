@@ -39,6 +39,31 @@ deadline used by the resident-controlled 30-day recovery flow. It preserves
 existing deletion records and does not delete any account when the migration is
 applied.
 
+### Local tester exception — 3 October 2026
+
+At the local developer's explicit request, a verified, active tester can skip
+Terms, Privacy, and onboarding setup on their local development backend. This
+is a local testing exception, not adviser approval or a change to resident or
+production publication requirements.
+
+Add the tester's email address to `FLOODSENSE_LOCAL_TESTER_EMAILS` in the private
+`server/.env` (comma-separated for multiple explicitly authorized testers), then
+restart Django. The exception requires `DJANGO_DEBUG=true` and a database host
+of `localhost`, `127.0.0.1`, or `::1`. Its default is empty; staff/superuser status
+alone grants no exception. Email verification and normal authentication still
+apply. Keep real tester addresses out of committed files.
+
+The API returns `authenticated_ready` with `setup_bypassed_for_testing=true`
+for eligible testers, while retaining truthful publication/acceptance status.
+It does not publish drafts or create Terms acceptance or onboarding records.
+The existing mobile app supports this stage; press **Check Again** on the setup
+screen or sign in again. No Flutter rebuild, dependency install, migration, or
+seed/import is needed after pulling this change. Each teammate must explicitly
+configure their own local tester; Git does not transfer the private allowlist.
+
+Remove the email from the private setting and restart Django to restore normal
+setup requirements for subsequent sign-ins and setup checks.
+
 ## Teammate handoff after pulling this change
 
 Run these commands from the repository root. Keep the teammate's existing

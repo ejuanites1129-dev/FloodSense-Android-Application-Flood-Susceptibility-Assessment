@@ -155,6 +155,9 @@ class _FloodMapboxSurfaceState extends State<_FloodMapboxSurface> {
       left: widget.presentation.controlsOnRight ? null : 8,
       right: widget.presentation.controlsOnRight ? 8 : null,
       child: Column(
+        crossAxisAlignment: widget.presentation.controlsOnRight
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
         children: [
           _MapboxControl(
             label: 'Zoom in',
@@ -192,6 +195,10 @@ class _FloodMapboxSurfaceState extends State<_FloodMapboxSurface> {
               onPressed: _togglePerspective,
             ),
           ],
+          if (widget.presentation.controlsOnRight) ...[
+            const SizedBox(height: 6),
+            _CameraHeightBadge(label: _cameraHeightLabel),
+          ],
         ],
       ),
     );
@@ -221,12 +228,12 @@ class _FloodMapboxSurfaceState extends State<_FloodMapboxSurface> {
               onMapLoadErrorListener: (_) => _reportUnavailable(),
             ),
             controls,
-            Positioned(
-              top: 8,
-              left: widget.presentation.controlsOnRight ? 8 : null,
-              right: widget.presentation.controlsOnRight ? null : 8,
-              child: _CameraHeightBadge(label: _cameraHeightLabel),
-            ),
+            if (!widget.presentation.controlsOnRight)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: _CameraHeightBadge(label: _cameraHeightLabel),
+              ),
           ],
         );
       },

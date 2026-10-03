@@ -183,9 +183,28 @@ void main() {
       final api = FakeFloodSenseApi();
       final auth = FakeResidentAuthRepository()
         ..restoration = testSession(SetupStage.authenticatedReady);
+      tester.view.padding = const FakeViewPadding(top: 24);
+      addTearDown(tester.view.resetPadding);
       await _pumpApp(tester, auth: auth, api: api, size: const Size(320, 640));
 
       expect(find.byKey(const Key('resident-hybrid-map')), findsOneWidget);
+      expect(find.text('FloodSense'), findsNothing);
+      expect(find.byIcon(Icons.waves), findsNothing);
+      expect(find.byType(AppBar), findsNothing);
+      expect(
+        tester.getTopLeft(find.byKey(const Key('resident-hybrid-map'))).dy,
+        24,
+      );
+      final scenarioBounds = tester.getRect(
+        find.byKey(const Key('map-scenario-chip')),
+      );
+      final zoomBounds = tester.getRect(find.byTooltip('Zoom in'));
+      expect(scenarioBounds.top, 34);
+      expect(scenarioBounds.overlaps(zoomBounds), isFalse);
+      expect(
+        tester.getTopLeft(find.byKey(const Key('bacoor-coverage-legend'))).dy,
+        greaterThan(scenarioBounds.bottom),
+      );
       final coverage = tester.widget<PolygonLayer<int>>(
         find.byKey(const Key('hybrid-bacoor-coverage-mask')),
       );
@@ -199,6 +218,7 @@ void main() {
 
       await tester.tap(find.byKey(const Key('resident-nav-assess')));
       await tester.pumpAndSettle();
+      expect(find.text('FloodSense'), findsNothing);
       expect(
         find.byKey(const Key('hybrid-assessment-scenario')),
         findsOneWidget,
@@ -282,6 +302,7 @@ void main() {
       );
       await tester.tap(preparedness);
       await tester.pumpAndSettle();
+      expect(find.text('FloodSense'), findsNothing);
       final validationStatus = find.text(
         'Guidance data status: Demonstration — pending expert validation',
       );
@@ -306,6 +327,14 @@ void main() {
 
     await tester.tap(find.byKey(const Key('resident-nav-profile')));
     await tester.pumpAndSettle();
+    expect(find.byType(AppBar), findsNothing);
+    expect(find.byKey(const Key('profile-brand')), findsOneWidget);
+    expect(find.text('FloodSense'), findsOneWidget);
+    expect(find.byIcon(Icons.waves), findsOneWidget);
+    expect(
+      tester.getBottomLeft(find.byKey(const Key('profile-brand'))).dy,
+      lessThan(tester.getTopLeft(find.text('Profile').first).dy),
+    );
     expect(find.byKey(const Key('profile-secondary-options')), findsOneWidget);
     expect(find.byKey(const Key('profile-preferences')), findsOneWidget);
     expect(find.textContaining('Live alerts are not enabled'), findsOneWidget);

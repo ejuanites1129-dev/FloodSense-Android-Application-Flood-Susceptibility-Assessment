@@ -31,6 +31,7 @@ ENABLE_PROVISIONAL_MGB_PREVIEW = env_bool(
     "FLOODSENSE_ENABLE_PROVISIONAL_MGB_PREVIEW",
     False,
 )
+ENABLE_LOCAL_CENTER_PREVIEW = env_bool("FLOODSENSE_ENABLE_LOCAL_CENTER_PREVIEW", False)
 
 # Optional presentation provider. Mapbox is enabled only with a public `pk.`
 # browser token; missing, invalid, and secret tokens always fall back to the
@@ -243,6 +244,12 @@ ACCOUNT_DELETION_GRACE_DAYS = int(
 )
 RESIDENT_APP_PUBLIC_URL = os.getenv(
     "FLOODSENSE_RESIDENT_APP_PUBLIC_URL", "http://localhost:3000"
+)
+# Explicit local testers only; the service also requires DEBUG and a local DB.
+LOCAL_TESTER_EMAILS = frozenset(
+    email.strip().lower()
+    for email in os.getenv("FLOODSENSE_LOCAL_TESTER_EMAILS", "").split(",")
+    if email.strip()
 )
 GOOGLE_OAUTH_WEB_CLIENT_ID = os.getenv("GOOGLE_OAUTH_WEB_CLIENT_ID", "").strip()
 

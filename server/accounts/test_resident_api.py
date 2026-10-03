@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from types import SimpleNamespace
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlparse
 
@@ -397,6 +398,113 @@ class ResidentSetupAndAccountTests(TestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertEqual(response.data["id"], expected.pk)
                 self.assertFalse(response.data["prototype_draft"])
+
+    def test_local_tester_can_sign_in_and_refresh_setup_without_published_content(self):
+        with override_settings(
+            DEBUG=True, LOCAL_TESTER_EMAILS=frozenset((self.user.email,))
+        ):
+            self.client.force_authenticate(None)
+            login = self.client.post(
+                "/api/v1/auth/login/",
+                {"identifier": "resident", "password": "Strong-Test-Password-482!"},
+                format="json",
+            )
+            self.assertEqual(login.status_code, 200)
+            self.assertEqual(login.data["setup"]["stage"], "authenticated_ready")
+            self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {login.data['access']}")
+            setup = self.client.get("/api/v1/auth/setup-status/")
+        self.assertEqual(setup.status_code, 200)
+        self.assertEqual(setup.data["stage"], "authenticated_ready")
+        self.assertTrue(setup.data["setup_bypassed_for_testing"])
+        self.assertFalse(setup.data["setup_configured"])
+        self.assertEqual(setup.data["missing_configuration"], ["TERMS", "PRIVACY", "ONBOARDING"])
+        self.assertFalse(LegalAcceptance.objects.filter(user=self.user).exists())
+        self.assertFalse(OnboardingAcknowledgement.objects.filter(user=self.user).exists())
+        self.assertFalse(LegalDocumentVersion.objects.filter(status="PUBLISHED").exists())
+        self.assertFalse(OnboardingVersion.objects.filter(status="PUBLISHED").exists())
+
+    def test_unlisted_accounts_including_staff_keep_the_normal_setup_gate(self):
+        self.user.is_staff = True
+        self.user.is_superuser = True
+        self.user.save(update_fields=("is_staff", "is_superuser"))
+        for emails in (frozenset(), frozenset(("other.tester@example.com",))):
+            with self.subTest(emails=emails), override_settings(
+                DEBUG=True, LOCAL_TESTER_EMAILS=emails
+            ):
+                setup = self.client.get("/api/v1/auth/setup-status/")
+                self.assertEqual(setup.data["stage"], "configuration_required")
+                self.assertFalse(setup.data["setup_bypassed_for_testing"])
+
+    def test_tester_exception_is_disabled_when_debug_is_false(self):
+        with override_settings(
+            DEBUG=False, LOCAL_TESTER_EMAILS=frozenset((self.user.email,))
+        ):
+            setup = self.client.get("/api/v1/auth/setup-status/")
+        self.assertEqual(setup.data["stage"], "configuration_required")
+        self.assertFalse(setup.data["setup_bypassed_for_testing"])
+
+    def test_tester_exception_is_disabled_for_a_remote_database(self):
+        # Replace only the service's settings view, preserving the isolated test DB.
+        remote_settings = SimpleNamespace(
+            DEBUG=True,
+            DATABASES={"default": {"HOST": "database.example.com"}},
+            LOCAL_TESTER_EMAILS=frozenset((self.user.email,)),
+        )
+        with patch("accounts.services.settings", remote_settings):
+            setup = self.client.get("/api/v1/auth/setup-status/")
+        self.assertEqual(setup.data["stage"], "configuration_required")
+        self.assertFalse(setup.data["setup_bypassed_for_testing"])
+
+    def test_tester_exception_does_not_skip_email_verification(self):
+        self.user.email_verified_at = None
+        self.user.save(update_fields=("email_verified_at",))
+        with override_settings(
+            DEBUG=True, LOCAL_TESTER_EMAILS=frozenset((self.user.email,))
+        ):
+            setup = self.client.get("/api/v1/auth/setup-status/")
+            self.assertEqual(setup.data["stage"], "awaiting_email_verification")
+            self.assertFalse(setup.data["setup_bypassed_for_testing"])
+            self.client.force_authenticate(None)
+            login = self.client.post(
+                "/api/v1/auth/login/",
+                {"identifier": "resident", "password": "Strong-Test-Password-482!"},
+                format="json",
+            )
+        self.assertEqual(login.status_code, 403)
+        self.assertTrue(login.data["email_verification_required"])
+
+    def test_inactive_tester_cannot_use_the_exception(self):
+        self.user.is_active = False
+        self.user.save(update_fields=("is_active",))
+        with override_settings(
+            DEBUG=True, LOCAL_TESTER_EMAILS=frozenset((self.user.email,))
+        ):
+            setup = self.client.get("/api/v1/auth/setup-status/")
+            self.assertFalse(setup.data["setup_bypassed_for_testing"])
+            self.client.force_authenticate(None)
+            login = self.client.post(
+                "/api/v1/auth/login/",
+                {"identifier": "resident", "password": "Strong-Test-Password-482!"},
+                format="json",
+            )
+        self.assertEqual(login.status_code, 401)
+
+    def test_tester_can_skip_published_gates_without_recording_acceptance(self):
+        terms = self._published_legal(LegalDocumentVersion.DocumentType.TERMS)
+        privacy = self._published_legal(LegalDocumentVersion.DocumentType.PRIVACY)
+        OnboardingVersion.objects.create(
+            version="1", status="PUBLISHED", published_at=timezone.now()
+        )
+        with override_settings(
+            DEBUG=True, LOCAL_TESTER_EMAILS=frozenset((self.user.email,))
+        ):
+            setup = self.client.get("/api/v1/auth/setup-status/")
+        self.assertEqual(setup.data["stage"], "authenticated_ready")
+        self.assertTrue(setup.data["setup_configured"])
+        self.assertCountEqual(setup.data["missing_legal_document_ids"], [terms.pk, privacy.pk])
+        self.assertTrue(setup.data["onboarding_pending"])
+        self.assertFalse(LegalAcceptance.objects.filter(user=self.user).exists())
+        self.assertFalse(OnboardingAcknowledgement.objects.filter(user=self.user).exists())
 
     def test_acceptance_and_onboarding_are_version_specific_gates(self):
         terms = self._published_legal(LegalDocumentVersion.DocumentType.TERMS)

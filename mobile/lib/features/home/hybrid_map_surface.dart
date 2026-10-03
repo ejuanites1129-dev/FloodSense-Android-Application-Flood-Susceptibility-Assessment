@@ -329,7 +329,7 @@ class _HybridMapSurfaceState extends State<HybridMapSurface> {
             ),
             Positioned(
               right: 14,
-              top: 116,
+              top: 8,
               child: Column(
                 children: [
                   _MapButton(
@@ -373,7 +373,7 @@ class _HybridMapSurfaceState extends State<HybridMapSurface> {
         const Positioned(
           left: 14,
           right: 76,
-          top: 116,
+          top: 68,
           child: Align(
             alignment: Alignment.centerLeft,
             child: BacoorCoverageLegend(compact: true),
@@ -385,7 +385,7 @@ class _HybridMapSurfaceState extends State<HybridMapSurface> {
         Positioned(
           left: 14,
           right: 76,
-          top: 116,
+          top: 68,
           child: Material(
             elevation: 2,
             borderRadius: BorderRadius.circular(12),
@@ -489,7 +489,7 @@ class _HybridMapSurfaceState extends State<HybridMapSurface> {
       child: Semantics(
         button: true,
         selected: active,
-        label: 'Verified center ${center.name}. ${center.distanceLabel}.',
+        label: '${center.verificationLabel}. ${center.name}. ${center.distanceLabel}.',
         child: GestureDetector(
           onTap: () => widget.nearestCenterController?.selectCenter(
             center.publicIdentifier,

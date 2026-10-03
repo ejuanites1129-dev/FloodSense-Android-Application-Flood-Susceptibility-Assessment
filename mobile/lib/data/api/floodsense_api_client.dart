@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../../config/api_config.dart';
@@ -50,14 +51,26 @@ class FloodSenseApiClient implements FloodSenseApi, NearestCenterProvider {
     http.Client? client,
     String? baseUrl,
     this.timeout = const Duration(seconds: 15),
+    bool localCenterPreview = ApiConfig.localCenterPreviewRequested,
   }) : _client = client ?? http.Client(),
        _ownsClient = client == null,
-       _baseUrl = ApiConfig.normalizeBaseUrl(baseUrl ?? ApiConfig.baseUrl);
+       _baseUrl = ApiConfig.normalizeBaseUrl(baseUrl ?? ApiConfig.baseUrl),
+       _localCenterPreviewRequested = localCenterPreview;
 
   final http.Client _client;
   final bool _ownsClient;
   final String _baseUrl;
   final Duration timeout;
+  final bool _localCenterPreviewRequested;
+
+  bool get _useLocalCenterPreview =>
+      kDebugMode &&
+      _localCenterPreviewRequested &&
+      const {
+        '127.0.0.1',
+        'localhost',
+        '::1',
+      }.contains(Uri.parse(_baseUrl).host);
 
   Uri _uri(String route, [Map<String, String>? query]) {
     final cleanRoute = route.replaceFirst(RegExp(r'^/+'), '');
@@ -155,7 +168,11 @@ class FloodSenseApiClient implements FloodSenseApi, NearestCenterProvider {
     try {
       final response = await _client
           .post(
-            _uri('evacuation-centers/nearest/'),
+            _uri(
+              _useLocalCenterPreview
+                  ? 'evacuation-centers/local-preview/nearest/'
+                  : 'evacuation-centers/nearest/',
+            ),
             headers: const {
               'accept': 'application/json',
               'content-type': 'application/json; charset=utf-8',
@@ -177,7 +194,11 @@ class FloodSenseApiClient implements FloodSenseApi, NearestCenterProvider {
           );
         }
         final body = _decodeObject(response.bodyBytes);
-        return NearestCenterResult.fromJson(body, requestedLimit: 3);
+        return NearestCenterResult.fromJson(
+          body,
+          requestedLimit: 3,
+          localPreview: _useLocalCenterPreview,
+        );
       }
       if (response.statusCode == 400 ||
           response.statusCode == 413 ||

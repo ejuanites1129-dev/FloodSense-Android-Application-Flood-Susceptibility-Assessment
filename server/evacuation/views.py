@@ -1,6 +1,14 @@
 """Public, bounded, read-only nearest-center HTTP boundary."""
 
-from rest_framework.exceptions import MethodNotAllowed, ParseError, Throttled, UnsupportedMediaType
+from urllib.parse import urlsplit
+
+from rest_framework.exceptions import (
+    MethodNotAllowed,
+    NotFound,
+    ParseError,
+    Throttled,
+    UnsupportedMediaType,
+)
 from rest_framework.permissions import AllowAny
 from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
@@ -61,12 +69,15 @@ class NearestCenterView(APIView):
         serializer = NearestCenterRequestSerializer(data=data)
         serializer.is_valid(raise_exception=True)
         try:
-            payload = find_nearest_eligible_centers(**serializer.validated_data)
+            payload = self.lookup_centers(serializer.validated_data)
         except Exception:
             # Service already validates its output. Fail closed on DB failures
             # or broken service invariants, without logging exceptions/locals.
             return Response({"detail": INTERNAL_ERROR_DETAIL}, status=500)
         return Response(payload)
+
+    def lookup_centers(self, inputs):
+        return find_nearest_eligible_centers(**inputs)
 
     def handle_exception(self, exc):
         response = super().handle_exception(exc)
@@ -87,3 +98,24 @@ class NearestCenterView(APIView):
         response["Pragma"] = "no-cache"
         response["Allow"] = ", ".join(NEAREST_CENTER_ALLOWED_METHODS)
         return response
+
+
+class LocalPreviewNearestCenterView(NearestCenterView):
+    """Unavailable outside an explicitly enabled loopback development session."""
+
+    def initial(self, request, *args, **kwargs):
+        from .local_preview import local_preview_enabled
+
+        if (
+            not local_preview_enabled()
+            or request.META.get("REMOTE_ADDR") not in {"127.0.0.1", "::1"}
+            or urlsplit("http://" + request.get_host()).hostname
+            not in {"127.0.0.1", "localhost", "::1"}
+        ):
+            raise NotFound
+        super().initial(request, *args, **kwargs)
+
+    def lookup_centers(self, inputs):
+        from .local_preview import find_nearest_demonstration_centers
+
+        return find_nearest_demonstration_centers(**inputs)
