@@ -10,6 +10,7 @@ from django.urls import reverse
 from provenance.models import DataSource, PublicationStatus
 
 from geography.constants import (
+    MGB_PREVIEW_UNAVAILABLE,
     MGB_PROVISIONAL_WARNING,
     MGB_SUSCEPTIBILITY_SOURCE_NAME,
     MGB_SUSCEPTIBILITY_SOURCE_URL,
@@ -182,7 +183,7 @@ class MgbConsultationApiTests(ProvisionalMgbFixtureMixin, TestCase):
         )
 
     @override_settings(ENABLE_PROVISIONAL_MGB_PREVIEW=False)
-    def test_preview_setting_fails_closed_to_neutral_demo_zones(self):
+    def test_preview_setting_keeps_barangay_interface_but_withholds_values(self):
         response = self.client.get(
             reverse("geography:area-collection"),
             {"mode": "demonstration"},
@@ -190,15 +191,38 @@ class MgbConsultationApiTests(ProvisionalMgbFixtureMixin, TestCase):
 
         payload = response.json()
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(payload["features"]), 4)
+        self.assertEqual(len(payload["features"]), 47)
         self.assertTrue(
             all(
-                feature["properties"]["area_type"]
-                == GeographicArea.AreaType.DEMO_ZONE
+                feature["properties"]["area_type"] == GeographicArea.AreaType.BARANGAY
                 for feature in payload["features"]
             )
         )
+        self.assertTrue(
+            all(
+                feature["properties"]["susceptibility_summary"] is None
+                for feature in payload["features"]
+            )
+        )
+        self.assertEqual(payload["data_status"], PublicationStatus.PENDING_VALIDATION)
+        self.assertIn(MGB_PREVIEW_UNAVAILABLE, payload["warnings"])
         self.assertIsNone(payload["susceptibility_dataset"])
+
+        area_id = payload["features"][0]["properties"]["id"]
+        assessment = self.client.post(
+            reverse("expert:evaluate"),
+            {
+                "mode": "demonstration",
+                "geographic_area_id": area_id,
+                "rainfall_intensity_code": "DEMO_HEAVY",
+                "rainfall_duration_code": "DEMO_6_HOURS",
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(assessment.status_code, 200)
+        self.assertEqual(assessment.json()["assessment_state"], "INSUFFICIENT_DATA")
+        self.assertIsNone(assessment.json()["susceptibility"])
+        self.assertIn(MGB_PREVIEW_UNAVAILABLE, assessment.json()["warnings"])
 
     def test_assessment_uses_derived_baseline_and_preserves_zero_coverage(self):
         summaries = list(

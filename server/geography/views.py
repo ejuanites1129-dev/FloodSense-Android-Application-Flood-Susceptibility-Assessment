@@ -26,6 +26,7 @@ from .constants import (
     BACOOR_REFERENCE_WARNING,
     MGB_COVERAGE_LIMITATION,
     MGB_DERIVATION_LIMITATION,
+    MGB_PREVIEW_UNAVAILABLE,
     MGB_PROVISIONAL_WARNING,
 )
 from .models import GeographicArea
@@ -39,6 +40,7 @@ from .services import (
     PointResolutionInputError,
     active_consultation_dataset,
     active_consultation_summary_for_area,
+    bacoor_reference_assessment_areas,
     consultation_assessment_areas,
     resolve_area_for_point,
     resolve_bacoor_barangay,
@@ -55,10 +57,13 @@ def area_collection(request):
     mode = serializer.validated_data["mode"]
     areas = GeographicArea.objects.select_related("source").filter(is_enabled=True)
     dataset = None
+    uses_reference_barangays = False
     if mode == DEMONSTRATION_MODE:
         dataset = active_consultation_dataset()
-        if dataset is not None:
-            areas = consultation_assessment_areas()
+        reference_areas = bacoor_reference_assessment_areas()
+        if reference_areas.exists():
+            areas = reference_areas
+            uses_reference_barangays = True
         else:
             areas = permitted_records(
                 areas.filter(area_type=GeographicArea.AreaType.DEMO_ZONE), mode
@@ -76,11 +81,15 @@ def area_collection(request):
             "operating_mode": mode,
             "data_status": (
                 PublicationStatus.PENDING_VALIDATION
-                if dataset is not None
+                if uses_reference_barangays
                 else data_status_for_mode(mode)
             ),
             "susceptibility_dataset": _serialize_dataset(dataset),
-            "warnings": _warnings_for_dataset(mode, dataset),
+            "warnings": _warnings_for_dataset(
+                mode,
+                dataset,
+                uses_reference_barangays=uses_reference_barangays,
+            ),
         }
     )
 
@@ -265,8 +274,17 @@ def _serialize_decimal(value):
     return float(value)
 
 
-def _warnings_for_dataset(mode: str, dataset) -> list[str]:
+def _warnings_for_dataset(
+    mode: str,
+    dataset,
+    *,
+    uses_reference_barangays: bool,
+) -> list[str]:
     warnings = list(warnings_for_mode(mode))
+    if uses_reference_barangays:
+        warnings.extend([BACOOR_REFERENCE_WARNING, BACOOR_REFERENCE_LIMITATION])
+        if dataset is None:
+            warnings.append(MGB_PREVIEW_UNAVAILABLE)
     if dataset is not None:
         warnings.extend(
             [

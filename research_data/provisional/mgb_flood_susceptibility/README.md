@@ -113,6 +113,24 @@ This command does **not** approve the data, resolve MGB reuse rights, establish
 the unknown map production date, or make the ignored source files distributable
 through Git.
 
+After setting the two local development guards, the extraction, seed, and
+import steps can instead be run through the repository helper:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\setup_provisional_mgb_preview.ps1 -AcknowledgeProvisionalUse
+```
+
+Add `-Refresh` only when the team deliberately wants to retrieve and review a
+new source snapshot. The helper does not change `server/.env` and does not make
+the generated files eligible for Git.
+
+The imported LF/MF/HF/VHF percentages are **source-derived barangay
+area-composition facts**, not FloodSense parameter definitions. The local
+consultation engine may use the uniquely dominant mapped class as a provisional
+`zone_baseline_rank` input fact, but these values are not rainfall thresholds,
+rule weights, editable Expert System parameters, or official whole-barangay
+classifications.
+
 Both `DJANGO_DEBUG` and `FLOODSENSE_ENABLE_PROVISIONAL_MGB_PREVIEW` must be true
 before the active dataset can reach the consultation API. The setting defaults
 to false, so pulling the code, running migrations, or importing an inactive

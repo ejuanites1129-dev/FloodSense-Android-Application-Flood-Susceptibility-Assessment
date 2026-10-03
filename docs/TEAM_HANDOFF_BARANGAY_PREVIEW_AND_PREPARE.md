@@ -19,9 +19,10 @@ warnings.
   for presentations. It remains pending expert validation.
 - A guarded import command can load the locally processed MGB consultation
   preview. The import does not approve the source or make it production data.
-- The resident assessment uses the real 47-barangay reference layer when a
-  complete active preview is available, so the duplicate demo-zone selector is
-  not shown in that mode.
+- The resident assessment uses the complete 47-barangay reference layer even
+  when the local MGB preview is disabled, so teammates see the same barangay
+  selector instead of a duplicate demo-zone selector. Without the guarded MGB
+  import, values and colors remain explicitly unavailable.
 - The map bottom sheet can be collapsed, expanded, and dragged through
   intermediate heights without losing scrolling after navigation changes.
 
@@ -106,6 +107,12 @@ Only on an authorized local development computer:
    server\.venv\Scripts\python.exe server\manage.py import_mgb_susceptibility --activate-consultation-preview
    ```
 
+   Or, after setting both local guards, run the same guarded workflow with:
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File scripts\setup_provisional_mgb_preview.ps1 -AcknowledgeProvisionalUse
+   ```
+
 Both development guards must be true before the API exposes the preview. Leave
 the preview flag false in shared, staging, and production environments. Never
 commit `server/.env`, the ignored `raw/` and `processed/` outputs, database
@@ -115,6 +122,12 @@ Read
 `research_data/provisional/mgb_flood_susceptibility/README.md` before extracting
 or importing. It documents the source, validation report, uncertainty handling,
 and unresolved approval limitations.
+
+The MGB percentages are versioned, provisional area-composition facts. They are
+not the rainfall scenario parameters, Expert System rule thresholds or weights,
+or official barangay classifications. A uniquely dominant mapped MGB class can
+provide the consultation-only `zone_baseline_rank` fact after the guarded local
+import; it does not become an administrator-editable parameter.
 
 ## Run and refresh
 
@@ -160,8 +173,9 @@ and backend seed/import changes require the corresponding process restart.
 - The resident map sheet collapses almost completely, expands from its centered
   arrow control, supports intermediate drag heights, and still scrolls after
   switching navigation tabs.
-- Without the optional preview flag/data, the application fails closed to its
-  labeled demonstration/insufficient-data behavior.
+- Without the optional preview flag/data, the application still presents the
+  same 47 barangays but fails closed to labeled insufficient-data results with
+  no MGB value or susceptibility color.
 - With the guarded local preview active, GPS, manual selection, and map
   selection resolve to the same one of 47 barangays, and no duplicate demo-zone
   selector appears.

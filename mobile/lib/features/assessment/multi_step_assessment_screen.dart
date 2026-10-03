@@ -342,6 +342,12 @@ class _MultiStepAssessmentScreenState extends State<MultiStepAssessmentScreen> {
             ? '${summary.dominantClassLabel} (${summary.dominantPercent!.toStringAsFixed(2)}% of barangay area; ${summary.mappedPercent.toStringAsFixed(2)}% mapped)'
             : 'Unavailable—no mapped LF/MF/HF/VHF class covers this barangay',
       ),
+    if (_usesBarangayAssessments &&
+        _assessment.selectedArea?.susceptibilitySummary == null)
+      const _ReviewRow(
+        label: 'Provisional MGB-derived baseline',
+        value: 'Not active on this server—no susceptibility value has been assigned',
+      ),
     if (_location?.confirmedBarangay case final barangay?)
       _ReviewRow(label: 'Resolved barangay', value: barangay.name),
     _ReviewRow(

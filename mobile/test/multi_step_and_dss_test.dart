@@ -180,6 +180,31 @@ void main() {
     expect(find.text('Barangay'), findsOneWidget);
   });
 
+  testWidgets('barangays remain the only choice when MGB preview is absent', (
+    tester,
+  ) async {
+    final barangays = sampleReferenceAreas();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MultiStepAssessmentScreen(
+          api: FakeFloodSenseApi(areas: barangays, referenceAreas: barangays),
+          showBasemap: false,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await selectScenario(tester);
+    await tester.tap(find.byKey(const Key('assessment-continue')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Assessment demonstration zone'), findsNothing);
+    expect(find.text('Choose a barangay manually'), findsOneWidget);
+    expect(
+      find.textContaining('MGB consultation preview: not active'),
+      findsOneWidget,
+    );
+  });
+
   test(
     'DSS navigation is client-side, supports back/restart, and resets',
     () async {

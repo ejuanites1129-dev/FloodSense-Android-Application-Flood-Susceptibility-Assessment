@@ -7,15 +7,19 @@ from typing import Any
 from django.core.exceptions import ValidationError
 from django.db.models import Prefetch, Q
 from geography.constants import (
+    BACOOR_REFERENCE_LIMITATION,
+    BACOOR_REFERENCE_WARNING,
     MGB_COVERAGE_LIMITATION,
     MGB_DERIVATION_LIMITATION,
+    MGB_PREVIEW_UNAVAILABLE,
     MGB_PROVISIONAL_WARNING,
 )
 from geography.models import GeographicArea
 from geography.services import (
     active_consultation_dataset,
     active_consultation_summary_for_area,
-    consultation_assessment_areas,
+    bacoor_reference_assessment_areas,
+    is_bacoor_reference_assessment_area,
 )
 from provenance import policies
 
@@ -201,9 +205,14 @@ def evaluate_map_scenario(
     )
 
     areas = GeographicArea.objects.select_related("source").filter(is_enabled=True)
+    consultation_dataset = None
+    uses_reference_barangays = False
     if normalized_mode == policies.DEMONSTRATION_MODE:
-        if active_consultation_dataset() is not None:
-            areas = consultation_assessment_areas()
+        consultation_dataset = active_consultation_dataset()
+        reference_areas = bacoor_reference_assessment_areas()
+        if reference_areas.exists():
+            areas = reference_areas
+            uses_reference_barangays = True
         else:
             areas = policies.permitted_records(
                 areas.filter(area_type=GeographicArea.AreaType.DEMO_ZONE),
@@ -211,7 +220,10 @@ def evaluate_map_scenario(
             )
     else:
         areas = policies.permitted_records(areas, normalized_mode)
-    areas = areas.order_by("name", "id")
+    areas = list(areas.order_by("name", "id"))
+    if uses_reference_barangays:
+        for area in areas:
+            area._is_bacoor_reference_assessment_area = True
 
     results = []
     for area in areas:
@@ -232,10 +244,11 @@ def evaluate_map_scenario(
             }
         )
 
-    consultation_dataset = (
-        active_consultation_dataset() if normalized_mode == policies.DEMONSTRATION_MODE else None
-    )
     map_warnings = list(policies.warnings_for_mode(normalized_mode))
+    if uses_reference_barangays:
+        map_warnings.extend([BACOOR_REFERENCE_WARNING, BACOOR_REFERENCE_LIMITATION])
+        if consultation_dataset is None:
+            map_warnings.append(MGB_PREVIEW_UNAVAILABLE)
     if consultation_dataset is not None:
         map_warnings.extend(
             [
@@ -253,7 +266,7 @@ def evaluate_map_scenario(
         "operating_mode": normalized_mode,
         "data_status": (
             "PENDING_VALIDATION"
-            if consultation_dataset is not None
+            if uses_reference_barangays
             else policies.data_status_for_mode(normalized_mode)
         ),
         "warnings": map_warnings,
@@ -292,18 +305,24 @@ def _get_area(
     if not area.is_enabled:
         raise AssessmentInputError({"area_identifier": "The selected geographic area is disabled."})
     consultation_summary = None
+    is_reference_barangay = False
     if mode == RuleSet.Mode.DEMONSTRATION:
         if area.area_type == GeographicArea.AreaType.BARANGAY:
-            consultation_summary = active_consultation_summary_for_area(area)
-            if consultation_summary is None:
+            is_reference_barangay = getattr(
+                area,
+                "_is_bacoor_reference_assessment_area",
+                False,
+            ) or is_bacoor_reference_assessment_area(area)
+            if not is_reference_barangay:
                 raise AssessmentInputError(
                     {
                         "area_identifier": (
-                            "This barangay has no active provisional susceptibility "
-                            "summary for consultation."
+                            "This barangay is not part of the complete controlled "
+                            "Bacoor assessment layer."
                         )
                     }
                 )
+            consultation_summary = active_consultation_summary_for_area(area)
         elif area.area_type != GeographicArea.AreaType.DEMO_ZONE:
             raise AssessmentInputError(
                 {
@@ -313,11 +332,16 @@ def _get_area(
                     )
                 }
             )
-    if consultation_summary is None and not policies.record_is_permitted(area, mode):
+    if (
+        consultation_summary is None
+        and not is_reference_barangay
+        and not policies.record_is_permitted(area, mode)
+    ):
         raise AssessmentInputError(
             {"area_identifier": "The selected geographic area is not permitted in this mode."}
         )
     area._active_consultation_summary = consultation_summary
+    area._is_bacoor_reference_assessment_area = is_reference_barangay
     return area
 
 
@@ -535,9 +559,16 @@ def _result(
     matched_rules = matched_rules or []
     rule_codes = [rule.code for rule in matched_rules]
     warnings = list(policies.warnings_for_mode(mode))
+    is_reference_barangay = getattr(
+        area,
+        "_is_bacoor_reference_assessment_area",
+        False,
+    )
     consultation_summary = getattr(area, "_active_consultation_summary", None)
     if consultation_summary is None and area.area_type == GeographicArea.AreaType.BARANGAY:
         consultation_summary = active_consultation_summary_for_area(area)
+    if is_reference_barangay:
+        warnings.extend([BACOOR_REFERENCE_WARNING, BACOOR_REFERENCE_LIMITATION])
     if consultation_summary is not None:
         warnings.extend(
             [
@@ -552,6 +583,8 @@ def _result(
                 ),
             ]
         )
+    elif is_reference_barangay:
+        warnings.append(MGB_PREVIEW_UNAVAILABLE)
     serialized_facts = {key: _serialize_fact(value) for key, value in facts.items()}
     facts_used = [f"{key}={value}" for key, value in serialized_facts.items()]
     ruleset_payload = {"name": ruleset.name, "version": ruleset.version} if ruleset else None
@@ -590,7 +623,9 @@ def _result(
         },
         "ruleset": ruleset_payload,
         "operating_mode": mode,
-        "data_status": policies.data_status_for_mode(mode),
+        "data_status": (
+            "PENDING_VALIDATION" if is_reference_barangay else policies.data_status_for_mode(mode)
+        ),
         "warnings": warnings,
     }
 

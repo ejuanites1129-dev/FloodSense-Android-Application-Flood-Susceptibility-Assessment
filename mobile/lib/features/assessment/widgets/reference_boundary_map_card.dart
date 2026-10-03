@@ -161,6 +161,9 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
     final hasMgbSummaries = controller.areas.any(
       (area) => area.susceptibilitySummary != null,
     );
+    final usesBarangayAssessments =
+        controller.areas.isNotEmpty &&
+        controller.areas.every((area) => area.areaType == 'BARANGAY');
     final centerController = widget.nearestCenterController;
     final centers = centerController?.centers ?? const <VerifiedCenter>[];
     final coordinate =
@@ -205,6 +208,8 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
               container: true,
               label: hasMgbSummaries
                   ? 'Bacoor map data note. Scenario colors use provisional MGB-derived dominant mapped-area baselines. They are not live conditions, forecasts, or official Bacoor classifications.'
+                  : usesBarangayAssessments
+                  ? 'Bacoor map data note. The same 47 barangays remain selectable, but the provisional MGB consultation preview is not active on this server and no susceptibility colors are assigned.'
                   : 'Bacoor map data note. The 47 barangay boundaries identify administrative areas. Colored test sectors are fictional scenario outputs, not live conditions or whole-barangay classifications.',
               child: Container(
                 key: const Key('bacoor-map-data-note'),
@@ -227,6 +232,9 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
                         hasMgbSummaries
                             ? '47 current barangay boundaries\n'
                                   'Susceptibility overlay: provisional consultation preview. Scenario colors use a FloodSense dominant-area summary of MGB polygons. Unmapped/conflicting shares remain explicit; this is not live or forecast information.'
+                            : usesBarangayAssessments
+                            ? '47 current barangay boundaries\n'
+                                  'MGB consultation preview: not active on this server. Barangays remain available for consistent selection, but no susceptibility value or scenario color is assigned without the guarded local import.'
                             : '47 current barangay boundaries\n'
                                   'Scenario overlay: demonstration data. Boundaries identify administrative areas; colored test sectors are not live conditions or whole-barangay classifications.',
                         style: const TextStyle(

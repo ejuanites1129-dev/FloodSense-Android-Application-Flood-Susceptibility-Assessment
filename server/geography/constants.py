@@ -24,3 +24,7 @@ MGB_COVERAGE_LIMITATION = (
     "MGB coverage is incomplete in parts of Bacoor; unmapped and conflicting "
     "areas remain explicit and are never assigned a hidden class."
 )
+MGB_PREVIEW_UNAVAILABLE = (
+    "The provisional MGB consultation preview is not active on this server; "
+    "barangay susceptibility values and scenario colors are unavailable."
+)

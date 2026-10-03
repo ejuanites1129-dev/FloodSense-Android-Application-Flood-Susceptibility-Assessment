@@ -606,6 +606,12 @@ class _ResidentShellState extends State<ResidentShell> {
               ? '${summary.dominantClassLabel} (${summary.dominantPercent!.toStringAsFixed(2)}% of barangay area; ${summary.mappedPercent.toStringAsFixed(2)}% mapped)'
               : 'Unavailable—no mapped LF/MF/HF/VHF class covers this barangay',
         ),
+      if (_usesBarangayAssessments &&
+          _assessment.selectedArea?.susceptibilitySummary == null)
+        const _ReviewTile(
+          label: 'Provisional MGB-derived baseline',
+          value: 'Not active on this server—no susceptibility value has been assigned',
+        ),
       if (_location?.confirmedBarangay case final barangay?)
         _ReviewTile(label: 'Confirmed barangay', value: barangay.name),
       const SizedBox(height: 12),

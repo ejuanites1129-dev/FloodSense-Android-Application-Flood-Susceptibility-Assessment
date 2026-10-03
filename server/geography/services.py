@@ -71,9 +71,9 @@ def eligible_bacoor_reference_barangays():
 def active_consultation_dataset() -> FloodSusceptibilityDataset | None:
     """Return one complete provisional dataset or fail closed.
 
-    A partially imported or accidentally approved dataset must never replace
-    the neutral demonstration zones. The import command activates only after
-    all 47 current barangays have been validated and stored.
+    A partially imported or accidentally approved dataset must never supply
+    consultation values. The import command activates only after all 47 current
+    barangays have been validated and stored.
     """
 
     if not settings.DEBUG or not settings.ENABLE_PROVISIONAL_MGB_PREVIEW:
@@ -124,6 +124,42 @@ def consultation_assessment_areas():
     )
 
 
+def bacoor_reference_assessment_areas():
+    """Return the complete 47-barangay layer, with summaries when active.
+
+    Barangay identity and geometry are independent from the provisional MGB
+    consultation values. Keeping the same polygons available when that local
+    preview is disabled gives every teammate the same resident selector while
+    allowing the inference service to return ``INSUFFICIENT_DATA`` honestly.
+    """
+
+    areas = eligible_bacoor_reference_barangays()
+    if areas.count() != BACOOR_REFERENCE_BARANGAY_COUNT:
+        return GeographicArea.objects.none()
+    dataset = active_consultation_dataset()
+    if dataset is None:
+        return areas
+    summaries = BarangaySusceptibilitySummary.objects.filter(dataset=dataset).select_related(
+        "dataset", "dataset__source"
+    )
+    return areas.prefetch_related(
+        Prefetch(
+            "susceptibility_summaries",
+            queryset=summaries,
+            to_attr="active_consultation_summaries",
+        )
+    )
+
+
+def is_bacoor_reference_assessment_area(area: GeographicArea) -> bool:
+    """Return whether ``area`` belongs to the complete controlled layer."""
+
+    if area.area_type != GeographicArea.AreaType.BARANGAY:
+        return False
+    areas = eligible_bacoor_reference_barangays()
+    return areas.count() == BACOOR_REFERENCE_BARANGAY_COUNT and areas.filter(pk=area.pk).exists()
+
+
 def active_consultation_summary_for_area(
     area: GeographicArea,
 ) -> BarangaySusceptibilitySummary | None:
@@ -169,16 +205,18 @@ def resolve_area_for_point(
     point = Point(validated_longitude, validated_latitude, srid=4326)
     eligible_areas = GeographicArea.objects.select_related("source").filter(is_enabled=True)
     consultation_dataset = None
+    uses_reference_barangays = False
     if normalized_mode == policies.DEMONSTRATION_MODE:
         consultation_dataset = active_consultation_dataset()
-        eligible_areas = (
-            consultation_assessment_areas()
-            if consultation_dataset is not None
-            else policies.permitted_records(
+        reference_areas = bacoor_reference_assessment_areas()
+        if reference_areas.exists():
+            eligible_areas = reference_areas
+            uses_reference_barangays = True
+        else:
+            eligible_areas = policies.permitted_records(
                 eligible_areas.filter(area_type=GeographicArea.AreaType.DEMO_ZONE),
                 normalized_mode,
             )
-        )
     else:
         eligible_areas = policies.permitted_records(eligible_areas, normalized_mode)
     matches = list(eligible_areas.filter(geometry__covers=point).order_by("name", "id"))
@@ -203,10 +241,14 @@ def resolve_area_for_point(
         "operating_mode": normalized_mode,
         "data_status": (
             PublicationStatus.PENDING_VALIDATION
-            if consultation_dataset is not None
+            if uses_reference_barangays
             else policies.data_status_for_mode(normalized_mode)
         ),
-        "warnings": _point_resolution_warnings(normalized_mode, consultation_dataset),
+        "warnings": _point_resolution_warnings(
+            normalized_mode,
+            consultation_dataset,
+            uses_reference_barangays=uses_reference_barangays,
+        ),
     }
 
 
@@ -361,16 +403,24 @@ def _serialize_resolved_area(area: GeographicArea) -> dict[str, Any]:
 def _point_resolution_warnings(
     mode: str,
     dataset: FloodSusceptibilityDataset | None,
+    *,
+    uses_reference_barangays: bool,
 ) -> list[str]:
     warnings = list(policies.warnings_for_mode(mode))
-    if dataset is None:
+    if not uses_reference_barangays:
         return warnings
     from .constants import (  # Local import keeps the public constants grouped.
+        BACOOR_REFERENCE_LIMITATION,
+        BACOOR_REFERENCE_WARNING,
         MGB_COVERAGE_LIMITATION,
         MGB_DERIVATION_LIMITATION,
+        MGB_PREVIEW_UNAVAILABLE,
         MGB_PROVISIONAL_WARNING,
     )
 
+    warnings.extend([BACOOR_REFERENCE_WARNING, BACOOR_REFERENCE_LIMITATION])
+    if dataset is None:
+        return [*warnings, MGB_PREVIEW_UNAVAILABLE]
     return [
         *warnings,
         MGB_PROVISIONAL_WARNING,

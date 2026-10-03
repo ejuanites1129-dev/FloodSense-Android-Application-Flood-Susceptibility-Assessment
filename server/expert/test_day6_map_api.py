@@ -16,6 +16,11 @@ class Day6MapAssessmentApiTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("seed_demo", stdout=StringIO())
+        # These tests exercise the legacy fictional-rule fixture in isolation.
+        # Normal seeded resident APIs prefer the complete Bacoor barangay layer.
+        GeographicArea.objects.filter(area_type=GeographicArea.AreaType.BARANGAY).update(
+            is_enabled=False
+        )
 
     def _post(self, *, intensity="DEMO_HEAVY", duration="DEMO_6_HOURS"):
         return self.client.post(

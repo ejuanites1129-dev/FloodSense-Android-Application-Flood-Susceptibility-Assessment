@@ -43,6 +43,13 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
   LocationController? _locationController;
   NearestCenterController? _nearestCenterController;
 
+  bool get _usesBarangayAssessments =>
+      _controller.areas.isNotEmpty &&
+      _controller.areas.every((area) => area.areaType == 'BARANGAY');
+
+  bool get _hasMgbPreview =>
+      _controller.areas.any((area) => area.susceptibilitySummary != null);
+
   @override
   void initState() {
     super.initState();
@@ -188,12 +195,18 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'Choose the assessment zone',
+                  _usesBarangayAssessments
+                      ? 'Choose the assessment barangay'
+                      : 'Choose the assessment zone',
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'The selector remains available for the four synthetic test sectors. These sectors do not classify an entire barangay.',
+                  _usesBarangayAssessments
+                      ? (_hasMgbPreview
+                            ? 'Choose one Bacoor barangay. Its provisional MGB-derived area summary is a consultation input, not an official whole-barangay classification.'
+                            : 'Choose one Bacoor barangay. The provisional MGB consultation preview is not active on this server, so an assessment will remain insufficient until that local preview is explicitly set up.')
+                      : 'Choose a fictional demonstration zone. It does not classify an entire Bacoor barangay.',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 const SizedBox(height: 14),
@@ -201,6 +214,18 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
                   areas: _controller.areas,
                   selected: _controller.selectedArea,
                   onChanged: _controller.selectArea,
+                  title: _usesBarangayAssessments
+                      ? 'Barangay'
+                      : 'Demonstration zone',
+                  description: _usesBarangayAssessments
+                      ? 'The barangay boundary is the assessment area shown on the map.'
+                      : 'Choose a fictional zone supplied by the FloodSense API.',
+                  hintText: _usesBarangayAssessments
+                      ? 'Select a barangay'
+                      : 'Select a demonstration zone',
+                  semanticLabel: _usesBarangayAssessments
+                      ? 'Barangay selector'
+                      : 'Demonstration zone selector',
                 ),
                 const SizedBox(height: 14),
                 SelectedZonePreview(controller: _controller),
