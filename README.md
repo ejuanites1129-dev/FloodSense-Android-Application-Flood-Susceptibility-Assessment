@@ -30,6 +30,15 @@ older demonstration guides or diagrams. In particular, FloodSense does not run
 background rainfall timers, and ordinary administrators do not edit raw Expert
 System rules.
 
+## Proposals awaiting team review
+
+- [Flood-susceptibility methodology proposal](docs/FLOOD_SUSCEPTIBILITY_METHODOLOGY_PROPOSAL.md)
+  records a candidate AHP-derived weighting, GIS weighted-linear-combination
+  terrain baseline, and rule-based rainfall-scenario method for evaluation. It
+  is not a current source of truth, implementation authorization, validated
+  Bacoor methodology, or approved manuscript content. Teammates and coding
+  agents must follow its review-only disclaimer and approval gate.
+
 ## Planned stack
 
 - Flutter and Dart for the Android application

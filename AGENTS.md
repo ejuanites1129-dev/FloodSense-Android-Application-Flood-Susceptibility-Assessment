@@ -47,3 +47,9 @@ Non-negotiable rules:
 10. The inference method and raw expert rules are not ordinary administrator
     controls. Expose only authorized, validated, versioned parameters and
     explicitly approved content workflows in the custom Admin portal.
+11. `docs/FLOOD_SUSCEPTIBILITY_METHODOLOGY_PROPOSAL.md` is a review-only
+    proposal. Do not implement its AHP/WLC method, populate parameters or rules
+    from it, or cite it in the thesis/manuscript as the adopted methodology
+    until its approval gate is completed and a dated team authorization is
+    recorded. Reading or evaluating the proposal is permitted; implementation
+    and manuscript adoption are not.
