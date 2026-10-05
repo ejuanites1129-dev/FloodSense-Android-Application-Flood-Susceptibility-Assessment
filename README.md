@@ -3,6 +3,19 @@
 For terminal commands to start, run, and safely stop the local Windows system,
 see [Start and stop FloodSense](start.md).
 
+For temporary sources and evacuation centers in the normal local Admin → API →
+Android workflow, see [Local testing setup](docs/LOCAL_TESTING_WORKFLOW.md).
+No separate application database, new package, migration, or seed is needed.
+
+To reproduce the selected boundary/source states and two temporary centers in
+another teammate's existing local database, follow
+[Selected local data handoff](docs/TEAM_LOCAL_DATA_HANDOFF.md). This is an
+explicit preview/apply import, not automatic database synchronization by Git.
+
+For startup evacuation-center shelter icons, nearest-distance highlighting,
+and synchronized GPS/manual location pins, see the
+[Evacuation map and pin update](docs/EVACUATION_MAP_AND_PIN_UPGRADE.md).
+
 FloodSense is a planned Android application for scenario-based flood susceptibility assessment and pre-event preparedness in Bacoor City. Its core classification component is a deterministic, rule-based Expert System. It is not a real-time forecast or official warning service.
 
 The current demonstration vertical slice includes Django-managed hypothetical

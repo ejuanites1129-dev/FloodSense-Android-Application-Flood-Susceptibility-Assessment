@@ -3,7 +3,7 @@
 import json
 
 from core.serializers import OperatingModeQuerySerializer
-from provenance.models import DataSource, PublicationStatus
+from provenance.models import PublicationStatus
 from provenance.policies import (
     DEMONSTRATION_MODE,
     data_status_for_mode,
@@ -22,7 +22,6 @@ from rest_framework.status import (
 
 from .constants import (
     BACOOR_REFERENCE_LIMITATION,
-    BACOOR_REFERENCE_SOURCE_NAME,
     BACOOR_REFERENCE_WARNING,
     MGB_COVERAGE_LIMITATION,
     MGB_DERIVATION_LIMITATION,
@@ -41,6 +40,7 @@ from .services import (
     active_consultation_dataset,
     active_consultation_summary_for_area,
     bacoor_reference_assessment_areas,
+    boundary_collection_status,
     consultation_assessment_areas,
     resolve_area_for_point,
     resolve_bacoor_barangay,
@@ -103,19 +103,7 @@ def reference_boundary_collection(request):
     if dataset is not None:
         areas = consultation_assessment_areas().order_by("name", "id")
     else:
-        areas = (
-            GeographicArea.objects.select_related("source")
-            .filter(
-                area_type=GeographicArea.AreaType.BARANGAY,
-                is_enabled=True,
-                status=PublicationStatus.PENDING_VALIDATION,
-                source__name=BACOOR_REFERENCE_SOURCE_NAME,
-                source__source_type=DataSource.SourceType.AGENCY_DATASET,
-                source__status=PublicationStatus.PENDING_VALIDATION,
-                source__is_publicly_releasable=True,
-            )
-            .order_by("name", "id")
-        )
+        areas = bacoor_reference_assessment_areas().order_by("name", "id")
     return Response(
         {
             "type": "FeatureCollection",
@@ -123,7 +111,7 @@ def reference_boundary_collection(request):
                 _serialize_area_feature(area, susceptibility_dataset=dataset) for area in areas
             ],
             "layer_kind": "ADMINISTRATIVE_REFERENCE",
-            "data_status": PublicationStatus.PENDING_VALIDATION,
+            "data_status": boundary_collection_status(areas),
             "susceptibility_dataset": _serialize_dataset(dataset),
             "warnings": [
                 BACOOR_REFERENCE_WARNING,
@@ -186,6 +174,8 @@ def resolve_barangay(request):
             latitude=inputs["latitude"],
             longitude=inputs["longitude"],
             barangay=result.barangay,
+            data_status=result.data_status,
+            source_status=result.source_status,
         )
     except Exception:  # noqa: BLE001 - public response must not expose internals
         return Response(

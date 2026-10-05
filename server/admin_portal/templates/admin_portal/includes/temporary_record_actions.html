@@ -1,0 +1,10 @@
+{% if local_testing and center.is_temporary %}
+<section class="panel"><h2>Temporary local test record</h2><p>{{ center.get_verification_status_display }}. This is not a real verified facility. The ordinary resident eligibility checklist below deliberately remains ineligible.</p>
+{% if can_change %}<a class="button button--secondary" href="{% url 'admin_portal:evacuation-center-edit' center.pk %}">Edit temporary record</a>{% endif %}
+{% if perms.evacuation.delete_evacuationcenter %}<a class="button button--secondary" href="{% url 'admin_portal:remove-temporary-center' center.pk %}">Remove temporary record…</a>{% endif %}</section>
+{% endif %}
+{% if local_testing and source.is_temporary %}
+<section class="panel"><h2>Temporary local test source</h2><p>{{ source.get_status_display }}. Public release stays off. Editing metadata removes its local test approval until you approve it again.</p>
+{% if can_change %}<a class="button button--secondary" href="{% url 'admin_portal:data-source-edit' source.pk %}">Edit temporary source</a>{% endif %}
+{% if perms.provenance.delete_datasource %}<a class="button button--secondary" href="{% url 'admin_portal:remove-temporary-source' source.pk %}">Remove temporary source…</a>{% endif %}</section>
+{% endif %}

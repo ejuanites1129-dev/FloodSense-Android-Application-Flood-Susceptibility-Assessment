@@ -200,11 +200,14 @@ def portal_permission_required(permission: str):
 
 
 def _portal_context(request: HttpRequest, *, active_section: str) -> dict[str, Any]:
+    from core.local_testing import local_testing_enabled
+
     display_name = request.user.display_name.strip() or request.user.email
     initials = "".join(
         part[0].upper() for part in display_name.replace("@", " ").split()[:2] if part
     )
     context = {
+        "local_testing": local_testing_enabled(request),
         "active_section": active_section,
         "display_name": display_name,
         "user_initials": initials or "FS",
@@ -685,6 +688,8 @@ def evacuation_center_edit(request: HttpRequest, center_id: int) -> HttpResponse
 @portal_permission_required("evacuation.view_evacuationcenter")
 @require_http_methods(["GET", "POST"])
 def evacuation_center_transition(request: HttpRequest, center_id: int, action: str) -> HttpResponse:
+    from core.local_testing import local_testing_enabled
+
     transition = CENTER_TRANSITIONS.get(action)
     if transition is None:
         raise Http404
@@ -693,6 +698,8 @@ def evacuation_center_transition(request: HttpRequest, center_id: int, action: s
     center = get_object_or_404(
         EvacuationCenter.objects.select_related("source", "geographic_area"), pk=center_id
     )
+    if center.is_temporary and not local_testing_enabled(request):
+        raise PermissionDenied("Temporary changes require a loopback local testing session.")
     if center.verification_status != transition.source_status:
         messages.error(request, "That verification action is no longer available.")
         return redirect("admin_portal:evacuation-center-detail", center_id=center.pk)
@@ -735,8 +742,12 @@ def evacuation_center_transition(request: HttpRequest, center_id: int, action: s
 @portal_permission_required("provenance.view_datasource")
 @require_GET
 def data_source_list(request: HttpRequest) -> HttpResponse:
+    from geography.boundaries import annotate_boundary_source_identity
+
     filters = DataSourceFilterForm(request.GET)
-    queryset = DataSource.objects.select_related("reviewed_by").order_by("name", "id")
+    queryset = annotate_boundary_source_identity(
+        DataSource.objects.select_related("reviewed_by").order_by("name", "id")
+    )
     if filters.is_valid():
         if query := filters.cleaned_data["q"]:
             queryset = queryset.filter(
@@ -770,6 +781,8 @@ def data_source_list(request: HttpRequest) -> HttpResponse:
 @portal_permission_required("provenance.view_datasource")
 @require_GET
 def data_source_detail(request: HttpRequest, source_id: int) -> HttpResponse:
+    from geography.boundaries import is_bacoor_boundary_source
+
     source = get_object_or_404(DataSource.objects.select_related("reviewed_by"), pk=source_id)
     source.portal_transitions = available_source_transitions(source, request.user)
     context = _portal_context(request, active_section="sources-content")
@@ -777,6 +790,7 @@ def data_source_detail(request: HttpRequest, source_id: int) -> HttpResponse:
         {
             "source": source,
             "can_change": request.user.has_perm("provenance.change_datasource"),
+            "is_boundary_source": is_bacoor_boundary_source(source),
             "linked_counts": {
                 "rainfall": source.scenario_options.count(),
                 "guidance": source.guidance_items.count(),
@@ -845,12 +859,16 @@ def data_source_edit(request: HttpRequest, source_id: int) -> HttpResponse:
 @portal_permission_required("provenance.view_datasource")
 @require_http_methods(["GET", "POST"])
 def data_source_transition(request: HttpRequest, source_id: int, action: str) -> HttpResponse:
+    from core.local_testing import local_testing_enabled
+
     transition = SOURCE_TRANSITIONS.get(action)
     if transition is None:
         raise Http404
     if not request.user.has_perm(transition.permission):
         raise PermissionDenied
     source = get_object_or_404(DataSource, pk=source_id)
+    if source.is_temporary and not local_testing_enabled(request):
+        raise PermissionDenied("Temporary changes require a loopback local testing session.")
     if (
         source.status != transition.source_status
         or source.is_publicly_releasable != transition.source_public

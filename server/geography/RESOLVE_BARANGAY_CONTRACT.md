@@ -4,6 +4,19 @@
 approval remains pending.
 **Active route:** `POST /api/v1/geography/resolve-barangay/`
 
+**Owner-authorized compatibility update — 5 October 2026:** boundary eligibility
+and metadata below now allow `PENDING_VALIDATION` or `APPROVED` independently for
+geometry and source. The unique Bacoor City PSGC record/source relationship
+replaces the mutable source-name identity check. Mixed boundary statuses are
+valid. `boundary.data_status` reports the matched barangay's status, or the
+conservative collection status for a non-resolved result; `source_status`
+reports the stored source status when the dataset is ready. Unavailable results
+without a usable dataset retain the legacy pending envelope, never an approval
+claim. `city_verified` stays false and limitations remain required. Internal
+approval is administrative mapping review, not City endorsement or flood-data
+validation. This update supersedes pending-only eligibility descriptions below;
+request fields, methods, precision, privacy and ambiguity handling are unchanged.
+
 This endpoint will identify an administrative barangay from one temporary
 coordinate. It will not calculate susceptibility, determine an official
 address, report current conditions, or persist location.

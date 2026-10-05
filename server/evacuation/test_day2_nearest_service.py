@@ -127,8 +127,8 @@ def test_complete_reference_has_47_safe_identities(layer):
 @pytest.mark.parametrize(
     "damage",
     [
-        "missing_source",
-        "duplicate_source",
+        "retired_source",
+        "wrong_city_identity",
         "non_public_source",
         "restricted_source",
         "wrong_source_type",
@@ -158,12 +158,12 @@ def test_reference_readiness_fails_closed(layer, center_factory, damage):
     source, city, areas = layer
     area = areas[1]
     invalid = MultiPolygon(Polygon(((0, 0), (1, 1), (1, 0), (0, 1), (0, 0))), srid=4326)
-    if damage == "missing_source":
-        source.name = "UNRELATED SYNTHETIC SOURCE"
+    if damage == "retired_source":
+        source.status = PublicationStatus.RETIRED
         source.save()
-    elif damage == "duplicate_source":
-        source.pk = None
-        source.save()
+    elif damage == "wrong_city_identity":
+        city.code = "PSGC_9999999999"
+        city.save()
     elif damage in {"non_public_source", "restricted_source", "wrong_source_type"}:
         values = {
             "non_public_source": {"is_publicly_releasable": False},
@@ -182,7 +182,7 @@ def test_reference_readiness_fails_closed(layer, center_factory, damage):
     }:
         values = {
             "disabled_city": {"is_enabled": False},
-            "wrong_city_status": {"status": PublicationStatus.APPROVED},
+            "wrong_city_status": {"status": PublicationStatus.RETIRED},
             "wrong_city_source": {"source": EvacuationCenter.objects.first().source},
             "invalid_city": {"geometry": invalid},
             "empty_city": {"geometry": MultiPolygon(srid=4326)},
@@ -201,7 +201,7 @@ def test_reference_readiness_fails_closed(layer, center_factory, damage):
             "invalid_code": {"code": "unrelated"},
             "non_ascii_code": {"code": "PSGC_٠٠٠٠٠٠٠٠٠٠"},
             "disabled_area": {"is_enabled": False},
-            "wrong_area_status": {"status": PublicationStatus.APPROVED},
+            "wrong_area_status": {"status": PublicationStatus.RETIRED},
             "wrong_area_type": {"area_type": GeographicArea.AreaType.DEMO_ZONE},
             "wrong_area_source": {"source": EvacuationCenter.objects.first().source},
             "invalid_geometry": {"geometry": invalid},

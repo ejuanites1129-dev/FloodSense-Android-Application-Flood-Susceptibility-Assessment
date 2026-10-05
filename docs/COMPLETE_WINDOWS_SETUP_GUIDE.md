@@ -7,6 +7,22 @@ have not used Django, PostgreSQL/PostGIS, Flutter, or Android Studio before.
 
 Last verified: September 6, 2026
 
+Local testing update (5 October 2026):
+
+Selected local data sharing (6 October 2026): after normal setup, teammates can
+follow [this handoff](TEAM_LOCAL_DATA_HANDOFF.md) to preview/apply the selected
+boundary/source statuses and two temporary centers in their own existing local
+tables. No account, contact detail, credential, restricted dataset or full
+database is shared, and this package adds no schema migration or dependency.
+
+The [evacuation map and pin update](EVACUATION_MAP_AND_PIN_UPGRADE.md) adds
+startup shelter icons and synchronized manual/GPS pins. This update needs no
+new package, migration or seed; restart Django and relaunch the Flutter client.
+[Temporary sources and centers in the main workflow](LOCAL_TESTING_WORKFLOW.md)
+uses one private setting and `scripts/run_android_local.ps1`. Existing setups
+need no new packages, migrations or seed data for this update; restart Django
+and rebuild Flutter. The older separate center-preview workflow is legacy only.
+
 ### How to use this manual
 
 - A teammate preparing a new computer should follow sections 3 through 20 in

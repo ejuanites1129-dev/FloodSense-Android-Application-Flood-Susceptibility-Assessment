@@ -6,8 +6,10 @@ not a susceptibility service: AreaFact and Expert System tables are never read.
 
 import json
 
-from django.db.models import Count, Q
+from django.db.models import Count, Exists, Q
+from geography.boundaries import bacoor_boundary_source_ids
 from geography.constants import (
+    BACOOR_BOUNDARY_STATUSES,
     BACOOR_REFERENCE_LIMITATION,
     BACOOR_REFERENCE_SOURCE_NAME,
     BACOOR_REFERENCE_WARNING,
@@ -24,12 +26,16 @@ DEMONSTRATION = "demonstration"
 def reviewable_area_filter():
     """Return the shared definition used by the map and dashboard review count."""
 
-    administrative = Q(
+    city_source = bacoor_boundary_source_ids()
+    identity = Q(source_id__in=city_source) | (
+        Q(~Exists(city_source)) & Q(source__name=BACOOR_REFERENCE_SOURCE_NAME)
+    )
+    # The legacy-name fallback is staff inventory only, never resident eligibility.
+    administrative = identity & Q(
         area_type__in=(GeographicArea.AreaType.CITY, GeographicArea.AreaType.BARANGAY),
-        status=PublicationStatus.PENDING_VALIDATION,
-        source__name=BACOOR_REFERENCE_SOURCE_NAME,
+        status__in=BACOOR_BOUNDARY_STATUSES,
         source__source_type=DataSource.SourceType.AGENCY_DATASET,
-        source__status=PublicationStatus.PENDING_VALIDATION,
+        source__status__in=BACOOR_BOUNDARY_STATUSES,
         source__is_publicly_releasable=True,
     )
     demonstration = Q(

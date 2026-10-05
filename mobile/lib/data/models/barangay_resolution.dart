@@ -85,11 +85,11 @@ class BoundaryReference {
     required this.cityVerified,
   }) {
     if (layerKind != 'ADMINISTRATIVE_REFERENCE' ||
-        dataStatus != 'PENDING_VALIDATION' ||
-        sourceStatus != 'PENDING_VALIDATION' ||
+        !const {'PENDING_VALIDATION', 'APPROVED'}.contains(dataStatus) ||
+        !const {'PENDING_VALIDATION', 'APPROVED'}.contains(sourceStatus) ||
         cityVerified) {
       throw const ModelParsingException(
-        'Resolver boundary metadata does not match the pending-validation contract.',
+        'Resolver boundary metadata does not match the administrative-boundary contract.',
       );
     }
   }

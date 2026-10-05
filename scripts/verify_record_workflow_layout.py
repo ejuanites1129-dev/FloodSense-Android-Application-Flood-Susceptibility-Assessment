@@ -138,3 +138,69 @@ def test_responsive_entry_inline_source_review_and_import(live_server, settings)
         pw.expect(page.locator("main")).to_contain_text("Imported 1 drafts")
         pw.expect(page.locator("main")).to_contain_text("1 invalid rows were NOT imported")
         browser.close()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_local_testing_controls_and_cleanup_layout(live_server, settings):
+    settings.DEBUG = True
+    settings.ENABLE_LOCAL_TESTING = True
+    settings.WHITENOISE_USE_FINDERS = True
+    settings.MAPBOX_ACCESS_TOKEN = ""
+    actor = get_user_model().objects.create_user(
+        email="local-layout@example.test",
+        password="Isolated-QA-password",
+        is_staff=True,
+        is_superuser=True,
+    )
+    source = DataSource.objects.create(
+        name="Temporary source long title " * 6,
+        organization="Synthetic QA team",
+        custodian="Local developer",
+        source_type="DEMONSTRATION",
+        status="DEMONSTRATION",
+        permitted_use="Local tests only",
+        limitations="Not official",
+        coverage_description="Synthetic fixture coverage",
+    )
+    center = EvacuationCenter.objects.create(
+        name="Temporary center long title " * 6,
+        address="Fictional test address",
+        source=source,
+        latitude="0.5",
+        longitude="0.5",
+        publication_status="DEMONSTRATION",
+    )
+    OUTPUT.mkdir(parents=True, exist_ok=True)
+    with pw.sync_playwright() as p:
+        browser = p.chromium.launch(
+            executable_path=os.getenv(
+                "FLOODSENSE_QA_BROWSER", r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+            ),
+            headless=True,
+        )
+        page = browser.new_page()
+        page.goto(live_server.url + "/management/login/")
+        page.get_by_label("Work email").fill(actor.email)
+        page.get_by_label("Password", exact=True).fill("Isolated-QA-password")
+        page.locator("button[type=submit]").click()
+        for width in (1440, 390, 320):
+            page.set_viewport_size({"width": width, "height": 900})
+            for route, label in (
+                ("evacuation-centers/new/", "local-center-form"),
+                ("sources-content/new/", "local-source-form"),
+                (f"evacuation-centers/{center.pk}/", "local-center-detail"),
+                (f"sources-content/{source.pk}/", "local-source-detail"),
+                (f"evacuation-centers/{center.pk}/remove-temporary/", "local-center-remove"),
+                (f"sources-content/{source.pk}/remove-temporary/", "local-source-remove"),
+            ):
+                page.goto(live_server.url + "/management/" + route)
+                pw.expect(page.locator("main")).to_contain_text("Local testing")
+                assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), (
+                    width,
+                    label,
+                )
+                page.screenshot(path=str(OUTPUT / f"{label}-{width}.png"), full_page=True)
+        browser.close()
+    # Opening cleanup screens never mutates or removes either row.
+    assert EvacuationCenter.objects.filter(pk=center.pk).exists()
+    assert DataSource.objects.filter(pk=source.pk).exists()

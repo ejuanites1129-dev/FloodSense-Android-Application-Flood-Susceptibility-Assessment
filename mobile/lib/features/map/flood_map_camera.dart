@@ -1,6 +1,20 @@
 import 'dart:math' as math;
 
-const double selectedLocationCameraHeightMeters = 70;
+const double selectedLocationCameraHeightMeters = 300;
+
+// Tighten the city overview by one half-step after its screen-aware bounds fit.
+// Keep this separate from the selected pin/GPS camera height.
+const double bacoorOverviewZoomBoost = 0.5;
+
+double closerBacoorOverviewZoom(double fittedZoom, {double maximumZoom = 14}) =>
+    (fittedZoom + bacoorOverviewZoomBoost).clamp(2, maximumZoom).toDouble();
+
+// Native easeTo already eases the start/end. Give short zoom steps and larger
+// location changes enough time to settle without making controls feel sluggish.
+const mapZoomAnimationDuration = Duration(milliseconds: 650);
+const selectedLocationAnimationDuration = Duration(milliseconds: 1400);
+const mapFitAnimationDuration = Duration(milliseconds: 800);
+const mapRecenterAnimationDuration = Duration(milliseconds: 850);
 
 const double _earthCircumferenceMeters = 40075016.686;
 const double _mapboxTileSizePixels = 512;

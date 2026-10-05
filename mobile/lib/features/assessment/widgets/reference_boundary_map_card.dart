@@ -11,7 +11,10 @@ import '../../../data/models/geographic_area.dart';
 import '../../../data/models/map_assessment_result.dart';
 import '../../../data/models/point_resolution.dart';
 import '../../../data/models/verified_center.dart';
+import '../../../data/models/center_map_record.dart';
 import '../../evacuation/nearest_center_controller.dart';
+import '../../evacuation/evacuation_map_controller.dart';
+import '../../evacuation/evacuation_center_marker.dart';
 import '../../location/location_controller.dart';
 import '../../map/bacoor_coverage_mask.dart';
 import '../../map/flood_map_presentation.dart';
@@ -25,6 +28,7 @@ class ReferenceBoundaryMapCard extends StatefulWidget {
     required this.controller,
     this.locationController,
     this.nearestCenterController,
+    this.evacuationMapController,
     this.showBasemap = true,
     super.key,
   });
@@ -32,6 +36,7 @@ class ReferenceBoundaryMapCard extends StatefulWidget {
   final AssessmentController controller;
   final LocationController? locationController;
   final NearestCenterController? nearestCenterController;
+  final EvacuationMapController? evacuationMapController;
   final bool showBasemap;
 
   @override
@@ -50,6 +55,48 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
   List<Polygon<int>> _cachedPolygons = const [];
   List<GeographicArea>? _cachedCoverageAreas;
   List<Polygon<int>> _cachedCoveragePolygons = const [];
+
+  // A managed location is authoritative, including when it has been cleared.
+  MapCoordinate? get _mapCoordinate {
+    final location = widget.locationController;
+    return location == null
+        ? widget.controller.pinCoordinate
+        : location.lookupCoordinate;
+  }
+
+  String? get _selectedCenterIdentifier =>
+      widget.nearestCenterController?.selectedCenterIdentifier ??
+      widget.evacuationMapController?.selectedCenterIdentifier;
+
+  bool? get _nearestMode => switch (widget.nearestCenterController?.phase) {
+    NearestCenterPhase.resultsAvailable ||
+    NearestCenterPhase.empty => widget.nearestCenterController!.isDemonstration,
+    _ => null,
+  };
+
+  List<CenterMapRecord> get _mapMarkers => FloodMapPresentation(
+    referenceAreas: const [],
+    scenarioAreas: const [],
+    scenarioResults: const {},
+    onCoordinateTapped: (_) {},
+    centers: widget.nearestCenterController?.centers ?? const [],
+    mapCenters: widget.evacuationMapController?.centers ?? const [],
+    mapCentersAreAuthoritative: widget.evacuationMapController != null,
+    nearestIsDemonstration: _nearestMode,
+  ).mapMarkers;
+
+  void _selectCenter(String identifier) {
+    if (widget.nearestCenterController?.centers.any(
+          (center) => center.publicIdentifier == identifier,
+        ) ??
+        false) {
+      widget.evacuationMapController?.clearSelection();
+      widget.nearestCenterController!.selectCenter(identifier);
+    } else {
+      widget.nearestCenterController?.clearSelection();
+      widget.evacuationMapController?.selectCenter(identifier);
+    }
+  }
 
   @override
   void dispose() {
@@ -73,9 +120,7 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
   void _zoom(double change) {
     if (!_mapReady) return;
     final camera = _mapController.camera;
-    final coordinate =
-        widget.locationController?.lookupCoordinate ??
-        widget.controller.pinCoordinate;
+    final coordinate = _mapCoordinate;
     _mapController.move(
       coordinate?.latLng ?? camera.center,
       (camera.zoom + change).clamp(2, 18).toDouble(),
@@ -83,10 +128,13 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
   }
 
   void _centerOnTemporaryPoint() {
-    final coordinate =
-        widget.locationController?.lookupCoordinate ??
-        widget.controller.pinCoordinate;
-    if (!_mapReady || coordinate == null) return;
+    final coordinate = _mapCoordinate;
+    if (coordinate == null) {
+      _lastCenteredLatitude = null;
+      _lastCenteredLongitude = null;
+      return;
+    }
+    if (!_mapReady) return;
     if (_lastCenteredLatitude == coordinate.latitude &&
         _lastCenteredLongitude == coordinate.longitude) {
       return;
@@ -94,15 +142,13 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
     _lastCenteredLatitude = coordinate.latitude;
     _lastCenteredLongitude = coordinate.longitude;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_mapReady) return;
+      if (!mounted || !_mapReady || _mapCoordinate != coordinate) return;
       _mapController.move(coordinate.latLng, 16);
     });
   }
 
   void _recenterOnTemporaryPoint() {
-    final coordinate =
-        widget.locationController?.lookupCoordinate ??
-        widget.controller.pinCoordinate;
+    final coordinate = _mapCoordinate;
     if (!_mapReady || coordinate == null) return;
     _mapController.move(coordinate.latLng, 16);
   }
@@ -120,22 +166,31 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
   }
 
   void _centerOnSelectedCenter() {
-    final centers = widget.nearestCenterController;
-    final selectedIdentifier = centers?.selectedCenterIdentifier;
+    final selectedIdentifier = _selectedCenterIdentifier;
+    if (selectedIdentifier == null) _lastCenteredCenterIdentifier = null;
     if (!_mapReady ||
-        centers == null ||
         selectedIdentifier == null ||
         _lastCenteredCenterIdentifier == selectedIdentifier) {
       return;
     }
-    final matches = centers.centers.where(
+    final matches = _mapMarkers.where(
       (center) => center.publicIdentifier == selectedIdentifier,
     );
     if (matches.length != 1) return;
     final center = matches.single;
     _lastCenteredCenterIdentifier = selectedIdentifier;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_mapReady) return;
+      if (!mounted ||
+          !_mapReady ||
+          _selectedCenterIdentifier != selectedIdentifier ||
+          !_mapMarkers.any(
+            (current) =>
+                current.publicIdentifier == selectedIdentifier &&
+                current.latitude == center.latitude &&
+                current.longitude == center.longitude,
+          )) {
+        return;
+      }
       _mapController.move(
         LatLng(center.latitude, center.longitude),
         _mapController.camera.zoom < 15 ? 15 : _mapController.camera.zoom,
@@ -147,11 +202,18 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
   Widget build(BuildContext context) {
     final locationController = widget.locationController;
     final centerController = widget.nearestCenterController;
-    if (locationController == null && centerController == null) {
+    final catalogController = widget.evacuationMapController;
+    if (locationController == null &&
+        centerController == null &&
+        catalogController == null) {
       return _buildCard(context);
     }
     return AnimatedBuilder(
-      animation: Listenable.merge([?locationController, ?centerController]),
+      animation: Listenable.merge([
+        ?locationController,
+        ?centerController,
+        ?catalogController,
+      ]),
       builder: (context, _) => _buildCard(context),
     );
   }
@@ -165,9 +227,8 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
         controller.areas.isNotEmpty &&
         controller.areas.every((area) => area.areaType == 'BARANGAY');
     final centerController = widget.nearestCenterController;
-    final centers = centerController?.centers ?? const <VerifiedCenter>[];
-    final coordinate =
-        widget.locationController?.lookupCoordinate ?? controller.pinCoordinate;
+    final centers = _mapMarkers;
+    final coordinate = _mapCoordinate;
     _centerOnTemporaryPoint();
     _centerOnSelectedCenter();
     return Card(
@@ -284,9 +345,20 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
                               .locationController
                               ?.temporaryLocation
                               ?.accuracyMeters,
-                          centers: centers,
-                          selectedCenterIdentifier:
-                              centerController?.selectedCenterIdentifier,
+                          centers:
+                              centerController?.centers ??
+                              const <VerifiedCenter>[],
+                          mapCenters:
+                              widget.evacuationMapController?.centers ??
+                              const [],
+                          mapCentersAreAuthoritative:
+                              widget.evacuationMapController != null,
+                          nearestCenterIdentifier:
+                              centerController?.nearestCenterIdentifier,
+                          nearestIsDemonstration: _nearestMode,
+                          selectedCenterIdentifier: _selectedCenterIdentifier,
+                          coordinateDescription:
+                              widget.locationController?.coordinateDescription,
                           onCoordinateTapped: (point) {
                             unawaited(controller.placePin(point));
                             final location = widget.locationController;
@@ -294,7 +366,7 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
                               unawaited(location.resolveManualPin(point));
                             }
                           },
-                          onCenterTapped: centerController?.selectCenter,
+                          onCenterTapped: _selectCenter,
                           fitPadding: const FloodMapPadding.all(20),
                         ),
                         foreground: controller.isMapAssessing
@@ -346,9 +418,7 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
                                     controller.referenceAreas,
                                   ),
                                 ),
-                                if (centerController
-                                    case final activeCenterController?
-                                    when centers.isNotEmpty)
+                                if (centers.isNotEmpty)
                                   MarkerLayer(
                                     key: const Key('nearest-center-markers'),
                                     markers: [
@@ -361,40 +431,21 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
                                             center.latitude,
                                             center.longitude,
                                           ),
-                                          width: 52,
-                                          height: 52,
-                                          alignment: Alignment.topCenter,
-                                          child: Semantics(
-                                            button: true,
-                                            selected:
-                                                activeCenterController
-                                                    .selectedCenterIdentifier ==
+                                          width: 56,
+                                          height: 56,
+                                          child: EvacuationCenterMarker(
+                                            name: center.name,
+                                            isSelected:
+                                                _selectedCenterIdentifier ==
                                                 center.publicIdentifier,
-                                            label:
-                                                'Center marker for ${center.name}. ${center.distanceLabel}.',
-                                            child: GestureDetector(
-                                              behavior: HitTestBehavior.opaque,
-                                              onTap: () =>
-                                                  activeCenterController
-                                                      .selectCenter(
-                                                        center.publicIdentifier,
-                                                      ),
-                                              child: Icon(
-                                                Icons.home_work,
-                                                size:
-                                                    activeCenterController
-                                                            .selectedCenterIdentifier ==
-                                                        center.publicIdentifier
-                                                    ? 46
-                                                    : 38,
-                                                color: FloodMapPalette.center,
-                                                shadows: const [
-                                                  Shadow(
-                                                    blurRadius: 4,
-                                                    color: Colors.white,
-                                                  ),
-                                                ],
-                                              ),
+                                            isNearest:
+                                                centerController
+                                                    ?.nearestCenterIdentifier ==
+                                                center.publicIdentifier,
+                                            isDemonstration:
+                                                center.isDemonstration,
+                                            onTap: () => _selectCenter(
+                                              center.publicIdentifier,
                                             ),
                                           ),
                                         ),
@@ -425,11 +476,7 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
                                       ),
                                     ],
                                   ),
-                                if ((widget
-                                            .locationController
-                                            ?.lookupCoordinate ??
-                                        controller.pinCoordinate)
-                                    case final coordinate?)
+                                if (coordinate != null)
                                   MarkerLayer(
                                     markers: [
                                       Marker(
@@ -446,7 +493,8 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
                                         height: 48,
                                         alignment: Alignment.topCenter,
                                         child: Semantics(
-                                          label: 'Temporary map marker. The coordinate is not saved.',
+                                          label:
+                                              '${widget.locationController?.coordinateDescription ?? 'Temporary map marker'}. The coordinate is not saved.',
                                           child: const Icon(
                                             Icons.location_on,
                                             size: 44,
@@ -500,11 +548,7 @@ class _ReferenceBoundaryMapCardState extends State<ReferenceBoundaryMapCard> {
                                     icon: Icons.fit_screen,
                                     onPressed: _fitAll,
                                   ),
-                                  if ((widget
-                                              .locationController
-                                              ?.lookupCoordinate ??
-                                          controller.pinCoordinate) !=
-                                      null) ...[
+                                  if (coordinate != null) ...[
                                     const SizedBox(height: 6),
                                     _ReferenceMapControl(
                                       label: 'Recenter on temporary point',

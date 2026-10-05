@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../app/widgets/measured_scroll_view.dart';
 import '../../data/dss/structured_dss_repository.dart';
 import '../profile/data_sources_screen.dart';
 import 'dss_assessment_context.dart';
@@ -17,6 +18,7 @@ class DssFlowView extends StatefulWidget {
     this.padding = const EdgeInsets.all(16),
     this.header,
     this.footer,
+    this.onContentHeightChanged,
     super.key,
   });
   final DssController controller;
@@ -25,6 +27,7 @@ class DssFlowView extends StatefulWidget {
   final EdgeInsetsGeometry padding;
   final Widget? header;
   final Widget? footer;
+  final ValueChanged<double>? onContentHeightChanged;
   @override
   State<DssFlowView> createState() => _DssFlowViewState();
 }
@@ -135,6 +138,15 @@ class _DssFlowViewState extends State<DssFlowView> {
         ]);
       }
       if (widget.footer case final footer?) children.add(footer);
+      if (widget.onContentHeightChanged case final onHeightChanged?) {
+        return MeasuredScrollView(
+          key: const Key('dss-flow-view'),
+          controller: widget.scrollController,
+          padding: widget.padding,
+          onHeightChanged: onHeightChanged,
+          children: children,
+        );
+      }
       return ListView(
         key: const Key('dss-flow-view'),
         controller: widget.scrollController,
@@ -246,36 +258,39 @@ class _DssFlowViewState extends State<DssFlowView> {
     _navigation(isOutcome: true),
   ];
 
-  Widget _navigation({required bool isOutcome}) => Row(
-    children: [
-      Expanded(
-        child: OutlinedButton(
-          onPressed: widget.controller.canGoBack && !widget.controller.busy
-              ? widget.controller.goBack
-              : null,
-          child: const Text('Back'),
-        ),
-      ),
-      const SizedBox(width: 12),
-      Expanded(
-        child: FilledButton(
-          onPressed: widget.controller.busy
-              ? null
-              : isOutcome
-              ? widget.controller.restart
-              : widget.controller.selectedOptionCode == null
-              ? null
-              : widget.controller.continueFlow,
-          child: Text(
-            widget.controller.busy
-                ? 'Loading…'
-                : isOutcome
-                ? 'Restart'
-                : 'Continue',
+  Widget _navigation({required bool isOutcome}) => IntrinsicHeight(
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          child: OutlinedButton(
+            onPressed: widget.controller.canGoBack && !widget.controller.busy
+                ? widget.controller.goBack
+                : null,
+            child: const Text('Back'),
           ),
         ),
-      ),
-    ],
+        const SizedBox(width: 12),
+        Expanded(
+          child: FilledButton(
+            onPressed: widget.controller.busy
+                ? null
+                : isOutcome
+                ? widget.controller.restart
+                : widget.controller.selectedOptionCode == null
+                ? null
+                : widget.controller.continueFlow,
+            child: Text(
+              widget.controller.busy
+                  ? 'Loading…'
+                  : isOutcome
+                  ? 'Restart'
+                  : 'Continue',
+            ),
+          ),
+        ),
+      ],
+    ),
   );
 
   List<Widget> _contentSections(DssStep step) {

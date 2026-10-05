@@ -1,4 +1,3 @@
-
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -80,3 +79,34 @@ class DataSource(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+    @property
+    def is_temporary(self):
+        return (
+            self.source_type == self.SourceType.DEMONSTRATION
+            and self.status == PublicationStatus.DEMONSTRATION
+        )
+
+    @property
+    def test_approved(self):
+        return (
+            self.is_temporary
+            and self.reviewed_on is not None
+            and self.reviewed_by_id is not None
+            and not self.is_publicly_releasable
+        )
+
+    def get_status_display(self):
+        from core.local_testing import local_testing_enabled
+
+        # Read-only inventories intentionally omit reviewer fields. Do not fetch
+        # them lazily per row or imply local approval outside the test session.
+        if not local_testing_enabled() or {"reviewed_on", "reviewed_by_id"}.intersection(
+            self.get_deferred_fields()
+        ):
+            return PublicationStatus(self.status).label
+        if self.test_approved:
+            return "Approved for local testing—not agency approval"
+        if self.is_temporary:
+            return "Temporary local test data"
+        return PublicationStatus(self.status).label

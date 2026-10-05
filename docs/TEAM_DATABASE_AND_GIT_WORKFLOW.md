@@ -414,6 +414,31 @@ server\.venv\Scripts\python.exe server\manage.py changepassword person@example.c
 
 ## 13. Required coding-agent behavior
 
+Selected-record sharing update (6 October 2026): the reviewed
+[`import_team_local_data` package](TEAM_LOCAL_DATA_HANDOFF.md) can reproduce the
+owner's current boundary source, enabled City/47 pending barangays and two
+locally approved temporary centers. Teammates explicitly preview/apply it against
+their own opted-in local PostGIS database with their own superuser. This shares
+selected non-personal records, not accounts, contact details, restricted data,
+or a database dump. It does not silently overwrite local edits, revoke approvals,
+restore inactive records, recreate demo zones, or claim City/facility verification.
+The package adds no schema migration or dependency. Later Admin edits remain
+local unless separately selected, reviewed and packaged.
+
+Renamed/approved administrative-boundary compatibility (5 October 2026) uses
+existing source/City/barangay rows. See `BOUNDARY_APPROVAL_COMPATIBILITY.md`.
+After pulling this update, restart Django and relaunch Flutter; no additional
+dependency, migration, seed or import is required. Approval/rename decisions in
+one developer's database do not travel through Git. Imports preserve existing
+review and metadata rather than resetting rows to pending or creating copies.
+
+For manual temporary source/evacuation-center testing, use
+[the ordinary local workflow](LOCAL_TESTING_WORKFLOW.md): existing tables,
+visibly temporary rows, one private environment opt-in, normal Admin/API/debug
+Flutter, and explicit cleanup. No parallel application database or automated
+seed is needed. Pulling shares this capability, not local records. This change
+needs no new dependency or migration; restart Django and rebuild Flutter.
+
 When an agent works on FloodSense backend, database, GIS, Admin, Expert System,
 DSS, migration, seed, or import tasks, it must:
 

@@ -1,17 +1,20 @@
 import 'dart:async';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../data/models/geojson_geometry.dart';
 import '../../data/models/point_resolution.dart';
+import '../evacuation/evacuation_center_marker.dart';
 import 'flood_map_camera.dart';
 import 'flood_map_palette.dart';
 import 'flood_map_presentation.dart';
 import 'map_provider_config.dart';
+import 'mapbox_shelter_image.dart';
 
 Widget buildFloodMapboxSurface(
   FloodMapPresentation presentation,
@@ -38,7 +41,8 @@ class _FloodMapboxSurface extends StatefulWidget {
   State<_FloodMapboxSurface> createState() => _FloodMapboxSurfaceState();
 }
 
-class _FloodMapboxSurfaceState extends State<_FloodMapboxSurface> {
+class _FloodMapboxSurfaceState extends State<_FloodMapboxSurface>
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   static const _maskSourceId = 'floodsense-coverage-mask-source';
   static const _boundarySourceId = 'floodsense-boundary-source';
   static const _scenarioSourceId = 'floodsense-scenario-source';
@@ -46,6 +50,16 @@ class _FloodMapboxSurfaceState extends State<_FloodMapboxSurface> {
   static const _pointSourceId = 'floodsense-point-source';
   static const _scenarioFillLayerId = 'floodsense-scenario-fill';
   static const _centerLayerId = 'floodsense-center-points';
+  static const _nearestHaloLayerId = 'floodsense-nearest-center-halo';
+  static const _shelterImageId = 'floodsense-shelter-icon';
+
+  late final AnimationController _nearestPulse = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 3600),
+  )..addListener(_updateNearestHalo);
+  bool _haloUpdating = false;
+  double _haloStrength = 0;
+  int _lastHaloStep = -1;
 
   MapboxMap? _map;
   PointAnnotationManager? _pinManager;
@@ -60,6 +74,7 @@ class _FloodMapboxSurfaceState extends State<_FloodMapboxSurface> {
   bool _styleReady = false;
   bool _perspective = false;
   bool _reportedUnavailable = false;
+  String _startupStage = 'loading basemap';
   late final CameraViewportState _initialViewport;
   double _mapViewportHeight = 600;
   String _cameraHeightLabel = '—';
@@ -76,6 +91,7 @@ class _FloodMapboxSurfaceState extends State<_FloodMapboxSurface> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Configuration guarantees this is a public `pk.` token. It is set only
     // when the optional native renderer is actually selected.
     MapboxOptions.setAccessToken(widget.config.mapboxPublicToken);
@@ -88,14 +104,95 @@ class _FloodMapboxSurfaceState extends State<_FloodMapboxSurface> {
       pitch: 0,
       bearing: 0,
     );
-    _loadGuard = Timer(const Duration(seconds: 12), _reportUnavailable);
+    _loadGuard = Timer(
+      const Duration(seconds: 12),
+      () => _reportUnavailable(reason: 'startup timeout at $_startupStage'),
+    );
   }
 
   @override
   void dispose() {
     _loadGuard?.cancel();
     _pinDragEvents?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    _nearestPulse.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_decorativeMotionEnabled) {
+      _nearestPulse.stop();
+      _nearestPulse.value = 1;
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) {
+      _nearestPulse.stop();
+      _nearestPulse.value = 1;
+    }
+  }
+
+  bool get _decorativeMotionEnabled {
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    return mounted &&
+        TickerMode.valuesOf(context).enabled &&
+        !MediaQuery.disableAnimationsOf(context) &&
+        (lifecycle == null || lifecycle == AppLifecycleState.resumed);
+  }
+
+  void _highlightNearestCenter() {
+    _nearestPulse.stop();
+    _lastHaloStep = -1;
+    if (widget.presentation.nearestCenterIdentifier != null &&
+        _decorativeMotionEnabled) {
+      _nearestPulse.forward(from: 0);
+    } else {
+      _nearestPulse.value = 1;
+      _updateNearestHalo();
+    }
+  }
+
+  void _updateNearestHalo() {
+    if (!_styleReady || !mounted) return;
+    final strength = evacuationPulseStrength(_nearestPulse.value);
+    final step = (strength * 12).round();
+    if (step == _lastHaloStep) return;
+    _lastHaloStep = step;
+    _haloStrength = step / 12;
+    if (!_haloUpdating) unawaited(_flushNearestHalo());
+  }
+
+  Future<void> _flushNearestHalo() async {
+    final map = _map;
+    if (map == null) return;
+    _haloUpdating = true;
+    try {
+      // Coalesce in-flight style updates. No source reload, camera move,
+      // location request, polling, or repeating background animation.
+      double strength;
+      do {
+        strength = _haloStrength;
+        await map.style.setStyleLayerProperty(
+          _nearestHaloLayerId,
+          'circle-radius',
+          23 + 6 * strength,
+        );
+        if (!mounted) return;
+        await map.style.setStyleLayerProperty(
+          _nearestHaloLayerId,
+          'circle-opacity',
+          0.20 + 0.12 * strength,
+        );
+      } while (mounted && strength != _haloStrength);
+    } catch (_) {
+      // Decorative emphasis failure must not discard a usable map.
+    } finally {
+      _haloUpdating = false;
+    }
   }
 
   @override
@@ -110,8 +207,28 @@ class _FloodMapboxSurfaceState extends State<_FloodMapboxSurface> {
     _sourceRefresh = _sourceRefresh
         .then((_) async {
           await _refreshSources(oldWidget.presentation, currentPresentation);
-          if (!coordinateChanged) return;
+          if (oldWidget.presentation.nearestCenterIdentifier !=
+              currentPresentation.nearestCenterIdentifier) {
+            _highlightNearestCenter();
+          }
+          if (!mounted ||
+              !coordinateChanged ||
+              !_sameCoordinate(
+                currentPresentation.coordinate,
+                widget.presentation.coordinate,
+              )) {
+            return;
+          }
           await _syncPinAnnotation();
+          // Source/annotation work is asynchronous. A newer pin must not be
+          // interrupted by a queued focus for the previous location.
+          if (!mounted ||
+              !_sameCoordinate(
+                currentPresentation.coordinate,
+                widget.presentation.coordinate,
+              )) {
+            return;
+          }
           final coordinate = currentPresentation.coordinate;
           if (coordinate == null) {
             await _fitAll();
@@ -133,7 +250,7 @@ class _FloodMapboxSurfaceState extends State<_FloodMapboxSurface> {
         _lastSelectedCenterIdentifier) {
       _lastSelectedCenterIdentifier =
           widget.presentation.selectedCenterIdentifier;
-      final selected = widget.presentation.centers.where(
+      final selected = widget.presentation.mapMarkers.where(
         (center) => center.publicIdentifier == _lastSelectedCenterIdentifier,
       );
       if (selected.length == 1) {
@@ -150,6 +267,9 @@ class _FloodMapboxSurfaceState extends State<_FloodMapboxSurface> {
 
   @override
   Widget build(BuildContext context) {
+    final pinDescription = widget.presentation.coordinate == null
+        ? 'Unconfirmed starting map pin—not your actual location'
+        : widget.presentation.coordinateDescription ?? 'Temporary map pin';
     final controls = Positioned(
       top: 8,
       left: widget.presentation.controlsOnRight ? null : 8,
@@ -179,7 +299,7 @@ class _FloodMapboxSurfaceState extends State<_FloodMapboxSurface> {
           if (widget.presentation.coordinate != null) ...[
             const SizedBox(height: 6),
             _MapboxControl(
-              label: 'Recenter on temporary point',
+              label: 'Recenter on $pinDescription',
               icon: Icons.my_location,
               onPressed: _recenterOnTemporaryPoint,
             ),
@@ -211,21 +331,32 @@ class _FloodMapboxSurfaceState extends State<_FloodMapboxSurface> {
           key: const Key('mapbox-flood-map'),
           fit: StackFit.expand,
           children: [
-            MapWidget(
-              key: const ValueKey('floodsense-mapbox-widget'),
-              styleUri: MapboxStyles.STANDARD,
-              viewport: _initialViewport,
-              onMapCreated: (map) {
-                _map = map;
-                map.addInteraction(
-                  TapInteraction.onMap(
-                    (gesture) => unawaited(_handleTap(gesture)),
-                  ),
-                );
-              },
-              onCameraChangeListener: _handleCameraChanged,
-              onStyleLoadedListener: (_) => unawaited(_onStyleLoaded()),
-              onMapLoadErrorListener: (_) => _reportUnavailable(),
+            Semantics(
+              container: true,
+              label:
+                  'Map. $pinDescription. This coordinate is temporary and is '
+                  'not saved. Drag the pin to choose a new map location. '
+                  'Evacuation-center icons are reference information; nearest '
+                  'means approximate straight-line distance, not safety or '
+                  'current availability.',
+              child: MapWidget(
+                key: const ValueKey('floodsense-mapbox-widget'),
+                styleUri: MapboxStyles.STANDARD,
+                viewport: _initialViewport,
+                onMapCreated: (map) {
+                  _map = map;
+                  map.addInteraction(
+                    TapInteraction.onMap(
+                      (gesture) => unawaited(_handleTap(gesture)),
+                    ),
+                  );
+                },
+                onCameraChangeListener: _handleCameraChanged,
+                onStyleLoadedListener: (_) => unawaited(_onStyleLoaded()),
+                onMapLoadErrorListener: (event) => _reportUnavailable(
+                  reason: 'basemap load error ${event.type.name}',
+                ),
+              ),
             ),
             controls,
             if (!widget.presentation.controlsOnRight)
@@ -244,6 +375,10 @@ class _FloodMapboxSurfaceState extends State<_FloodMapboxSurface> {
     final map = _map;
     if (map == null) return _reportUnavailable();
     try {
+      _startupStage = 'basemap configuration';
+      // The native north-reset compass occupies the same upper-right space as
+      // our zoom controls. Keep only the visible app controls in that position.
+      await map.compass.updateSettings(CompassSettings(enabled: false));
       await map.style.setStyleImportConfigProperty(
         'basemap',
         'theme',
@@ -260,11 +395,13 @@ class _FloodMapboxSurfaceState extends State<_FloodMapboxSurface> {
         widget.config.showsThreeDimensionalControl(),
       );
 
-      _lastMaskGeoJson = widget.presentation.coverageMaskGeoJson;
-      _lastBoundaryGeoJson = widget.presentation.boundaryGeoJson;
-      _lastScenarioGeoJson = widget.presentation.scenarioGeoJson;
-      _lastAccuracyGeoJson = widget.presentation.accuracyGeoJson;
-      _lastPointGeoJson = widget.presentation.pointGeoJson;
+      _startupStage = 'assessment sources and layers';
+      final sourcePresentation = widget.presentation;
+      _lastMaskGeoJson = sourcePresentation.coverageMaskGeoJson;
+      _lastBoundaryGeoJson = sourcePresentation.boundaryGeoJson;
+      _lastScenarioGeoJson = sourcePresentation.scenarioGeoJson;
+      _lastAccuracyGeoJson = sourcePresentation.accuracyGeoJson;
+      _lastPointGeoJson = sourcePresentation.pointGeoJson;
       _maskSource = GeoJsonSource(id: _maskSourceId, data: _lastMaskGeoJson);
       _boundarySource = GeoJsonSource(
         id: _boundarySourceId,
@@ -428,45 +565,73 @@ class _FloodMapboxSurfaceState extends State<_FloodMapboxSurface> {
           fillOutlineColor: FloodMapPalette.selection.toARGB32(),
         ),
       );
+      _startupStage = 'shelter PNG image';
+      final shelter = await createEvacuationShelterStyleImage();
+      await map.style.addStyleImage(
+        _shelterImageId,
+        2,
+        shelter,
+        false,
+        [],
+        [],
+        null,
+      );
+      _startupStage = 'nearest shelter halo';
       await map.style.addLayer(
         CircleLayer(
-          id: _centerLayerId,
+          id: _nearestHaloLayerId,
           sourceId: _pointSourceId,
           slot: 'top',
           filter: [
             '==',
-            'verified-center',
-            ['get', 'kind'],
+            true,
+            ['get', 'nearest'],
           ],
           circleColor: FloodMapPalette.center.toARGB32(),
-          circleStrokeColor: Colors.white.toARGB32(),
-          circleStrokeWidth: 3,
-          circleRadiusExpression: [
-            'case',
-            [
-              '==',
-              true,
-              ['get', 'selected'],
-            ],
-            12.0,
-            9.0,
-          ],
+          circleStrokeColor: FloodMapPalette.center.toARGB32(),
+          circleStrokeWidth: 2,
+          circleOpacity: 0.20,
+          circleRadius: 23,
         ),
       );
+      _startupStage = 'shelter symbol layer';
+      await map.style.addLayer(
+        createEvacuationShelterSymbolLayer(
+          id: _centerLayerId,
+          sourceId: _pointSourceId,
+          imageId: _shelterImageId,
+        ),
+      );
+      _startupStage = 'draggable location pin';
       await _createDraggablePin();
       _styleReady = true;
+      // Catalog/location responses can arrive while native layers are being
+      // created. didUpdateWidget cannot update unregistered sources yet; replay
+      // the newest presentation now instead of losing those shelter icons.
+      _sourceRefresh = _sourceRefresh.then(
+        (_) => _refreshSources(sourcePresentation, widget.presentation),
+      );
+      await _sourceRefresh;
+      _highlightNearestCenter();
       _loadGuard?.cancel();
       _lastSelectedAreaId = widget.presentation.selectedAreaId;
       _lastSelectedCenterIdentifier =
           widget.presentation.selectedCenterIdentifier;
+      _startupStage = 'initial camera';
       final coordinate = widget.presentation.coordinate;
       if (coordinate == null) {
         await _fitAll();
       } else {
         await _focusCoordinateAtHeight(coordinate);
       }
-    } catch (_) {
-      _reportUnavailable();
+      if (kDebugMode) debugPrint('FloodSense Mapbox: startup complete.');
+    } catch (error) {
+      // Log only the stage and error category, never a token, URL, coordinate,
+      // GeoJSON payload or arbitrary native error message.
+      final category = error is PlatformException
+          ? 'PlatformException'
+          : error.runtimeType.toString();
+      _reportUnavailable(reason: '$_startupStage failed ($category)');
     }
   }
 
@@ -509,6 +674,11 @@ class _FloodMapboxSurfaceState extends State<_FloodMapboxSurface> {
       }
       if (!_sameCoordinate(previous.coordinate, current.coordinate) ||
           !identical(previous.centers, current.centers) ||
+          !identical(previous.mapCenters, current.mapCenters) ||
+          previous.mapCentersAreAuthoritative !=
+              current.mapCentersAreAuthoritative ||
+          previous.nearestIsDemonstration != current.nearestIsDemonstration ||
+          previous.nearestCenterIdentifier != current.nearestCenterIdentifier ||
           previous.selectedCenterIdentifier !=
               current.selectedCenterIdentifier) {
         final value = current.pointGeoJson;
@@ -555,7 +725,8 @@ class _FloodMapboxSurfaceState extends State<_FloodMapboxSurface> {
     }
   }
 
-  Future<void> _fitAll() => _fitBounds(widget.presentation.bounds);
+  Future<void> _fitAll() =>
+      _fitBounds(widget.presentation.bounds, closerOverview: true);
 
   Future<void> _fitGeometry(GeoJsonGeometry geometry) =>
       _fitBounds(FloodMapBounds.fromGeometries([geometry]), maximumZoom: 16);
@@ -563,6 +734,7 @@ class _FloodMapboxSurfaceState extends State<_FloodMapboxSurface> {
   Future<void> _fitBounds(
     FloodMapBounds bounds, {
     double maximumZoom = 14,
+    bool closerOverview = false,
   }) async {
     final map = _map;
     if (map == null) return;
@@ -584,7 +756,14 @@ class _FloodMapboxSurfaceState extends State<_FloodMapboxSurface> {
       maximumZoom,
       null,
     );
-    await map.easeTo(camera, MapAnimationOptions(duration: 400));
+    final fittedZoom = camera.zoom;
+    if (closerOverview && fittedZoom != null) {
+      camera.zoom = closerBacoorOverviewZoom(
+        fittedZoom,
+        maximumZoom: maximumZoom,
+      );
+    }
+    await map.easeTo(camera, _cameraAnimationOptions(mapFitAnimationDuration));
   }
 
   Future<void> _zoom(double change) async {
@@ -597,7 +776,7 @@ class _FloodMapboxSurfaceState extends State<_FloodMapboxSurface> {
         center: Point(coordinates: Position(pin.longitude, pin.latitude)),
         zoom: (camera.zoom + change).clamp(2, 22).toDouble(),
       ),
-      MapAnimationOptions(duration: 350),
+      _cameraAnimationOptions(mapZoomAnimationDuration),
     );
   }
 
@@ -667,7 +846,8 @@ class _FloodMapboxSurfaceState extends State<_FloodMapboxSurface> {
       longitude: coordinates.lng.toDouble(),
     );
     widget.presentation.onCoordinateTapped(coordinate);
-    unawaited(_focusCoordinateAtHeight(coordinate));
+    // didUpdateWidget owns focusing after the coordinate changes. Starting it
+    // here as well restarts the same native animation after sources refresh.
   }
 
   Future<void> _focusCoordinateAtHeight(MapCoordinate coordinate) async {
@@ -687,7 +867,7 @@ class _FloodMapboxSurfaceState extends State<_FloodMapboxSurface> {
         ),
         zoom: zoom,
       ),
-      MapAnimationOptions(duration: 700),
+      _cameraAnimationOptions(selectedLocationAnimationDuration),
     );
   }
 
@@ -765,7 +945,7 @@ class _FloodMapboxSurfaceState extends State<_FloodMapboxSurface> {
         center: Point(coordinates: Position(longitude, latitude)),
         zoom: camera.zoom < minimumZoom ? minimumZoom : camera.zoom,
       ),
-      MapAnimationOptions(duration: 350),
+      _cameraAnimationOptions(mapRecenterAnimationDuration),
     );
   }
 
@@ -778,13 +958,23 @@ class _FloodMapboxSurfaceState extends State<_FloodMapboxSurface> {
         pitch: _perspective ? 45 : 0,
         bearing: _perspective ? -18 : 0,
       ),
-      MapAnimationOptions(duration: 450),
+      _cameraAnimationOptions(const Duration(milliseconds: 450)),
     );
   }
 
-  void _reportUnavailable() {
+  MapAnimationOptions _cameraAnimationOptions(Duration duration) =>
+      MapAnimationOptions(
+        duration: MediaQuery.disableAnimationsOf(context)
+            ? 0
+            : duration.inMilliseconds,
+      );
+
+  void _reportUnavailable({String reason = 'map update failed'}) {
     if (_reportedUnavailable) return;
     _reportedUnavailable = true;
+    if (kDebugMode) {
+      debugPrint('FloodSense Mapbox: $reason; using standard map.');
+    }
     widget.onUnavailable();
   }
 }

@@ -46,6 +46,15 @@ All work must also follow:
 
 ## Current status
 
+Boundary review compatibility (5 October 2026): source renaming and internal
+metadata approval no longer hide the existing City/47-barangay dataset. The
+source registry supports ordinary permission-checked review actions; existing
+geometry release can be retained during review/approval without enabling new
+publication. Map inventory includes pending and approved administrative geometry.
+Approval is not City endorsement or susceptibility approval, and boundary
+provenance remains unavailable as facility evidence. See
+`BOUNDARY_APPROVAL_COMPATIBILITY.md` for checks and teammate setup.
+
 ### Navigation and reporting update — 30 September 2026
 
 The requested portal layout update supersedes the older Overview arrangement
@@ -432,6 +441,14 @@ for missing approved data must not be mistaken for an implemented workflow.
 
 ## Team handoff for each day
 
+On 5 October 2026 the project owner authorized the
+[normal local temporary-data workflow](LOCAL_TESTING_WORKFLOW.md) for sources
+and evacuation centers. These use existing tables and forms, labeled local
+approval (not facility verification), manual mobile refresh and confirmed
+single-row cleanup. The reserved boundary reference source is not facility
+evidence. This development decision does not unlock parameters or modify public
+approval rules outside the gated local environment, and is not adviser approval.
+
 Before starting:
 
 1. pull only when explicitly requested and protect local work first;
@@ -452,6 +469,12 @@ Before handing off:
    explicitly authorized for that target.
 
 ## Parallel-work rule
+
+On 5 October 2026 the project owner requested removal of the repetitive global
+local-testing banner from the custom Admin layout. Keep temporary labels on
+individual records and preserve all approval/publication/local-only gates.
+This is a display refinement, not permission to present temporary data as
+official or to change scenario, parameter or Expert System governance.
 
 Day 4 is at its governance checkpoint. Later days may be designed in parallel, but implementation
 must respect dependencies:

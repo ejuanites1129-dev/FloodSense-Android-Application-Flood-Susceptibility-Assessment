@@ -1,9 +1,11 @@
 from dataclasses import dataclass
 
+from core.local_testing import local_testing_enabled
 from django.contrib.admin.models import CHANGE, LogEntry
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.utils import timezone
+from geography.boundaries import is_bacoor_boundary_source
 
 from .models import DataSource, PublicationStatus
 
@@ -87,14 +89,70 @@ TRANSITIONS = {
     )
 }
 
+TRANSITIONS.update(
+    {
+        "approve-boundary": SourceTransition(
+            "approve-boundary",
+            "Approve boundary metadata",
+            PublicationStatus.PENDING_VALIDATION,
+            PublicationStatus.APPROVED,
+            True,
+            True,
+            "provenance.approve_datasource",
+            "Record internal administrative-boundary review and retain existing geometry release. "
+            "This is not City endorsement, flood-data approval or facility verification.",
+        ),
+        "return-boundary-review": SourceTransition(
+            "return-boundary-review",
+            "Return boundary metadata to review",
+            PublicationStatus.APPROVED,
+            PublicationStatus.PENDING_VALIDATION,
+            True,
+            True,
+            "provenance.change_datasource",
+            "Remove internal metadata approval while retaining existing boundary release. "
+            "Flood-data and facility approval remain separate.",
+        ),
+        "approve-test": SourceTransition(
+            "approve-test",
+            "Approve for local testing",
+            PublicationStatus.DEMONSTRATION,
+            PublicationStatus.DEMONSTRATION,
+            False,
+            False,
+            "provenance.approve_datasource",
+            "Record local test metadata review only. This does not approve agency evidence "
+            "or enable public release.",
+        ),
+        "return-test-review": SourceTransition(
+            "return-test-review",
+            "Return temporary source to review",
+            PublicationStatus.DEMONSTRATION,
+            PublicationStatus.DEMONSTRATION,
+            False,
+            False,
+            "provenance.change_datasource",
+            "Remove local test approval. Test centers will be withheld on their next refresh.",
+        ),
+    }
+)
+
 
 def available_transitions(source: DataSource, actor) -> list[SourceTransition]:
+    boundary = is_bacoor_boundary_source(source)
     return [
         item
         for item in TRANSITIONS.values()
         if item.source_status == source.status
         and item.source_public == source.is_publicly_releasable
         and actor.has_perm(item.permission)
+        and (item.action not in {"approve-boundary", "return-boundary-review"} or boundary)
+        and (
+            item.action not in {"approve-test", "return-test-review"}
+            or local_testing_enabled()
+            and source.is_temporary
+            and source.test_approved == (item.action == "return-test-review")
+        )
     ]
 
 
@@ -124,6 +182,19 @@ def transition_source(
     if not actor.has_perm(transition.permission):
         raise PermissionDenied
     source = DataSource.objects.select_for_update().get(pk=source_id)
+    if action in {"approve-boundary", "return-boundary-review"} and not is_bacoor_boundary_source(
+        source
+    ):
+        raise ValidationError(
+            "This action is only for the controlled administrative-boundary source."
+        )
+    if action in {"approve-test", "return-test-review"}:
+        if not local_testing_enabled() or not source.is_temporary:
+            raise ValidationError("Temporary source actions require the local testing environment.")
+        if source.test_approved != (action == "return-test-review"):
+            raise ValidationError(
+                "The temporary source review state changed. Refresh and try again."
+            )
     if expected_updated_at is not None:
         from core.record_workflow import require_fresh
 
@@ -137,7 +208,7 @@ def transition_source(
         or source.is_publicly_releasable != transition.source_public
     ):
         raise ValidationError("This action is not valid from the current state.")
-    if action == "approve":
+    if action in {"approve", "approve-test", "approve-boundary"}:
         missing = [
             label
             for value, label in (
@@ -153,7 +224,7 @@ def transition_source(
             raise ValidationError(
                 "Approval requires complete metadata: " + ", ".join(missing) + "."
             )
-        if source.source_type == DataSource.SourceType.DEMONSTRATION:
+        if action != "approve-test" and source.source_type == DataSource.SourceType.DEMONSTRATION:
             raise ValidationError(
                 "Demonstration sources must remain visibly labeled as demonstration data."
             )
@@ -161,10 +232,10 @@ def transition_source(
     previous = source.get_status_display()
     source.status = transition.target_status
     source.is_publicly_releasable = transition.target_public
-    if action == "approve":
+    if action in {"approve", "approve-test", "approve-boundary"}:
         source.reviewed_by = actor
         source.reviewed_on = timezone.localdate()
-    elif action == "return-review":
+    elif action in {"return-review", "return-test-review", "return-boundary-review"}:
         source.reviewed_by = None
         source.reviewed_on = None
     source.full_clean()

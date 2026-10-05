@@ -38,6 +38,7 @@ final class NearestCenterResult {
     Map<String, dynamic> json, {
     int requestedLimit = 3,
     bool localPreview = false,
+    bool requirePreviewName = true,
   }) {
     if (requestedLimit < 1 || requestedLimit > 10) {
       throw const ModelParsingException('Invalid requested center limit.');
@@ -66,6 +67,7 @@ final class NearestCenterResult {
           (item) => _parseCenter(
             requireMap(item, 'center'),
             localPreview: localPreview,
+            requirePreviewName: requirePreviewName,
           ),
         )
         .toList(growable: false);
@@ -106,6 +108,7 @@ final class NearestCenterResult {
 VerifiedCenter _parseCenter(
   Map<String, dynamic> json, {
   bool localPreview = false,
+  bool requirePreviewName = true,
 }) {
   _requireExactKeys(json, {
     'public_identifier',
@@ -124,7 +127,8 @@ VerifiedCenter _parseCenter(
   if (localPreview &&
       (json['data_status'] != 'DEMONSTRATION' ||
           json['verified_on'] != null ||
-          !_strictText(json, 'name').startsWith('LOCAL TEST -'))) {
+          (requirePreviewName &&
+              !_strictText(json, 'name').startsWith('LOCAL TEST -')))) {
     throw const ModelParsingException('Invalid synthetic center.');
   }
 

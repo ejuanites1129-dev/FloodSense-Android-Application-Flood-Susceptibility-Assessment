@@ -10,7 +10,10 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from provenance.models import DataSource, PublicationStatus
 
+from geography.boundaries import bacoor_boundary_source_id
 from geography.constants import (
+    BACOOR_BOUNDARY_STATUSES,
+    BACOOR_CITY_CODE,
     BACOOR_REFERENCE_SOURCE_NAME,
     BACOOR_REFERENCE_SOURCE_VERSION,
 )
@@ -48,16 +51,15 @@ class Command(BaseCommand):
         )
         source = self._source()
 
-        expected_codes = {"PSGC_0402103000"}
+        expected_codes = {BACOOR_CITY_CODE}
         expected_codes.update(
-            f"PSGC_{feature['properties']['psgc_10_digit']}"
-            for feature in barangay_features
+            f"PSGC_{feature['properties']['psgc_10_digit']}" for feature in barangay_features
         )
         self._guard_reserved_source(source, expected_codes)
 
         city = self._save_area(
             source=source,
-            code="PSGC_0402103000",
+            code=BACOOR_CITY_CODE,
             name="City of Bacoor",
             area_type=GeographicArea.AreaType.CITY,
             geometry_json=city_features[0]["geometry"],
@@ -84,9 +86,7 @@ class Command(BaseCommand):
             )
 
         self.stdout.write(
-            self.style.WARNING(
-                "DERIVED ADMINISTRATIVE REFERENCE - NOT CITY-VERIFIED"
-            )
+            self.style.WARNING("DERIVED ADMINISTRATIVE REFERENCE - NOT CITY-VERIFIED")
         )
         self.stdout.write(
             self.style.SUCCESS(
@@ -112,23 +112,32 @@ class Command(BaseCommand):
         return features
 
     def _source(self) -> DataSource:
-        matches = list(
-            DataSource.objects.filter(name=BACOOR_REFERENCE_SOURCE_NAME).order_by("id")
-        )
+        linked_id = bacoor_boundary_source_id()
+        matches = list(DataSource.objects.filter(name=BACOOR_REFERENCE_SOURCE_NAME).order_by("id"))
         if len(matches) > 1:
             raise CommandError(
                 f"Multiple data sources use reserved name {BACOOR_REFERENCE_SOURCE_NAME!r}."
             )
-        if matches:
-            source = matches[0]
+        if linked_id is not None or matches:
+            source = (
+                DataSource.objects.select_for_update().get(pk=linked_id)
+                if linked_id
+                else matches[0]
+            )
+            if matches and matches[0].pk != source.pk:
+                raise CommandError(
+                    "The City source conflicts with the legacy boundary-source identity."
+                )
             if (
                 source.source_type != DataSource.SourceType.AGENCY_DATASET
-                or source.status != PublicationStatus.PENDING_VALIDATION
+                or source.status not in BACOOR_BOUNDARY_STATUSES
             ):
                 raise CommandError(
                     "The reserved boundary-source name belongs to a record with an "
                     "unexpected type or publication status."
                 )
+            # Explicit reimports must not undo review, rename, license or release decisions.
+            return source
         else:
             source = DataSource(name=BACOOR_REFERENCE_SOURCE_NAME)
 
@@ -157,9 +166,7 @@ class Command(BaseCommand):
 
     def _guard_reserved_source(self, source: DataSource, expected_codes: set[str]):
         unexpected = list(
-            source.geographic_areas.exclude(code__in=expected_codes).values_list(
-                "code", flat=True
-            )
+            source.geographic_areas.exclude(code__in=expected_codes).values_list("code", flat=True)
         )
         if unexpected:
             raise CommandError(
@@ -176,23 +183,39 @@ class Command(BaseCommand):
         area_type: str,
         geometry_json: dict,
     ) -> GeographicArea:
-        existing = GeographicArea.objects.filter(code=code).first()
+        existing = GeographicArea.objects.select_for_update().filter(code=code).first()
         if existing is not None and existing.source_id != source.id:
-            raise CommandError(
-                f"Geographic-area code {code!r} already belongs to another source."
-            )
+            raise CommandError(f"Geographic-area code {code!r} already belongs to another source.")
         area = existing or GeographicArea(code=code, source=source)
         geometry = GEOSGeometry(json.dumps(geometry_json), srid=4326)
         if geometry.geom_type == "Polygon":
             geometry = MultiPolygon(geometry, srid=4326)
         if geometry.geom_type != "MultiPolygon" or not geometry.valid:
             raise CommandError(f"Area {code!r} does not contain valid multipolygon geometry.")
+        if existing is not None:
+            if existing.status not in BACOOR_BOUNDARY_STATUSES:
+                raise CommandError(f"Area {code!r} is withdrawn; an import cannot restore it.")
+            if (
+                existing.status == PublicationStatus.APPROVED
+                or source.status == PublicationStatus.APPROVED
+            ):
+                if (
+                    existing.name != name
+                    or existing.area_type != area_type
+                    or not existing.geometry.equals(geometry)
+                ):
+                    raise CommandError(
+                        f"Area {code!r} has reviewed geometry; return it and its source "
+                        "to review before replacing it."
+                    )
+                return existing
         area.name = name
         area.area_type = area_type
         area.geometry = geometry
         area.source = source
-        area.status = PublicationStatus.PENDING_VALIDATION
-        area.is_enabled = True
+        if existing is None:
+            area.status = PublicationStatus.PENDING_VALIDATION
+            area.is_enabled = True
         area.full_clean()
         area.save()
         return area

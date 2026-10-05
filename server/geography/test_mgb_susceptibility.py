@@ -119,6 +119,32 @@ def DecimalString(value: str) -> str:
 
 @override_settings(DEBUG=True, ENABLE_PROVISIONAL_MGB_PREVIEW=True)
 class MgbSusceptibilityImportTests(ProvisionalMgbFixtureMixin, TestCase):
+    def test_approved_renamed_geometry_does_not_approve_susceptibility(self):
+        from geography.constants import BACOOR_CITY_CODE
+        from geography.services import active_consultation_dataset
+
+        boundary_source = GeographicArea.objects.get(code=BACOOR_CITY_CODE).source
+        boundary_source.name = "Synthetic renamed boundary metadata"
+        boundary_source.status = PublicationStatus.APPROVED
+        boundary_source.save()
+        boundary_source.geographic_areas.update(status=PublicationStatus.APPROVED)
+        self._import()
+        dataset = active_consultation_dataset()
+        self.assertIsNotNone(dataset)
+        self.assertEqual(dataset.status, PublicationStatus.PENDING_VALIDATION)
+        self.assertEqual(dataset.source.status, PublicationStatus.PENDING_VALIDATION)
+        self.assertFalse(dataset.source.is_publicly_releasable)
+        payload = self.client.get(reverse("geography:reference-boundary-collection")).json()
+        self.assertEqual(payload["data_status"], PublicationStatus.APPROVED)
+        self.assertEqual(
+            payload["susceptibility_dataset"]["data_status"], PublicationStatus.PENDING_VALIDATION
+        )
+        with override_settings(DEBUG=False):
+            self.assertIsNone(active_consultation_dataset())
+        dataset.source.status = PublicationStatus.APPROVED
+        dataset.source.save()
+        self.assertIsNone(active_consultation_dataset())
+
     def test_import_is_complete_versioned_provisional_and_idempotent(self):
         output = self._import()
 

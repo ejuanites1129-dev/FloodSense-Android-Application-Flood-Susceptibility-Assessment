@@ -14,6 +14,9 @@
   border-radius: var(--radius-sm); background: #fff; color: var(--text); font: inherit;
 }
 .operations-form textarea { min-height: 100px; resize: vertical; }
+.operations-form input[type="checkbox"], .confirm-form input[type="checkbox"] {
+  width: 22px; min-height: 22px; padding: 0; margin: 8px 0;
+}
 .operations-form select { max-width: 100%; }
 .operations-filters input:focus, .operations-filters select:focus,
 .operations-form input:focus, .operations-form select:focus, .operations-form textarea:focus {

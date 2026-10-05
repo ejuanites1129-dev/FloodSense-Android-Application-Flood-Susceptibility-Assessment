@@ -1,0 +1,406 @@
+{
+  "format_version": 1,
+  "package_version": "local-team-2026-10-06",
+  "boundary_files": {
+    "bacoor_city_boundary.geojson": "1aa3497b226a5c5ed8d33e400ab7732cb092704cee9496806088535d6173d5d3",
+    "bacoor_barangay_boundaries.geojson": "9c3e53643039ba71e88e6ecd5f7a23bfb87980b3375e086e826efe97aaa8f213"
+  },
+  "boundary_source": {
+    "name": "Bacoor administrative boundaries",
+    "organization": "OCHA HDX; source agencies NAMRIA and PSA",
+    "custodian": "",
+    "source_type": "AGENCY_DATASET",
+    "coverage_description": "Bacoor City and its 47 current barangays. Geometry was derived from COD-AB legacy polygons using the PSA 2023 barangay-merger mapping.",
+    "record_period_start": "2023-07-29",
+    "record_period_end": null,
+    "received_or_created_on": "2026-09-16",
+    "version": "COD-AB v03; PSA PSGC 2023-Q3",
+    "permitted_use": "Administrative mapping, barangay identification, location matching, and evacuation-center spatial lookup within FloodSense, subject to the source datasets’ licensing and attribution requirements.",
+    "processing_notes": "",
+    "limitations": "",
+    "citation_url": "",
+    "status": "APPROVED",
+    "is_publicly_releasable": true,
+    "notes": "Bacoor City and 47-barangay administrative boundary dataset prepared from the Philippines COD-AB boundary files distributed through OCHA/HDX, with barangay identities and merger mapping based on PSA PSGC updates. The original barangay polygons were consolidated into the 47-barangay configuration and standardized to WGS 84 coordinates.\r\n\r\nContains administrative geometry only—not flood-hazard, rainfall, incident, or susceptibility values. Prepared from published datasets rather than supplied directly by the City Government of Bacoor."
+  },
+  "areas": [
+    {
+      "code": "PSGC_0402103000",
+      "name": "City of Bacoor",
+      "area_type": "CITY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103004",
+      "name": "Bayanan",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103007",
+      "name": "Dulong Bayan",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103008",
+      "name": "Habay I",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103012",
+      "name": "Maliksi 1",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103013",
+      "name": "Mambog 1",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103014",
+      "name": "Molino I",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103018",
+      "name": "P.F. Espiritu 1",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103020",
+      "name": "Salinas I",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103021",
+      "name": "San Nicolas 1",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103026",
+      "name": "Queens Row Central",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103027",
+      "name": "Queens Row East",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103028",
+      "name": "Queens Row West",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103034",
+      "name": "Habay II",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103036",
+      "name": "Ligas 2",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103042",
+      "name": "Mambog 3",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103043",
+      "name": "Mambog 4",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103045",
+      "name": "Molino II",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103046",
+      "name": "Molino III",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103047",
+      "name": "Molino IV",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103048",
+      "name": "Molino V",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103049",
+      "name": "Molino VI",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103050",
+      "name": "Molino VII",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103055",
+      "name": "P.F. Espiritu 3",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103058",
+      "name": "P.F. Espiritu 5",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103059",
+      "name": "P.F. Espiritu 6",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103064",
+      "name": "San Nicolas II",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103065",
+      "name": "San Nicolas III",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103066",
+      "name": "Talaba 2",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103075",
+      "name": "Zapote 3",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103076",
+      "name": "Aniban 1",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103077",
+      "name": "Aniban 2",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103078",
+      "name": "Kaingin Digman",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103079",
+      "name": "Ligas 1",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103080",
+      "name": "Mabolo",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103081",
+      "name": "Maliksi 2",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103082",
+      "name": "Mambog 2",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103083",
+      "name": "Niog",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103084",
+      "name": "P.F. Espiritu 2",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103085",
+      "name": "P.F. Espiritu 4",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103086",
+      "name": "Poblacion",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103087",
+      "name": "Real",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103088",
+      "name": "Salinas 2",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103089",
+      "name": "Sinbanali",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103090",
+      "name": "Talaba 1",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103091",
+      "name": "Talaba 3",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103092",
+      "name": "Zapote 1",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    },
+    {
+      "code": "PSGC_0402103093",
+      "name": "Zapote 2",
+      "area_type": "BARANGAY",
+      "status": "PENDING_VALIDATION",
+      "is_enabled": true
+    }
+  ],
+  "temporary_source": {
+    "name": "LOCAL TEST - evacuation-center display preview",
+    "organization": "FloodSense local development testing (synthetic)",
+    "custodian": "Local developer; test records only",
+    "source_type": "DEMONSTRATION",
+    "coverage_description": "Synthetic display markers in Bacoor reference barangays; not facilities.",
+    "record_period_start": null,
+    "record_period_end": null,
+    "received_or_created_on": null,
+    "version": "local-preview-2026-10-05",
+    "permitted_use": "Local display and API testing only; not official facility data.",
+    "processing_notes": "Two local test records separated from the administrative-boundary source with developer authorization.",
+    "limitations": "LOCAL DEMONSTRATION - NOT A REAL EVACUATION CENTER. Display test only; not verified, open, or available for use.",
+    "citation_url": "",
+    "status": "DEMONSTRATION",
+    "is_publicly_releasable": false,
+    "notes": ""
+  },
+  "temporary_centers": [
+    {
+      "public_id": "9167a9d9-c529-43db-94d1-f3dbdc053714",
+      "name": "LOCAL TEST - Evac_Test1 (NOT A REAL FACILITY)",
+      "address": "Barangay Zapote 1",
+      "latitude": "14.465427",
+      "longitude": "120.964296",
+      "notes": "",
+      "limitations": "LOCAL DEMONSTRATION - NOT A REAL EVACUATION CENTER. Display test only; not verified, open, or available for use.",
+      "area_code": "PSGC_0402103092",
+      "approved_for_local_testing": true
+    },
+    {
+      "public_id": "e9b3d8a5-2c6d-4af4-808a-1e7f42f43637",
+      "name": "LOCAL TEST - evac_test2 (NOT A REAL FACILITY)",
+      "address": "talaba 1",
+      "latitude": "14.459719",
+      "longitude": "120.957675",
+      "notes": "gaaahah",
+      "limitations": "LOCAL DEMONSTRATION - NOT A REAL EVACUATION CENTER. Display test only; not verified, open, or available for use. ahahah",
+      "area_code": "PSGC_0402103090",
+      "approved_for_local_testing": true
+    }
+  ]
+}

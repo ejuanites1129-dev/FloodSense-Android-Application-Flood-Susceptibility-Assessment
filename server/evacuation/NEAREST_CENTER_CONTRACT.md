@@ -1,5 +1,14 @@
 # Nearest verified evacuation centers — frozen Day 1 contract
 
+**Boundary compatibility update — 5 October 2026:** the administrative source is
+identified through the fixed Bacoor City PSGC record and its source relationship,
+not its name. Pending or internally approved source/City/barangay statuses are
+eligible for geometry use, including mixed barangay statuses. All complete-set,
+geometry, enabled and public-release gates remain. This supersedes pending-only
+boundary descriptions below; it does not alter center/source verification,
+temporary-data separation, response fields, distance calculation or privacy.
+Boundary provenance cannot serve as facility evidence after renaming/approval.
+
 **Frozen:** 20 September 2026, Team B / Streams C and D, contract version 1.
 **Original Day 1 implementation:** constants, wire serializers and pure tests.
 **Day 3 checkpoint (21 September 2026):** the Day 2 UUID/service foundation and

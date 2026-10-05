@@ -17,6 +17,7 @@ class MapDataFilterForm(forms.Form):
         choices=[
             ("", "All reviewable statuses"),
             (PublicationStatus.PENDING_VALIDATION, PublicationStatus.PENDING_VALIDATION.label),
+            (PublicationStatus.APPROVED, PublicationStatus.APPROVED.label),
             (PublicationStatus.DEMONSTRATION, PublicationStatus.DEMONSTRATION.label),
         ],
     )
@@ -56,6 +57,14 @@ class EvacuationCenterFilterForm(forms.Form):
 
 
 class EvacuationCenterForm(forms.ModelForm):
+    temporary_data = forms.BooleanField(
+        label="Temporary local test record",
+        required=False,
+        help_text=(
+            "Use an existing temporary source. Stored in this same table; "
+            "never a verified real facility."
+        ),
+    )
     duplicate_review_confirmed = forms.BooleanField(
         label=(
             "I reviewed the possible duplicate records and confirm this draft should "
@@ -87,7 +96,15 @@ class EvacuationCenterForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        self.allow_temporary = kwargs.pop("allow_temporary", False)
         super().__init__(*args, **kwargs)
+        if not self.allow_temporary:
+            self.fields.pop("temporary_data")
+        else:
+            self.initial["temporary_data"] = (
+                self.instance.is_temporary if self.instance.pk else False
+            )
+            self.fields["temporary_data"].initial = self.initial["temporary_data"]
         self.duplicate_warnings = []
         self.fields["geographic_area"].help_text = (
             "Assign the supported administrative area when known. A missing or unsupported "
@@ -101,11 +118,23 @@ class EvacuationCenterForm(forms.ModelForm):
         self.fields[
             "limitations"
         ].help_text = "Record public-facing caveats required to interpret this center safely."
-        self.fields["source"].queryset = DataSource.objects.exclude(
-            status__in=(PublicationStatus.RESTRICTED, PublicationStatus.RETIRED)
-        ).order_by("name", "id")
+        from geography.boundaries import bacoor_boundary_source_ids
+        from geography.constants import BACOOR_REFERENCE_SOURCE_NAME
+
+        self.fields["source"].help_text = (
+            "Choose facility evidence, not the administrative boundary source. "
+            "For a temporary record choose a temporary source."
+        )
+        self.fields["source"].queryset = (
+            DataSource.objects.exclude(name=BACOOR_REFERENCE_SOURCE_NAME)
+            .exclude(pk__in=bacoor_boundary_source_ids())
+            .exclude(status__in=(PublicationStatus.RESTRICTED, PublicationStatus.RETIRED))
+            .order_by("name", "id")
+        )
         self.fields["publication_status"].choices = [
-            choice
+            (choice[0], "Temporary local test data")
+            if self.allow_temporary and choice[0] == PublicationStatus.DEMONSTRATION
+            else choice
             for choice in PublicationStatus.choices
             if choice[0] in (PublicationStatus.DEMONSTRATION, PublicationStatus.PENDING_VALIDATION)
         ]
@@ -133,6 +162,33 @@ class EvacuationCenterForm(forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
+        source = cleaned.get("source")
+        temporary = cleaned.get("temporary_data", False)
+        if (
+            temporary
+            and self.instance.pk
+            and self.instance.publication_status != PublicationStatus.DEMONSTRATION
+        ):
+            self.add_error(
+                "temporary_data", "Do not convert an existing real record into test data."
+            )
+        if temporary or source and source.is_temporary:
+            if not self.allow_temporary:
+                self.add_error("source", "Temporary record entry requires local testing mode.")
+            elif not source or not source.is_temporary:
+                self.add_error(
+                    "source",
+                    "Choose a temporary source for this test record; "
+                    "do not relabel agency evidence.",
+                )
+            else:
+                cleaned["publication_status"] = PublicationStatus.DEMONSTRATION
+        elif self.instance.pk and self.instance.is_temporary:
+            self.add_error(
+                "source",
+                "A temporary record cannot become a real facility. "
+                "Create a genuinely sourced record separately.",
+            )
         if self._errors:
             return cleaned
         name = cleaned.get("name")
@@ -235,6 +291,15 @@ class DataSourceFilterForm(forms.Form):
 
 
 class DataSourceForm(forms.ModelForm):
+    temporary_data = forms.BooleanField(
+        label="Temporary local test source",
+        required=False,
+        help_text=(
+            "Identifies temporary rows without another table or a special name. "
+            "No agency approval or public release is claimed."
+        ),
+    )
+
     class Meta:
         model = DataSource
         fields = (
@@ -265,12 +330,62 @@ class DataSourceForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        self.allow_temporary = kwargs.pop("allow_temporary", False)
         super().__init__(*args, **kwargs)
+        if self.allow_temporary:
+            self.initial["temporary_data"] = (
+                self.instance.is_temporary if self.instance.pk else False
+            )
+            if not self.instance.pk:
+                self.initial.setdefault("source_type", DataSource.SourceType.OTHER)
+        else:
+            self.fields.pop("temporary_data")
         self.fields["source_type"].choices = [
-            choice
+            (choice[0], "Temporary local test source")
+            if choice[0] == DataSource.SourceType.DEMONSTRATION
+            else choice
             for choice in DataSource.SourceType.choices
-            if choice[0] != DataSource.SourceType.DEMONSTRATION
+            if self.allow_temporary or choice[0] != DataSource.SourceType.DEMONSTRATION
         ]
+
+    def clean(self):
+        cleaned = super().clean()
+        from geography.constants import BACOOR_REFERENCE_SOURCE_NAME
+
+        if (cleaned.get("name") == BACOOR_REFERENCE_SOURCE_NAME) and not self.instance.pk:
+            self.add_error(
+                "name",
+                "The reserved boundary source is maintained separately "
+                "and cannot be used for facility approval.",
+            )
+        from geography.boundaries import is_bacoor_boundary_source
+
+        if (
+            self.instance.pk
+            and is_bacoor_boundary_source(self.instance)
+            and cleaned.get("source_type") != DataSource.SourceType.AGENCY_DATASET
+        ):
+            self.add_error(
+                "source_type", "Administrative boundary provenance must remain an agency dataset."
+            )
+        temporary = (
+            cleaned.get("temporary_data")
+            or cleaned.get("source_type") == DataSource.SourceType.DEMONSTRATION
+        )
+        if self.instance.pk and self.instance.source_type == DataSource.SourceType.DEMONSTRATION:
+            if not temporary:
+                self.add_error(
+                    "source_type", "Temporary provenance cannot be converted into agency evidence."
+                )
+        elif self.instance.pk and temporary:
+            self.add_error(
+                "source_type", "Do not convert existing real provenance into temporary data."
+            )
+        if temporary:
+            if not self.allow_temporary:
+                self.add_error("source_type", "Temporary sources require local testing mode.")
+            cleaned["source_type"] = DataSource.SourceType.DEMONSTRATION
+        return cleaned
 
 
 class DataSourceTransitionForm(forms.Form):

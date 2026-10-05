@@ -5,14 +5,19 @@ import 'package:flutter/foundation.dart';
 import '../../data/api/api_exception.dart';
 import '../../data/api/floodsense_api_client.dart';
 import '../../data/models/barangay_resolution.dart';
+import '../../data/models/geojson_geometry.dart';
 import '../../data/models/point_resolution.dart';
+import 'barangay_reference_point.dart';
 import 'location_flow_state.dart';
 import 'location_service.dart';
+
+enum LocationCoordinateOrigin { deviceGps, manualPin, barangayReference }
 
 /// Coordinates one explicit, foreground-only location request.
 ///
 /// The controller owns no persistence, timer, background task, or analytics.
-/// Its coordinate exists only in [TemporaryLocationSession].
+/// Device readings live in [TemporaryLocationSession]; the selected map point
+/// and its origin are also temporary controller memory and clear with the flow.
 class LocationController extends ChangeNotifier {
   LocationController(
     this._service, {
@@ -30,6 +35,7 @@ class LocationController extends ChangeNotifier {
   bool _disposed = false;
   bool _awaitingLocationSettingsReturn = false;
   MapCoordinate? _lookupCoordinate;
+  LocationCoordinateOrigin? _coordinateOrigin;
   BarangayResolution? _resolution;
   BarangayIdentity? _confirmedBarangay;
 
@@ -37,6 +43,17 @@ class LocationController extends ChangeNotifier {
   TemporaryLocation? get temporaryLocation => _session.location;
   bool get hasTemporaryLocation => _session.hasLocation;
   MapCoordinate? get lookupCoordinate => _lookupCoordinate;
+  LocationCoordinateOrigin? get coordinateOrigin => _coordinateOrigin;
+  bool get isApproximateCoordinate =>
+      _coordinateOrigin == LocationCoordinateOrigin.barangayReference;
+  String? get coordinateDescription => switch (_coordinateOrigin) {
+    LocationCoordinateOrigin.deviceGps => 'Temporary device GPS location',
+    LocationCoordinateOrigin.manualPin => 'Your selected map pin',
+    LocationCoordinateOrigin.barangayReference =>
+      'Approximate barangay reference point—not your actual location. '
+          'Drag the pin to refine your location.',
+    null => null,
+  };
   BarangayResolution? get resolution => _resolution;
   BarangayIdentity? get candidateBarangay =>
       _state.phase == LocationFlowPhase.resolvedCandidate
@@ -58,21 +75,16 @@ class LocationController extends ChangeNotifier {
     if (_disposed || _state.phase != LocationFlowPhase.purposeExplanation) {
       return;
     }
-    await _attemptAcquisition(mayRequestPermission: true);
+    await _attemptAcquisition(
+      mayRequestPermission: true,
+      openSettingsIfDisabled: true,
+    );
   }
 
   Future<void> retry() async {
     if (_disposed || !_state.retryAllowed) return;
     if (_state.phase == LocationFlowPhase.serviceDisabled) {
-      if (_awaitingLocationSettingsReturn) return;
-      _awaitingLocationSettingsReturn = true;
-      var opened = false;
-      try {
-        opened = await _service.openLocationSettings();
-      } catch (_) {
-        opened = false;
-      }
-      if (!opened) _awaitingLocationSettingsReturn = false;
+      await _openLocationSettingsForRecovery();
       return;
     }
     if (_lookupCoordinate case final coordinate?) {
@@ -93,11 +105,34 @@ class LocationController extends ChangeNotifier {
     await _attemptAcquisition(mayRequestPermission: true);
   }
 
-  Future<void> _attemptAcquisition({required bool mayRequestPermission}) async {
+  Future<void> _openLocationSettingsForRecovery() async {
+    if (_disposed ||
+        _state.phase != LocationFlowPhase.serviceDisabled ||
+        _awaitingLocationSettingsReturn) {
+      return;
+    }
+    final generation = _generation;
+    _awaitingLocationSettingsReturn = true;
+    var opened = false;
+    try {
+      opened = await _service.openLocationSettings();
+    } catch (_) {
+      opened = false;
+    }
+    if (_isCurrent(generation) && !opened) {
+      _awaitingLocationSettingsReturn = false;
+    }
+  }
+
+  Future<void> _attemptAcquisition({
+    required bool mayRequestPermission,
+    bool openSettingsIfDisabled = false,
+  }) async {
     if (_disposed || isBusy) return;
     final generation = ++_generation;
     _session.clear();
     _lookupCoordinate = null;
+    _coordinateOrigin = null;
     _resolution = null;
     _confirmedBarangay = null;
     _setIfCurrent(generation, LocationFlowState(LocationFlowPhase.acquiring));
@@ -109,6 +144,9 @@ class LocationController extends ChangeNotifier {
           generation,
           LocationFlowState(LocationFlowPhase.serviceDisabled),
         );
+        if (openSettingsIfDisabled && _isCurrent(generation)) {
+          await _openLocationSettingsForRecovery();
+        }
         return;
       }
 
@@ -162,6 +200,7 @@ class LocationController extends ChangeNotifier {
         latitude: location.latitude,
         longitude: location.longitude,
       );
+      _coordinateOrigin = LocationCoordinateOrigin.deviceGps;
       _setIfCurrent(
         generation,
         LocationFlowState(
@@ -176,6 +215,11 @@ class LocationController extends ChangeNotifier {
       if (!_isCurrent(generation)) return;
       _session.clear();
       _setIfCurrent(generation, LocationFlowState(_phaseFor(error.kind)));
+      if (openSettingsIfDisabled &&
+          error.kind == LocationFailureKind.serviceDisabled &&
+          _isCurrent(generation)) {
+        await _openLocationSettingsForRecovery();
+      }
     } on TimeoutException {
       if (!_isCurrent(generation)) return;
       _session.clear();
@@ -196,6 +240,7 @@ class LocationController extends ChangeNotifier {
     final generation = ++_generation;
     _session.clear();
     _lookupCoordinate = null;
+    _coordinateOrigin = null;
     _resolution = null;
     _confirmedBarangay = null;
     await _clearAdapterState();
@@ -208,6 +253,7 @@ class LocationController extends ChangeNotifier {
     final generation = ++_generation;
     _session.clear();
     _lookupCoordinate = null;
+    _coordinateOrigin = null;
     _resolution = null;
     _confirmedBarangay = null;
     await _clearAdapterState();
@@ -220,6 +266,7 @@ class LocationController extends ChangeNotifier {
     final generation = ++_generation;
     _session.reset();
     _lookupCoordinate = null;
+    _coordinateOrigin = null;
     _resolution = null;
     _confirmedBarangay = null;
     await _clearAdapterState();
@@ -252,6 +299,7 @@ class LocationController extends ChangeNotifier {
     final generation = ++_generation;
     _session.clear();
     _lookupCoordinate = coordinate;
+    _coordinateOrigin = LocationCoordinateOrigin.manualPin;
     _resolution = null;
     _confirmedBarangay = null;
     await _clearAdapterState();
@@ -350,12 +398,31 @@ class LocationController extends ChangeNotifier {
     );
   }
 
-  Future<void> selectManualBarangay(BarangayIdentity barangay) async {
+  Future<void> selectManualBarangay(
+    BarangayIdentity barangay, {
+    GeoJsonGeometry? geometry,
+  }) async {
     if (_disposed) return;
+    // Reselecting an already confirmed, resolved barangay is not a location
+    // change. Retain its temporary point and any in-flight/result center lookup.
+    // A newly chosen barangay gets a labeled reference point only when the
+    // caller supplies its geometry; it is never presented as the user's GPS.
+    if (_state.phase == LocationFlowPhase.confirmed &&
+        _lookupCoordinate != null &&
+        _confirmedBarangay?.psgcCode == barangay.psgcCode &&
+        _resolution?.state == BarangayResolutionState.resolved &&
+        _resolution?.barangay?.psgcCode == barangay.psgcCode) {
+      return;
+    }
     _awaitingLocationSettingsReturn = false;
     final generation = ++_generation;
     _session.clear();
-    _lookupCoordinate = null;
+    _lookupCoordinate = geometry == null
+        ? null
+        : BarangayReferencePoint.interiorCoordinate(geometry);
+    _coordinateOrigin = _lookupCoordinate == null
+        ? null
+        : LocationCoordinateOrigin.barangayReference;
     _resolution = null;
     _confirmedBarangay = barangay;
     await _clearAdapterState();
@@ -393,6 +460,7 @@ class LocationController extends ChangeNotifier {
     _generation++;
     _session.dispose();
     _lookupCoordinate = null;
+    _coordinateOrigin = null;
     _resolution = null;
     _confirmedBarangay = null;
     unawaited(_service.clearTemporaryState().catchError((_) {}));

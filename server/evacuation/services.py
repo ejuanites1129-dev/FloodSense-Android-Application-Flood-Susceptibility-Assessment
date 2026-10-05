@@ -9,11 +9,12 @@ from django.contrib.gis.db.models import MultiPolygonField, PointField
 from django.contrib.gis.db.models.functions import IsEmpty, IsValid
 from django.db.models import BooleanField, Case, F, FloatField, Func, Q, Value, When
 from django.db.models.functions import Cast
+from geography.boundaries import bacoor_boundary_source_ids
 from geography.constants import (
+    BACOOR_BOUNDARY_STATUSES,
     BACOOR_CITY_CODE,
     BACOOR_REFERENCE_BARANGAY_COUNT,
     BACOOR_REFERENCE_LIMITATION,
-    BACOOR_REFERENCE_SOURCE_NAME,
     BACOOR_REFERENCE_WARNING,
 )
 from geography.models import GeographicArea
@@ -43,9 +44,9 @@ def ready_reference_barangays() -> dict[int, dict[str, str]]:
     """Recheck the entire controlled reference set; return no guessed identities."""
     sources = list(
         DataSource.objects.filter(
-            name=BACOOR_REFERENCE_SOURCE_NAME,
+            pk__in=bacoor_boundary_source_ids(),
             source_type=DataSource.SourceType.AGENCY_DATASET,
-            status=PublicationStatus.PENDING_VALIDATION,
+            status__in=BACOOR_BOUNDARY_STATUSES,
             is_publicly_releasable=True,
         ).values_list("pk", flat=True)[:2]
     )
@@ -56,7 +57,7 @@ def ready_reference_barangays() -> dict[int, dict[str, str]]:
             code=BACOOR_CITY_CODE,
             source_id=sources[0],
             area_type=GeographicArea.AreaType.CITY,
-            status=PublicationStatus.PENDING_VALIDATION,
+            status__in=BACOOR_BOUNDARY_STATUSES,
             is_enabled=True,
         )
         .annotate(empty=IsEmpty("geometry"), valid=IsValid("geometry"))
@@ -123,16 +124,16 @@ def eligible_center_candidates(barangay_ids):
             longitude__lte=180,
             geographic_area_id__in=barangay_ids,
             geographic_area__is_enabled=True,
-            geographic_area__status=PublicationStatus.PENDING_VALIDATION,
+            geographic_area__status__in=BACOOR_BOUNDARY_STATUSES,
             geographic_area__area_type=GeographicArea.AreaType.BARANGAY,
-            geographic_area__source__name=BACOOR_REFERENCE_SOURCE_NAME,
             geographic_area__source__source_type=DataSource.SourceType.AGENCY_DATASET,
-            geographic_area__source__status=PublicationStatus.PENDING_VALIDATION,
+            geographic_area__source__status__in=BACOOR_BOUNDARY_STATUSES,
             geographic_area__source__is_publicly_releasable=True,
             source__status=PublicationStatus.APPROVED,
             source__is_publicly_releasable=True,
         )
         .exclude(source__source_type=DataSource.SourceType.DEMONSTRATION)
+        .exclude(source_id__in=bacoor_boundary_source_ids())
         .values(
             "public_id",
             "name",

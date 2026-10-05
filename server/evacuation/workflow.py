@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import date
 
+from core.local_testing import local_testing_enabled
 from django.contrib.admin.models import CHANGE, LogEntry
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
@@ -22,6 +23,8 @@ class CenterTransition:
 
     @property
     def target_label(self) -> str:
+        if self.action == "approve-test":
+            return "Approved for local testing—not facility verification"
         return EvacuationCenter.VerificationStatus(self.target_status).label
 
 
@@ -78,12 +81,26 @@ TRANSITIONS = {
     )
 }
 
+TRANSITIONS["approve-test"] = CenterTransition(
+    "approve-test",
+    "Approve for local testing",
+    "IN_REVIEW",
+    "VERIFIED",
+    "evacuation.verify_evacuationcenter",
+    "Approve this temporary record for a local workflow test only, not as a verified facility.",
+    "The temporary record can appear only in the explicitly enabled local testing session. "
+    "It remains excluded from ordinary operation.",
+)
+
 
 def available_transitions(center: EvacuationCenter, actor) -> list[CenterTransition]:
     return [
         item
         for item in TRANSITIONS.values()
-        if item.source_status == center.verification_status and actor.has_perm(item.permission)
+        if item.source_status == center.verification_status
+        and actor.has_perm(item.permission)
+        and (item.action != "approve-test" or local_testing_enabled() and center.is_temporary)
+        and (item.action != "verify" or not center.is_temporary)
     ]
 
 
@@ -131,12 +148,38 @@ def transition_center(
         )
     if center.verification_status != transition.source_status:
         raise ValidationError("This action is not valid from the current state.")
+    if center.is_temporary:
+        if not local_testing_enabled():
+            raise ValidationError("Temporary record changes require local testing mode.")
+        if action == "verify":
+            raise ValidationError("Use Approve for local testing, not facility verification.")
+    if action == "approve-test":
+        if not local_testing_enabled() or not center.is_temporary:
+            raise ValidationError("Only temporary records can receive local test approval.")
+        center.full_clean()
+        from django.contrib.gis.geos import Point
+
+        from .services import ready_reference_barangays
+
+        if (
+            center.geographic_area_id not in ready_reference_barangays()
+            or not center.geographic_area.geometry.covers(
+                Point(float(center.longitude), float(center.latitude), srid=4326)
+            )
+        ):
+            raise ValidationError(
+                "Assign a supported reference barangay and put the test marker inside it."
+            )
     if action == "verify" and verified_on and verified_on > timezone.localdate():
         raise ValidationError("The verification date cannot be in the future.")
 
     previous = center.get_verification_status_display()
     center.verification_status = transition.target_status
-    if action == "verify":
+    if action == "approve-test":
+        center.verified_on = None
+        center.capacity = None
+        center.publication_status = PublicationStatus.DEMONSTRATION
+    elif action == "verify":
         center.verified_on = verified_on
         center.capacity = capacity
         center.publication_status = PublicationStatus.APPROVED
@@ -146,6 +189,8 @@ def transition_center(
         center.verified_on = None
         center.capacity = None
         center.publication_status = PublicationStatus.PENDING_VALIDATION
+    if center.source.is_temporary:
+        center.publication_status = PublicationStatus.DEMONSTRATION
     center.full_clean()
     center.save()
     log_center_action(

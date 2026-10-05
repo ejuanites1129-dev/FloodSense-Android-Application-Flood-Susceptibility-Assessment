@@ -64,9 +64,9 @@ class LocationFlowState {
       LocationCopy.permissionDeniedPermanently,
     LocationFlowPhase.acquiring => 'Getting one temporary foreground location. You can cancel and select manually.',
     LocationFlowPhase.acquired => 'A temporary location is ready for barangay lookup. It is not a susceptibility result.',
-    LocationFlowPhase.resolvingBarangay => 'Checking the temporary point against the pending-validation Bacoor boundary reference.',
+    LocationFlowPhase.resolvingBarangay => 'Checking the temporary point against the Bacoor administrative boundaries.',
     LocationFlowPhase.resolvedCandidate => 'Review and confirm the proposed barangay. It is an administrative location, not a susceptibility result.',
-    LocationFlowPhase.confirmed => 'The barangay was confirmed as the location input. The boundary remains pending validation.',
+    LocationFlowPhase.confirmed => 'The barangay was confirmed as the location input. This does not verify flood susceptibility.',
     LocationFlowPhase.rejected => 'The proposed barangay was not selected. Move the map pin or choose a barangay manually.',
     LocationFlowPhase.outsideBacoor => 'The temporary point did not match a Bacoor barangay. Move the pin or choose a barangay manually.',
     LocationFlowPhase.ambiguousBoundary => 'The temporary point is on or near a shared barangay boundary. Confirm the location manually.',
@@ -118,6 +118,7 @@ class LocationFlowState {
       LocationFlowAction.selectBarangay,
     },
     LocationFlowPhase.acquired => const {
+      LocationFlowAction.showPurpose,
       LocationFlowAction.resolveBarangay,
       LocationFlowAction.clearLocation,
       LocationFlowAction.placeManualPin,
@@ -134,6 +135,7 @@ class LocationFlowState {
     LocationFlowPhase.rejected ||
     LocationFlowPhase.outsideBacoor ||
     LocationFlowPhase.ambiguousBoundary => const {
+      LocationFlowAction.showPurpose,
       LocationFlowAction.clearLocation,
       LocationFlowAction.placeManualPin,
       LocationFlowAction.selectBarangay,

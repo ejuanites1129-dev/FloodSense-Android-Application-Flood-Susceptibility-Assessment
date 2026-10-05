@@ -16,7 +16,6 @@ from provenance.models import DataSource, PublicationStatus
 
 from geography.constants import (
     BACOOR_REFERENCE_BARANGAY_COUNT,
-    BACOOR_REFERENCE_SOURCE_NAME,
     MGB_PROVISIONAL_WARNING,
     MGB_SUSCEPTIBILITY_SOURCE_NAME,
     MGB_SUSCEPTIBILITY_SOURCE_URL,
@@ -293,14 +292,9 @@ class Command(BaseCommand):
         return source
 
     def _areas_by_psgc(self) -> dict[str, GeographicArea]:
-        areas = list(
-            GeographicArea.objects.select_related("source").filter(
-                area_type=GeographicArea.AreaType.BARANGAY,
-                is_enabled=True,
-                status=PublicationStatus.PENDING_VALIDATION,
-                source__name=BACOOR_REFERENCE_SOURCE_NAME,
-            )
-        )
+        from geography.services import eligible_bacoor_reference_barangays
+
+        areas = list(eligible_bacoor_reference_barangays())
         if len(areas) != BACOOR_REFERENCE_BARANGAY_COUNT:
             raise CommandError("Import the controlled 47-barangay Bacoor boundary layer first.")
         result = {}

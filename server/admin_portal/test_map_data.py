@@ -198,7 +198,6 @@ class MapDataTests(TestCase):
             {"name": BACOOR_REFERENCE_SOURCE_NAME + " copy"},
             {"status": PublicationStatus.RESTRICTED},
             {"status": PublicationStatus.RETIRED},
-            {"status": PublicationStatus.APPROVED},
             {"source_type": DataSource.SourceType.DEMONSTRATION},
             {"is_publicly_releasable": False},
         )
@@ -209,7 +208,6 @@ class MapDataTests(TestCase):
         for status in (
             PublicationStatus.RESTRICTED,
             PublicationStatus.RETIRED,
-            PublicationStatus.APPROVED,
         ):
             self.area(
                 valid.source, code=f"EXCLUDED_{status}", status=status, name="Excluded sentinel"

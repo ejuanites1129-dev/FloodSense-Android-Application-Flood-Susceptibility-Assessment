@@ -6,6 +6,47 @@ import 'test_data.dart';
 
 void main() {
   group('BarangayResolution frozen contract', () {
+    test(
+      'accepts internal boundary approval independently of source review',
+      () {
+        for (final areaStatus in ['PENDING_VALIDATION', 'APPROVED']) {
+          for (final sourceStatus in ['PENDING_VALIDATION', 'APPROVED']) {
+            final payload = barangayResolutionJson();
+            final boundary = payload['boundary'] as Map<String, dynamic>;
+            boundary['data_status'] = areaStatus;
+            boundary['source_status'] = sourceStatus;
+            final result = BarangayResolution.fromJson(payload);
+            expect(result.boundary.dataStatus, areaStatus);
+            expect(result.boundary.sourceStatus, sourceStatus);
+            expect(result.boundary.cityVerified, isFalse);
+          }
+        }
+      },
+    );
+
+    test('rejects withdrawn, synthetic or City-verified boundary metadata', () {
+      for (final field in ['data_status', 'source_status']) {
+        for (final status in [
+          'RESTRICTED',
+          'RETIRED',
+          'DEMONSTRATION',
+          'UNKNOWN',
+        ]) {
+          final payload = barangayResolutionJson();
+          (payload['boundary'] as Map<String, dynamic>)[field] = status;
+          expect(
+            () => BarangayResolution.fromJson(payload),
+            throwsA(isA<ModelParsingException>()),
+          );
+        }
+      }
+      final payload = barangayResolutionJson();
+      (payload['boundary'] as Map<String, dynamic>)['city_verified'] = true;
+      expect(
+        () => BarangayResolution.fromJson(payload),
+        throwsA(isA<ModelParsingException>()),
+      );
+    });
     test('parses every documented state', () {
       final cases = {
         'RESOLVED': BarangayResolutionState.resolved,

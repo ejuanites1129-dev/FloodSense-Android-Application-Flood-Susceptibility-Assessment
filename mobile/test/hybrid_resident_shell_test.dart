@@ -150,6 +150,13 @@ void main() {
 
       await tester.tap(find.byKey(const Key('resident-nav-assess')));
       await tester.pumpAndSettle();
+      await _scrollTo(
+        tester,
+        find.byKey(const Key('map-start-assessment')),
+        const Key('map-context-sheet-content'),
+      );
+      await tester.tap(find.byKey(const Key('map-start-assessment')));
+      await tester.pumpAndSettle();
       expect(sheet, findsOneWidget);
       expect(tester.state(retainedMap), same(mapState));
       final assessmentHeight = tester.getSize(sheet).height;
@@ -178,7 +185,7 @@ void main() {
   );
 
   testWidgets(
-    'hybrid navigation preserves choices and assessment returns to Map result',
+    'three destinations preserve choices and assessment returns to Assess results',
     (tester) async {
       final api = FakeFloodSenseApi();
       final auth = FakeResidentAuthRepository()
@@ -188,16 +195,14 @@ void main() {
       await _pumpApp(tester, auth: auth, api: api, size: const Size(320, 640));
 
       expect(find.byKey(const Key('resident-hybrid-map')), findsOneWidget);
-      expect(find.text('FloodSense'), findsNothing);
-      expect(find.byIcon(Icons.waves), findsNothing);
+      expect(find.text('FloodSense'), findsOneWidget);
+      expect(find.byIcon(Icons.waves), findsOneWidget);
       expect(find.byType(AppBar), findsNothing);
       expect(
         tester.getTopLeft(find.byKey(const Key('resident-hybrid-map'))).dy,
         24,
       );
-      final scenarioBounds = tester.getRect(
-        find.byKey(const Key('map-scenario-chip')),
-      );
+      final scenarioBounds = tester.getRect(find.byKey(const Key('map-brand')));
       final zoomBounds = tester.getRect(find.byTooltip('Zoom in'));
       expect(scenarioBounds.top, 34);
       expect(scenarioBounds.overlaps(zoomBounds), isFalse);
@@ -210,15 +215,25 @@ void main() {
       );
       expect(coverage.polygons, hasLength(1));
       expect(coverage.invertedFill, const Color(0xA6677280));
-      expect(find.text('Outside Bacoor assessment coverage'), findsOneWidget);
-      expect(find.text('Map'), findsOneWidget);
+      expect(find.text('Outside Bacoor assessment coverage'), findsNothing);
+      expect(find.text('Legend'), findsOneWidget);
+      expect(find.byKey(const Key('resident-nav-map')), findsNothing);
+      expect(find.byType(NavigationDestination), findsNWidgets(3));
       expect(find.text('Assess'), findsOneWidget);
       expect(find.text('Prepare'), findsOneWidget);
       expect(find.text('Profile'), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('resident-nav-assess')));
       await tester.pumpAndSettle();
-      expect(find.text('FloodSense'), findsNothing);
+      expect(find.text('Flood information'), findsOneWidget);
+      await _scrollTo(
+        tester,
+        find.byKey(const Key('map-start-assessment')),
+        const Key('map-context-sheet-content'),
+      );
+      await tester.tap(find.byKey(const Key('map-start-assessment')));
+      await tester.pumpAndSettle();
+      expect(find.text('FloodSense'), findsOneWidget);
       expect(
         find.byKey(const Key('hybrid-assessment-scenario')),
         findsOneWidget,
@@ -241,10 +256,8 @@ void main() {
       await tester.tap(duration);
       await tester.pump();
 
-      await tester.tap(find.byKey(const Key('resident-nav-map')));
+      await tester.tap(find.byKey(const Key('resident-nav-prepare')));
       await tester.pumpAndSettle();
-      expect(find.textContaining('Heavy rainfall'), findsOneWidget);
-      expect(find.textContaining('6 hours'), findsOneWidget);
       await tester.tap(find.byKey(const Key('resident-nav-assess')));
       await tester.pumpAndSettle();
       expect(find.bySemanticsLabel(RegExp('Heavy, selected')), findsOneWidget);
@@ -302,7 +315,7 @@ void main() {
       );
       await tester.tap(preparedness);
       await tester.pumpAndSettle();
-      expect(find.text('FloodSense'), findsNothing);
+      expect(find.text('FloodSense'), findsOneWidget);
       final validationStatus = find.text(
         'Guidance data status: Demonstration — pending expert validation',
       );

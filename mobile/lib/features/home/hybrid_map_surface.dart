@@ -11,9 +11,12 @@ import '../../data/models/geographic_area.dart';
 import '../../data/models/map_assessment_result.dart';
 import '../../data/models/point_resolution.dart';
 import '../../data/models/verified_center.dart';
+import '../../data/models/center_map_record.dart';
 import '../assessment/assessment_controller.dart';
 import '../assessment/widgets/dynamic_map_card.dart';
 import '../evacuation/nearest_center_controller.dart';
+import '../evacuation/evacuation_map_controller.dart';
+import '../evacuation/evacuation_center_marker.dart';
 import '../location/location_controller.dart';
 import '../map/bacoor_coverage_mask.dart';
 import '../map/flood_map_presentation.dart';
@@ -29,6 +32,7 @@ class HybridMapSurface extends StatefulWidget {
     required this.controller,
     this.locationController,
     this.nearestCenterController,
+    this.evacuationMapController,
     this.showBasemap = true,
     super.key,
   });
@@ -36,6 +40,7 @@ class HybridMapSurface extends StatefulWidget {
   final AssessmentController controller;
   final LocationController? locationController;
   final NearestCenterController? nearestCenterController;
+  final EvacuationMapController? evacuationMapController;
   final bool showBasemap;
 
   @override
@@ -45,10 +50,54 @@ class HybridMapSurface extends StatefulWidget {
 class _HybridMapSurfaceState extends State<HybridMapSurface> {
   final MapController _mapController = MapController();
   bool _mapReady = false;
-  int? _lastSelectedAreaId;
+  double? _lastCenteredLatitude;
+  double? _lastCenteredLongitude;
   String? _lastSelectedCenter;
   List<GeographicArea>? _cachedCoverageAreas;
   List<Polygon<int>> _cachedCoveragePolygons = const [];
+
+  // When managed location exists, its null coordinate means cleared/unknown.
+  // Do not resurrect the assessment controller's legacy pin cache.
+  MapCoordinate? get _mapCoordinate {
+    final location = widget.locationController;
+    return location == null
+        ? widget.controller.pinCoordinate
+        : location.lookupCoordinate;
+  }
+
+  String? get _selectedCenterIdentifier =>
+      widget.nearestCenterController?.selectedCenterIdentifier ??
+      widget.evacuationMapController?.selectedCenterIdentifier;
+
+  List<CenterMapRecord> get _mapMarkers => FloodMapPresentation(
+    referenceAreas: const [],
+    scenarioAreas: const [],
+    scenarioResults: const {},
+    onCoordinateTapped: (_) {},
+    centers: widget.nearestCenterController?.centers ?? const [],
+    mapCenters: widget.evacuationMapController?.centers ?? const [],
+    mapCentersAreAuthoritative: widget.evacuationMapController != null,
+    nearestIsDemonstration: _nearestMode,
+  ).mapMarkers;
+
+  bool? get _nearestMode => switch (widget.nearestCenterController?.phase) {
+    NearestCenterPhase.resultsAvailable ||
+    NearestCenterPhase.empty => widget.nearestCenterController!.isDemonstration,
+    _ => null,
+  };
+
+  void _selectCenter(String identifier) {
+    if (widget.nearestCenterController?.centers.any(
+          (center) => center.publicIdentifier == identifier,
+        ) ??
+        false) {
+      widget.evacuationMapController?.clearSelection();
+      widget.nearestCenterController!.selectCenter(identifier);
+    } else {
+      widget.nearestCenterController?.clearSelection();
+      widget.evacuationMapController?.selectCenter(identifier);
+    }
+  }
 
   @override
   void didUpdateWidget(covariant HybridMapSurface oldWidget) {
@@ -78,9 +127,7 @@ class _HybridMapSurfaceState extends State<HybridMapSurface> {
   void _zoom(double delta) {
     if (!_mapReady) return;
     final camera = _mapController.camera;
-    final coordinate =
-        widget.locationController?.lookupCoordinate ??
-        widget.controller.pinCoordinate;
+    final coordinate = _mapCoordinate;
     _mapController.move(
       coordinate?.latLng ?? camera.center,
       (camera.zoom + delta).clamp(2, 18).toDouble(),
@@ -88,41 +135,49 @@ class _HybridMapSurfaceState extends State<HybridMapSurface> {
   }
 
   void _recenterOnTemporaryPoint() {
-    final coordinate =
-        widget.locationController?.lookupCoordinate ??
-        widget.controller.pinCoordinate;
+    final coordinate = _mapCoordinate;
     if (!_mapReady || coordinate == null) return;
     _mapController.move(coordinate.latLng, 15.5);
   }
 
   void _centerSelectionWhenNeeded() {
     if (!_mapReady) return;
-    final coordinate =
-        widget.locationController?.lookupCoordinate ??
-        widget.controller.pinCoordinate;
+    final coordinate = _mapCoordinate;
+    if (coordinate == null) {
+      _lastCenteredLatitude = null;
+      _lastCenteredLongitude = null;
+    }
     if (coordinate != null &&
-        widget.controller.selectedArea?.id != _lastSelectedAreaId) {
-      _lastSelectedAreaId = widget.controller.selectedArea?.id;
+        (coordinate.latitude != _lastCenteredLatitude ||
+            coordinate.longitude != _lastCenteredLongitude)) {
+      _lastCenteredLatitude = coordinate.latitude;
+      _lastCenteredLongitude = coordinate.longitude;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _mapReady) {
+        if (mounted && _mapReady && _mapCoordinate == coordinate) {
           _mapController.move(coordinate.latLng, 15.5);
         }
       });
     }
 
-    final centers = widget.nearestCenterController;
-    final selected = centers?.selectedCenterIdentifier;
-    if (centers != null &&
-        selected != null &&
-        selected != _lastSelectedCenter) {
-      final matches = centers.centers.where(
+    final selected = _selectedCenterIdentifier;
+    if (selected == null) _lastSelectedCenter = null;
+    if (selected != null && selected != _lastSelectedCenter) {
+      final matches = _mapMarkers.where(
         (center) => center.publicIdentifier == selected,
       );
       if (matches.length == 1) {
         _lastSelectedCenter = selected;
         final center = matches.single;
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted && _mapReady) {
+          if (mounted &&
+              _mapReady &&
+              _selectedCenterIdentifier == selected &&
+              _mapMarkers.any(
+                (current) =>
+                    current.publicIdentifier == selected &&
+                    current.latitude == center.latitude &&
+                    current.longitude == center.longitude,
+              )) {
             _mapController.move(
               LatLng(center.latitude, center.longitude),
               15.5,
@@ -149,6 +204,7 @@ class _HybridMapSurfaceState extends State<HybridMapSurface> {
       widget.controller,
       ?widget.locationController,
       ?widget.nearestCenterController,
+      ?widget.evacuationMapController,
     ];
     return AnimatedBuilder(
       animation: Listenable.merge(listenables),
@@ -185,10 +241,8 @@ class _HybridMapSurfaceState extends State<HybridMapSurface> {
     final bounds = GeoJsonGeometry.boundsFor(
       controller.referenceAreas.map((area) => area.geometry),
     );
-    final coordinate =
-        widget.locationController?.lookupCoordinate ?? controller.pinCoordinate;
-    final centers =
-        widget.nearestCenterController?.centers ?? const <VerifiedCenter>[];
+    final coordinate = _mapCoordinate;
+    final centers = _mapMarkers;
 
     return Semantics(
       container: true,
@@ -204,9 +258,17 @@ class _HybridMapSurfaceState extends State<HybridMapSurface> {
           coordinate: coordinate,
           accuracyMeters:
               widget.locationController?.temporaryLocation?.accuracyMeters,
-          centers: centers,
-          selectedCenterIdentifier:
-              widget.nearestCenterController?.selectedCenterIdentifier,
+          centers:
+              widget.nearestCenterController?.centers ??
+              const <VerifiedCenter>[],
+          mapCenters: widget.evacuationMapController?.centers ?? const [],
+          mapCentersAreAuthoritative: widget.evacuationMapController != null,
+          nearestCenterIdentifier:
+              widget.nearestCenterController?.nearestCenterIdentifier,
+          nearestIsDemonstration: _nearestMode,
+          selectedCenterIdentifier: _selectedCenterIdentifier,
+          coordinateDescription:
+              widget.locationController?.coordinateDescription,
           onCoordinateTapped: (point) {
             unawaited(controller.placePin(point));
             final location = widget.locationController;
@@ -214,7 +276,7 @@ class _HybridMapSurfaceState extends State<HybridMapSurface> {
               unawaited(location.resolveManualPin(point));
             }
           },
-          onCenterTapped: widget.nearestCenterController?.selectCenter,
+          onCenterTapped: _selectCenter,
           fitPadding: const FloodMapPadding(
             top: 118,
             right: 22,
@@ -298,7 +360,8 @@ class _HybridMapSurfaceState extends State<HybridMapSurface> {
                         height: 52,
                         alignment: Alignment.topCenter,
                         child: Semantics(
-                          label: 'Temporary map pin. This coordinate is not saved.',
+                          label:
+                              '${widget.locationController?.coordinateDescription ?? 'Temporary map pin'}. This coordinate is not saved.',
                           child: const Icon(
                             Icons.location_on,
                             color: AppColors.primary,
@@ -370,13 +433,18 @@ class _HybridMapSurfaceState extends State<HybridMapSurface> {
     fit: StackFit.expand,
     children: [
       if (controller.mapError == null)
-        const Positioned(
+        Positioned(
           left: 14,
           right: 76,
           top: 68,
           child: Align(
             alignment: Alignment.centerLeft,
-            child: BacoorCoverageLegend(compact: true),
+            child: BacoorCoverageLegend(
+              compact: true,
+              results: controller.mapResultsByAreaId,
+              isDemonstration:
+                  controller.mapAssessment?.dataStatus == 'DEMONSTRATION',
+            ),
           ),
         ),
       if (controller.isMapAssessing)
@@ -477,30 +545,22 @@ class _HybridMapSurfaceState extends State<HybridMapSurface> {
     return _cachedCoveragePolygons = buildBacoorCoveragePolygons(areas);
   }
 
-  Marker _centerMarker(VerifiedCenter center) {
-    final active =
-        widget.nearestCenterController?.selectedCenterIdentifier ==
-        center.publicIdentifier;
+  Marker _centerMarker(CenterMapRecord center) {
+    final active = _selectedCenterIdentifier == center.publicIdentifier;
     return Marker(
+      key: Key('hybrid-center-${center.publicIdentifier}'),
       point: LatLng(center.latitude, center.longitude),
-      width: 48,
-      height: 48,
-      alignment: Alignment.topCenter,
-      child: Semantics(
-        button: true,
-        selected: active,
-        label: '${center.verificationLabel}. ${center.name}. ${center.distanceLabel}.',
-        child: GestureDetector(
-          onTap: () => widget.nearestCenterController?.selectCenter(
-            center.publicIdentifier,
-          ),
-          child: Icon(
-            Icons.home_work,
-            size: active ? 44 : 36,
-            color: FloodMapPalette.center,
-            shadows: const [Shadow(color: Colors.white, blurRadius: 5)],
-          ),
-        ),
+      width: 56,
+      height: 56,
+      child: EvacuationCenterMarker(
+        key: ValueKey(center.publicIdentifier),
+        name: center.name,
+        isSelected: active,
+        isNearest:
+            center.publicIdentifier ==
+            widget.nearestCenterController?.nearestCenterIdentifier,
+        isDemonstration: center.isDemonstration,
+        onTap: () => _selectCenter(center.publicIdentifier),
       ),
     );
   }

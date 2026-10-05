@@ -1,13 +1,13 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 from django.test import SimpleTestCase
-from provenance.models import DataSource, PublicationStatus
+from provenance.models import DataSource
 from rest_framework.exceptions import ValidationError
 
 from .constants import (
+    BACOOR_BOUNDARY_STATUSES,
     BACOOR_REFERENCE_BARANGAY_COUNT,
     BACOOR_REFERENCE_LIMITATION,
-    BACOOR_REFERENCE_SOURCE_NAME,
     BACOOR_REFERENCE_WARNING,
 )
 from .models import GeographicArea
@@ -156,15 +156,15 @@ class EligibleBacoorBoundarySelectorTests(SimpleTestCase):
 
         result = eligible_bacoor_reference_barangays()
 
-        self.assertIs(result, selected)
+        self.assertIs(result, selected.annotate.return_value.filter.return_value)
         manager.select_related.assert_called_once_with("source")
         manager.select_related.return_value.filter.assert_called_once_with(
             area_type=GeographicArea.AreaType.BARANGAY,
             is_enabled=True,
-            status=PublicationStatus.PENDING_VALIDATION,
-            source__name=BACOOR_REFERENCE_SOURCE_NAME,
+            status__in=BACOOR_BOUNDARY_STATUSES,
+            source_id__in=ANY,
             source__source_type=DataSource.SourceType.AGENCY_DATASET,
-            source__status=PublicationStatus.PENDING_VALIDATION,
+            source__status__in=BACOOR_BOUNDARY_STATUSES,
             source__is_publicly_releasable=True,
         )
         self.assertEqual(BACOOR_REFERENCE_BARANGAY_COUNT, 47)

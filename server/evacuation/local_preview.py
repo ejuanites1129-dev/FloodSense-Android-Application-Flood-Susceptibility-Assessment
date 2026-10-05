@@ -1,5 +1,6 @@
 """Opt-in local synthetic display QA, separate from verified resident records."""
 
+from core.local_testing import local_testing_enabled
 from django.conf import settings
 from django.contrib.gis.db.models import PointField
 from django.db.models import BooleanField, Case, F, Func, Q, Value, When
@@ -45,7 +46,7 @@ class LocalPreviewCenterSerializer(PublicCenterSerializer):
         return value
 
     def validate_name(self, value):
-        if not value.startswith("LOCAL TEST -"):
+        if self.context.get("require_test_name", True) and not value.startswith("LOCAL TEST -"):
             raise serializers.ValidationError("A local preview requires an explicit test title.")
         return value
 
@@ -75,8 +76,58 @@ class LocalPreviewResponseSerializer(StrictObjectSerializer):
         return attrs
 
 
-def find_nearest_demonstration_centers(**inputs):
-    if not local_preview_enabled():
+def within_assigned_area_expression():
+    """Guard invalid decimal coordinates before checking their recorded polygon."""
+    return Func(
+        F("geographic_area__geometry"),
+        Case(
+            When(
+                Q(latitude__gte=-90, latitude__lte=90) & Q(longitude__gte=-180, longitude__lte=180),
+                then=Func(
+                    Func(F("longitude"), F("latitude"), function="ST_MakePoint"),
+                    Value(4326),
+                    function="ST_SetSRID",
+                    output_field=PointField(srid=4326),
+                ),
+            ),
+            default=Value(None),
+            output_field=PointField(srid=4326),
+        ),
+        function="ST_Covers",
+        output_field=BooleanField(),
+    )
+
+
+def eligible_local_center_candidates(identities, *, approved_testing=False):
+    """Existing temporary-record gates shared by map and nearest-center lookup."""
+    candidates = (
+        EvacuationCenter.objects.filter(
+            publication_status=PublicationStatus.DEMONSTRATION,
+            verification_status__in=("VERIFIED",) if approved_testing else ("DRAFT", "IN_REVIEW"),
+            verified_on__isnull=True,
+            capacity__isnull=True,
+            source__source_type=DataSource.SourceType.DEMONSTRATION,
+            source__status=PublicationStatus.DEMONSTRATION,
+            source__is_publicly_releasable=False,
+            geographic_area_id__in=identities,
+            geographic_area__is_enabled=True,
+            latitude__gte=-90,
+            latitude__lte=90,
+            longitude__gte=-180,
+            longitude__lte=180,
+        )
+        .annotate(within_area=within_assigned_area_expression())
+        .filter(within_area=True)
+    )
+    if approved_testing:
+        return candidates.filter(
+            source__reviewed_on__isnull=False, source__reviewed_by__isnull=False
+        )
+    return candidates.filter(name__startswith="LOCAL TEST -")
+
+
+def find_nearest_demonstration_centers(*, approved_testing=False, **inputs):
+    if not (local_testing_enabled() if approved_testing else local_preview_enabled()):
         raise PermissionDenied
     request = NearestCenterRequestSerializer(data=inputs)
     request.is_valid(raise_exception=True)
@@ -86,47 +137,12 @@ def find_nearest_demonstration_centers(**inputs):
     if identities:
         # These gates deliberately never admit approved/verified facility rows.
         candidates = (
-            EvacuationCenter.objects.filter(
-                name__startswith="LOCAL TEST -",
-                publication_status=PublicationStatus.DEMONSTRATION,
-                verification_status__in=("DRAFT", "IN_REVIEW"),
-                verified_on__isnull=True,
-                capacity__isnull=True,
-                source__source_type=DataSource.SourceType.DEMONSTRATION,
-                source__status=PublicationStatus.DEMONSTRATION,
-                source__is_publicly_releasable=False,
-                geographic_area_id__in=identities,
-                geographic_area__is_enabled=True,
-                latitude__gte=-90,
-                latitude__lte=90,
-                longitude__gte=-180,
-                longitude__lte=180,
-            )
+            eligible_local_center_candidates(identities, approved_testing=approved_testing)
             .annotate(
                 distance_meters=_distance_expression(
                     latitude=coordinates["latitude"], longitude=coordinates["longitude"]
                 ),
-                within_area=Func(
-                    F("geographic_area__geometry"),
-                    Case(
-                        When(
-                            Q(latitude__gte=-90, latitude__lte=90)
-                            & Q(longitude__gte=-180, longitude__lte=180),
-                            then=Func(
-                                Func(F("longitude"), F("latitude"), function="ST_MakePoint"),
-                                Value(4326),
-                                function="ST_SetSRID",
-                                output_field=PointField(srid=4326),
-                            ),
-                        ),
-                        default=Value(None),
-                        output_field=PointField(srid=4326),
-                    ),
-                    function="ST_Covers",
-                    output_field=BooleanField(),
-                ),
             )
-            .filter(within_area=True)
             .order_by("distance_meters", "public_id")
             .values(
                 "public_id",
@@ -151,6 +167,7 @@ def find_nearest_demonstration_centers(**inputs):
                 if text.strip() and text.strip() not in limitations:
                     limitations.append(text.strip())
             serializer = LocalPreviewCenterSerializer(
+                context={"require_test_name": not approved_testing},
                 data={
                     "data_status": PublicationStatus.DEMONSTRATION,
                     "public_identifier": str(row["public_id"]),
@@ -164,7 +181,7 @@ def find_nearest_demonstration_centers(**inputs):
                     "verified_on": None,
                     "source_attribution": row["source__organization"],
                     "limitations": limitations,
-                }
+                },
             )
             if serializer.is_valid():
                 center = dict(serializer.data)
@@ -172,7 +189,9 @@ def find_nearest_demonstration_centers(**inputs):
                 centers.append(center)
                 if len(centers) == coordinates["limit"]:
                     break
+    # Child validation shares the explicit local environment, not a name convention.
     result = LocalPreviewResponseSerializer(
+        context={"require_test_name": not approved_testing},
         data={
             "data_status": PublicationStatus.DEMONSTRATION,
             "centers": centers,
@@ -181,7 +200,7 @@ def find_nearest_demonstration_centers(**inputs):
                 LOCAL_PREVIEW_WARNING,
                 DISTANCE_WARNING if centers else EMPTY_DISTANCE_WARNING,
             ],
-        }
+        },
     )
     result.is_valid(raise_exception=True)
     return dict(result.data)

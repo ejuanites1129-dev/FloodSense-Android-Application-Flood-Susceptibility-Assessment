@@ -8,6 +8,7 @@ import '../../config/api_config.dart';
 import '../models/assessment_request.dart';
 import '../models/assessment_result.dart';
 import '../models/barangay_resolution.dart';
+import '../models/center_map_result.dart';
 import '../models/geographic_area.dart';
 import '../models/json_parsing.dart';
 import '../models/map_assessment_result.dart';
@@ -16,6 +17,7 @@ import '../models/point_resolution.dart';
 import '../models/scenario_option.dart';
 import '../network/network_exception.dart';
 import '../../features/evacuation/nearest_center_provider.dart';
+import '../../features/evacuation/evacuation_map_controller.dart';
 import 'api_exception.dart';
 
 abstract interface class BarangayResolver {
@@ -46,7 +48,8 @@ abstract interface class FloodSenseApi implements BarangayResolver {
   void close();
 }
 
-class FloodSenseApiClient implements FloodSenseApi, NearestCenterProvider {
+class FloodSenseApiClient
+    implements FloodSenseApi, NearestCenterProvider, EvacuationMapProvider {
   FloodSenseApiClient({
     http.Client? client,
     String? baseUrl,
@@ -66,6 +69,14 @@ class FloodSenseApiClient implements FloodSenseApi, NearestCenterProvider {
   bool get _useLocalCenterPreview =>
       kDebugMode &&
       _localCenterPreviewRequested &&
+      const {
+        '127.0.0.1',
+        'localhost',
+        '::1',
+      }.contains(Uri.parse(_baseUrl).host);
+
+  bool get _canReadLocalTesting =>
+      kDebugMode &&
       const {
         '127.0.0.1',
         'localhost',
@@ -150,6 +161,90 @@ class FloodSenseApiClient implements FloodSenseApi, NearestCenterProvider {
   }
 
   @override
+  Future<CenterMapResult> fetchMapCenters({MapCoordinate? coordinate}) async {
+    if (coordinate != null &&
+        (!coordinate.latitude.isFinite ||
+            coordinate.latitude < -90 ||
+            coordinate.latitude > 90 ||
+            !coordinate.longitude.isFinite ||
+            coordinate.longitude < -180 ||
+            coordinate.longitude > 180)) {
+      throw const CenterLookupException(
+        CenterLookupFailureKind.requestRejected,
+      );
+    }
+    try {
+      final endpoint = _uri('evacuation-centers/map/');
+      final response =
+          await (coordinate == null
+                  ? _client.get(
+                      endpoint,
+                      headers: const {'accept': 'application/json'},
+                    )
+                  : _client.post(
+                      endpoint,
+                      headers: const {
+                        'accept': 'application/json',
+                        'content-type': 'application/json',
+                      },
+                      body: jsonEncode({
+                        'latitude': coordinate.latitude,
+                        'longitude': coordinate.longitude,
+                      }),
+                    ))
+              .timeout(timeout);
+      if (response.statusCode == 429) {
+        throw CenterLookupException(
+          CenterLookupFailureKind.rateLimited,
+          retryAfter: _retryAfter(response.headers['retry-after']),
+        );
+      }
+      if (const {500, 502, 503, 504}.contains(response.statusCode)) {
+        throw const CenterLookupException(
+          CenterLookupFailureKind.serverUnavailable,
+        );
+      }
+      if (response.statusCode != 200) {
+        throw const CenterLookupException(CenterLookupFailureKind.recoverable);
+      }
+      final contentType = response.headers['content-type'];
+      if (contentType == null ||
+          contentType.split(';').first.trim().toLowerCase() !=
+              'application/json') {
+        throw const CenterLookupException(
+          CenterLookupFailureKind.malformedResponse,
+        );
+      }
+      final body = _decodeObject(response.bodyBytes);
+      return CenterMapResult.fromJson(
+        body,
+        nearby: coordinate != null,
+        localTesting:
+            _canReadLocalTesting && body['data_status'] == 'DEMONSTRATION',
+      );
+    } on CenterLookupException {
+      rethrow;
+    } on TimeoutException {
+      throw const CenterLookupException(CenterLookupFailureKind.timeout);
+    } on http.ClientException {
+      throw const CenterLookupException(CenterLookupFailureKind.offline);
+    } on FormatException {
+      throw const CenterLookupException(
+        CenterLookupFailureKind.malformedResponse,
+      );
+    } on ArgumentError {
+      throw const CenterLookupException(
+        CenterLookupFailureKind.malformedResponse,
+      );
+    } catch (error) {
+      if (isSocketException(error)) {
+        throw const CenterLookupException(CenterLookupFailureKind.offline);
+      }
+      rethrow;
+    }
+  }
+
+  @override
   Future<NearestCenterResult> findNearest({
     required double latitude,
     required double longitude,
@@ -188,7 +283,8 @@ class FloodSenseApiClient implements FloodSenseApi, NearestCenterProvider {
       if (response.statusCode == 200) {
         final contentType = response.headers['content-type'];
         if (contentType == null ||
-            !contentType.toLowerCase().startsWith('application/json')) {
+            contentType.split(';').first.trim().toLowerCase() !=
+                'application/json') {
           throw const CenterLookupException(
             CenterLookupFailureKind.malformedResponse,
           );
@@ -197,7 +293,10 @@ class FloodSenseApiClient implements FloodSenseApi, NearestCenterProvider {
         return NearestCenterResult.fromJson(
           body,
           requestedLimit: 3,
-          localPreview: _useLocalCenterPreview,
+          localPreview:
+              _useLocalCenterPreview ||
+              (_canReadLocalTesting && body['data_status'] == 'DEMONSTRATION'),
+          requirePreviewName: _useLocalCenterPreview,
         );
       }
       if (response.statusCode == 400 ||

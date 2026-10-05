@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import '../../data/models/geojson_geometry.dart';
+import '../../data/models/center_map_record.dart';
 import '../../data/models/geographic_area.dart';
 import '../../data/models/map_assessment_result.dart';
 import '../../data/models/point_resolution.dart';
@@ -26,7 +27,12 @@ final class FloodMapPresentation {
     this.confirmedAreaCode,
     this.coordinate,
     this.accuracyMeters,
+    this.coordinateDescription,
     this.centers = const [],
+    this.mapCenters = const [],
+    this.mapCentersAreAuthoritative = false,
+    this.nearestCenterIdentifier,
+    this.nearestIsDemonstration,
     this.selectedCenterIdentifier,
     this.onAreaTapped,
     this.onCenterTapped,
@@ -41,13 +47,36 @@ final class FloodMapPresentation {
   final String? confirmedAreaCode;
   final MapCoordinate? coordinate;
   final double? accuracyMeters;
+  final String? coordinateDescription;
   final List<VerifiedCenter> centers;
+  final List<CenterMapRecord> mapCenters;
+  final bool mapCentersAreAuthoritative;
+  final String? nearestCenterIdentifier;
+  final bool? nearestIsDemonstration;
   final String? selectedCenterIdentifier;
   final MapCoordinateCallback onCoordinateTapped;
   final MapAreaCallback? onAreaTapped;
   final MapCenterCallback? onCenterTapped;
   final FloodMapPadding fitPadding;
   final bool controlsOnRight;
+
+  /// Catalog icons do not fabricate distances; current nearest metadata wins.
+  List<CenterMapRecord> get mapMarkers {
+    final byIdentifier = <String, CenterMapRecord>{
+      for (final center in mapCenters)
+        if (nearestIsDemonstration == null ||
+            center.isDemonstration == nearestIsDemonstration)
+          center.publicIdentifier: center,
+    };
+    for (final center in centers) {
+      if (!mapCentersAreAuthoritative ||
+          byIdentifier.containsKey(center.publicIdentifier)) {
+        byIdentifier[center.publicIdentifier] =
+            CenterMapRecord.fromVerifiedCenter(center);
+      }
+    }
+    return List.unmodifiable(byIdentifier.values);
+  }
 
   FloodMapBounds get bounds => FloodMapBounds.fromGeometries(
     (referenceAreas.isNotEmpty ? referenceAreas : scenarioAreas).map(
@@ -88,13 +117,15 @@ final class FloodMapPresentation {
             'coordinates': [point.longitude, point.latitude],
           },
         },
-      for (final center in centers)
+      for (final center in mapMarkers)
         {
           'type': 'Feature',
           'properties': {
             'kind': 'verified-center',
             'public_identifier': center.publicIdentifier,
             'selected': center.publicIdentifier == selectedCenterIdentifier,
+            'nearest': center.publicIdentifier == nearestCenterIdentifier,
+            'is_demonstration': center.isDemonstration,
             'name': center.name,
           },
           'geometry': {

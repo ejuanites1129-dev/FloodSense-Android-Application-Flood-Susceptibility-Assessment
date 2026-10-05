@@ -79,7 +79,29 @@ class EvacuationCenter(models.Model):
     def clean(self) -> None:
         super().clean()
         errors: dict[str, str] = {}
-        if self.verification_status == self.VerificationStatus.VERIFIED:
+        from geography.boundaries import is_bacoor_boundary_source
+
+        if self.source_id and is_bacoor_boundary_source(self.source):
+            errors["source"] = (
+                "Administrative boundaries are not facility evidence; "
+                "choose the center's own source."
+            )
+        if (
+            self.source_id
+            and self.source.source_type == DataSource.SourceType.DEMONSTRATION
+            and self.publication_status == PublicationStatus.APPROVED
+        ):
+            errors["publication_status"] = (
+                "Temporary data cannot be published as an approved facility."
+            )
+        if self.verification_status == self.VerificationStatus.VERIFIED and self.is_temporary:
+            if not self.source.test_approved:
+                errors["source"] = "Approve the temporary source for local testing first."
+            if self.verified_on is not None or self.capacity is not None:
+                errors["verified_on"] = (
+                    "A local workflow test must not claim facility verification or capacity."
+                )
+        elif self.verification_status == self.VerificationStatus.VERIFIED:
             if not self.verified_on:
                 errors["verified_on"] = "A verified center requires a verification date."
             if self.source_id and self.source.status != PublicationStatus.APPROVED:
@@ -102,6 +124,19 @@ class EvacuationCenter(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+    @property
+    def is_temporary(self):
+        return bool(
+            self.source_id
+            and self.source.is_temporary
+            and self.publication_status == PublicationStatus.DEMONSTRATION
+        )
+
+    def get_verification_status_display(self):
+        if self.is_temporary and self.verification_status == self.VerificationStatus.VERIFIED:
+            return "Approved for local testing—not facility verification"
+        return self.VerificationStatus(self.verification_status).label
 
 
 class CenterImportBatch(models.Model):

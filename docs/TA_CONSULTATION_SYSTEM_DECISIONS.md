@@ -215,6 +215,154 @@ app is open. It must not silently become continuous background monitoring.
 
 ## Change-control rule
 
+### Team selected-local-record sharing decision — 6 October 2026
+
+The project owner authorized a reviewed, repeatable package of selected local
+boundary/source states and two temporary evacuation centers, followed by a Git
+push. See [the teammate handoff](TEAM_LOCAL_DATA_HANDOFF.md). This is local
+development setup, not a general Admin data-exchange feature, institutional
+review or automatic synchronization of runtime databases. Snapshot approval
+must reflect actual rows: currently the boundary source is internally approved
+while the City and all 47 barangays remain pending. Temporary approval stays
+local, visibly demonstration-only and publicly unreleasable. Original accounts,
+reviewer identities, contacts, secrets and restricted data are not shared.
+Teammates explicitly preview/apply against their own local PostGIS database;
+conflicts roll back rather than overwrite their work. There is no new schema,
+scientific knowledge, parameter activation, official-data import or deployed
+database mutation. Later records or approvals need a separately reviewed update.
+
+### Team boundary-review compatibility decision — 5 October 2026
+
+The project owner authorized support for renamed and internally approved Bacoor
+administrative boundaries. Resolve dataset identity through the fixed City PSGC
+record and its existing source relationship, not a display name or a developer's
+local primary key. Enabled valid City/barangay geometry and a publicly releasable
+agency source may be pending or approved for administrative mapping. A complete
+47-barangay set remains required; restricted, retired, synthetic, disabled and
+invalid geometry cannot enter resident lookups. Mixed pending/approved boundary
+rows are supported. Per-record source/geometry statuses remain truthful.
+
+This is a team implementation decision, not adviser approval or City endorsement.
+It does not approve susceptibility datasets, scientific parameters, expert rules
+or temporary facilities. Those gates and labels remain independent. The boundary
+source remains excluded from facility evidence even after rename/approval.
+Reimports reuse existing rows and preserve metadata/review/release decisions;
+replacement of reviewed geometry requires return to review. No application rows,
+schema, dependencies, imports or automatic approvals are required for this update.
+
+### Team development decision — 5 October 2026
+
+The project owner authorized temporary source/evacuation-center testing through
+the normal local Admin forms, existing database tables and nearest-center API.
+See [the local testing workflow](LOCAL_TESTING_WORKFLOW.md). This is a team
+development decision, **not adviser approval** or agency/facility verification.
+Existing demonstration markers remain at rest; debug loopback opt-in, explicit
+local approval, honest output labels and per-row cleanup prevent test records
+from becoming official/public records. There is no background refresh. Other
+data/parameter/DSS governance remains unchanged; no AHP/WLC adoption is authorized.
+
+### Team map/location usability decision — 5 October 2026
+
+The project owner requested shelter-style evacuation-center icons visible when
+the signed-in map opens, a nearest-center highlight and Prepare distance, and
+pin synchronization after manual barangay or foreground GPS selection. This is
+a **team implementation request, not adviser approval**, agency verification,
+an evacuation instruction, or a scientific-method change.
+
+- Load the eligible center catalog once when the signed-in map opens. This
+  requires no personal coordinate and must not trigger GPS permission/access.
+  Retain genuine source/publication/verification eligibility, or clearly labeled
+  approved temporary records in the opted-in local testing environment.
+- Identify the nearest center only after a location point is confirmed. Show a
+  brief finite visual pulse and persistent nearest label; honor reduced-motion
+  settings and stop animation when the app is inactive. This is a presentation
+  cue, not a repeating location refresh, emergency alert, or vibration alarm.
+- Keep Prepare distances explicitly approximate and straight-line, never road
+  distance, route safety, facility availability, capacity, or an instruction to
+  travel to that center.
+- Foreground GPS places the pin at the exact acquired coordinate, subject to
+  the existing accuracy policy; a rounded resolver echo or barangay center must
+  not replace it. Retain explicit purpose/permission and barangay confirmation.
+- Manual selection may now place an in-memory reference point strictly inside
+  the selected polygon, accounting for concavity, holes and multiple parts.
+  Label it approximate, **not the user's actual location**; distances from it
+  share that limitation. Allow dragging to refine it. Do not invent a point
+  when usable geometry is unavailable. Reselecting a previously confirmed
+  precise pin/GPS barangay must preserve that precise coordinate.
+- No location history, background polling, continuous GPS, rainfall monitoring,
+  live alerts, or automatic evacuation recommendation is authorized. Clearing,
+  cancelling or ending the location flow still clears temporary coordinates.
+
+This request supersedes older implementation descriptions that manual barangay
+selection always has no coordinate, only for the labeled reference-point
+behavior above. The adviser consultation and unresolved research requirements
+remain distinct from this later team usability decision.
+
+### Team map-shortlist and display refinement — 5 October 2026
+
+The project owner subsequently requested **up to 25 nearest eligible centers
+around the current map pin**, replacing the all-center startup display above.
+At startup, use the initial boundary-bounds midpoint pin as a map reference,
+not an acquired/confirmed personal location. Recalculate only when the pin
+changes (drag, GPS or manual selection) or on explicit Refresh centers. Camera
+pan/zoom, legend opening and tab/sheet navigation must retain the same shortlist.
+Keep distance/nearest-personal-location claims behind existing confirmation.
+Rank all eligible candidates by the existing PostGIS straight-line distance
+expression, then public UUID for ties; do not rank a truncated all-center page.
+Transient POST coordinates are not persisted or put in a URL/query string.
+
+The owner also requested removal of the repetitive global Admin local-testing
+banner; per-record temporary labels and local-only gates remain. A compact map
+Legend button now contains susceptibility swatches, the gray outside-coverage
+explanation, and existing limitations. Backend result colors remain authoritative.
+Shelter labels/3D buildings must not hide their icons. These are team usability
+decisions, not adviser approval, agency verification or methodology adoption.
+No new database tables, application rows, packages, polling or migrations are
+required for this refinement.
+
+### Team resident-interface simplification — 6 October 2026
+
+The project owner requested a simpler retained-map interface and one area
+confirmation. This is a **team usability decision, not adviser approval**,
+City verification, a data approval or a scientific-method change.
+
+- The three resident destinations are Assess, Prepare and Profile. Assess owns
+  flood information, guided assessment and results. There is no separate Map
+  destination; navigation and sheet interaction retain the same map/camera.
+  A static FloodSense header replaces the redundant top assessment shortcut.
+- GPS and dragged-pin boundary matches remain candidates until the single
+  **Confirm area** action in Step 2. That action confirms the location and
+  advances to Review; it does not run an assessment. A manual dropdown choice
+  is explicit selection and advances through the same action. Remove the
+  separate Confirm barangay and Correct manually buttons. GPS/manual/pin origin
+  labels update with their corresponding temporary coordinate.
+- Step 2 displays the barangay name beneath the compact location-origin row,
+  keeps Use my location, manual selection, clearing and recovery controls,
+  and retains the short blue confirmation notice. Detailed boundary status,
+  limitations, GPS accuracy and provisional baseline belong in Step 3 Review.
+  Approximate barangay points remain labeled as references, not measured GPS.
+- After purpose-dialog Continue, if location is off, open Android Location
+  Settings immediately. Retry once on return; never repeatedly open settings
+  or inspect GPS on unrelated lifecycle resumes. Try again remains available
+  if launching settings fails or the service remains off. Manual selection,
+  clearing and cancellation invalidate any armed settings-return acquisition.
+- One gray legend entry covers unclassified/insufficient data inside Bacoor
+  and places outside coverage, beneath the four susceptibility swatches. Remove
+  the repeated gray-coverage and shelter prose from this popup. Gray remains
+  neutral, not a susceptibility class; backend classification colors and source
+  labels are unchanged. Shelter/distance limitations remain in center details.
+- The collapsed sheet tab is shorter and wider with a finite, subtle upward
+  arrow hint; it honors reduced motion and stops outside the foreground. Its
+  touch target remains 48 px high. Keep the central drag bar and separate right
+  collapse arrow apart. Disable the native Mapbox north-reset compass that
+  overlaps the custom zoom button; retain attribution and other visible controls.
+
+This supersedes older descriptions of separate candidate confirmation UI, not
+the requirement for explicit location confirmation, foreground purpose/permission,
+supported-boundary eligibility, honest source labels or explicit scenario review.
+No database rows, packages, migrations, background tracking, rainfall polling,
+live warning behavior or automatic evacuation recommendation are authorized.
+
 When a later adviser consultation or methodology decision changes this record:
 
 1. preserve the new source material;

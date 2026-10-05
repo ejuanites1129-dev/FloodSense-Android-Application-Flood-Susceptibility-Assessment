@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import dss_views, operations_views
+from . import dss_views, local_testing_views, operations_views
 from .views import (
     AdminLoginView,
     AdminLogoutView,
@@ -27,6 +27,18 @@ from .views import (
 app_name = "admin_portal"
 
 urlpatterns = [
+    path(
+        "evacuation-centers/<int:record_id>/remove-temporary/",
+        local_testing_views.remove_temporary,
+        {"kind": "center"},
+        name="remove-temporary-center",
+    ),
+    path(
+        "sources-content/<int:record_id>/remove-temporary/",
+        local_testing_views.remove_temporary,
+        {"kind": "source"},
+        name="remove-temporary-source",
+    ),
     path("review/<slug:module>/", operations_views.review_queue, name="review-queue"),
     path("evacuation-centers/import/", operations_views.center_import, name="center-import"),
     path(

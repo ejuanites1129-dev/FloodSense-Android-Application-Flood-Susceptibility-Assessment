@@ -3,6 +3,7 @@
 import csv
 from collections import Counter
 
+from core.local_testing import local_testing_enabled
 from core.record_workflow import require_fresh
 from django import forms
 from django.contrib import messages
@@ -25,6 +26,7 @@ from evacuation.services import (
     eligible_center_candidates,
     ready_reference_barangays,
 )
+from geography.boundaries import is_bacoor_boundary_source
 from geography.widgets import OPENLAYERS_CDN_ROOT
 from provenance.models import DataSource, PublicationStatus
 
@@ -65,6 +67,10 @@ class FastCenterForm(EvacuationCenterForm):
         if self.instance.pk:
             self.initial["expected_updated_at"] = self.instance.updated_at.isoformat()
             self.initial["expected_source_updated_at"] = self.instance.source.updated_at.isoformat()
+            if self.allow_temporary and self.instance.is_temporary:
+                # Validate the unsaved edit as a draft, not as the old approval.
+                # save_center locks/rechecks the real row and explicitly reapproves.
+                self.instance.verification_status = EvacuationCenter.VerificationStatus.DRAFT
         # Capacity belongs exclusively to the normal verification transition.
         self.fields["capacity"].help_text += " Draft saves do not record this value."
 
@@ -217,12 +223,17 @@ def center_editor(request, center_id=None):
         request.user, f"evacuation.{'change' if center_id else 'add'}_evacuationcenter"
     )
     center = get_object_or_404(EvacuationCenter, pk=center_id) if center_id else None
-    if center and center.verification_status != "DRAFT":
+    if (
+        center
+        and center.verification_status != "DRAFT"
+        and not (center.is_temporary and local_testing_enabled(request))
+    ):
         raise PermissionDenied("Only drafts can be edited; use the review actions first.")
     form = FastCenterForm(
         request.POST or None,
         instance=center,
         initial=request.session.get("center_entry_defaults", {}) if center is None else {},
+        allow_temporary=local_testing_enabled(request),
     )
     status = 200
     if request.method == "POST" and form.is_valid():
@@ -260,7 +271,10 @@ def center_editor(request, center_id=None):
                 f"Center saved as {changed.get_verification_status_display()}. "
                 "Resident eligibility is checked separately; no current availability is asserted.",
             )
-            if changed.source.status != PublicationStatus.APPROVED:
+            if (
+                changed.source.status != PublicationStatus.APPROVED
+                and not changed.source.is_temporary
+            ):
                 messages.warning(
                     request,
                     f"Saved unverified: source '{changed.source.name}' is pending. "
@@ -288,7 +302,7 @@ def center_editor(request, center_id=None):
         form_mode="edit" if center else "create",
         selected_source=_selected_center_source(form),
         save_actions=center_actions(request.user),
-        source_form=FastSourceForm(prefix="inline"),
+        source_form=FastSourceForm(prefix="inline", allow_temporary=local_testing_enabled(request)),
         openlayers_root=OPENLAYERS_CDN_ROOT,
         map_config=get_map_client_config(),
         source_metadata={
@@ -306,6 +320,18 @@ def center_editor(request, center_id=None):
             for s in form.fields["source"].queryset
         },
     )
+    if local_testing_enabled(request):
+        context["save_actions"] = [
+            (
+                a,
+                {
+                    "verify": "Save and verify / approve temporary record for testing",
+                    "approve-verify": "Save and approve source + center "
+                    "(local approval if temporary)",
+                }.get(a, label),
+            )
+            for a, label in context["save_actions"]
+        ]
     return render(request, "admin_portal/evacuation_center_form.html", context, status=status)
 
 
@@ -314,10 +340,21 @@ def center_editor(request, center_id=None):
 def source_editor(request, source_id=None, inline=False):
     require_permission(request.user, f"provenance.{'change' if source_id else 'add'}_datasource")
     source = get_object_or_404(DataSource, pk=source_id) if source_id else None
-    if source and source.status != PublicationStatus.PENDING_VALIDATION:
+    if inline and source and is_bacoor_boundary_source(source):
+        raise PermissionDenied(
+            "This is the map reference source, not facility evidence. Its maintenance is separate."
+        )
+    if (
+        source
+        and source.status != PublicationStatus.PENDING_VALIDATION
+        and not (source.is_temporary and local_testing_enabled(request))
+    ):
         raise PermissionDenied("Only pending metadata can be edited.")
     form = FastSourceForm(
-        request.POST or None, instance=source, prefix="inline" if inline else None
+        request.POST or None,
+        instance=source,
+        prefix="inline" if inline else None,
+        allow_temporary=local_testing_enabled(request),
     )
     status = 200
     if request.method == "POST" and form.is_valid():
@@ -374,6 +411,16 @@ def source_editor(request, source_id=None, inline=False):
         form_mode="edit" if source else "create",
         save_actions=source_actions(request.user),
     )
+    if local_testing_enabled(request):
+        context["save_actions"] = [
+            (
+                a,
+                "Save and approve metadata (local approval if temporary)"
+                if a == "approve"
+                else label,
+            )
+            for a, label in context["save_actions"]
+        ]
     if inline:
         if request.method == "POST" and form.errors and status == 200:
             status = 400

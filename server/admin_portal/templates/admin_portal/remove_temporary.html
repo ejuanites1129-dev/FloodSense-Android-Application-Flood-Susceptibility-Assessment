@@ -1,0 +1,10 @@
+{% extends "admin_portal/base.html" %}{% load static %}
+{% block title %}Remove temporary record | FloodSense{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'admin_portal/css/operations.css' %}">{% endblock %}
+{% block content %}
+<div class="operations-page confirm-page">
+<section class="page-heading"><h1>Remove temporary {{ kind }}</h1></section>
+<section class="panel"><h2>{{ record.name }}</h2><p>Only this identified temporary row will be removed. There is no bulk purge or automatic deletion. Keep any needed private recovery copy before proceeding.</p>
+<form class="confirm-form" method="post">{% csrf_token %}{{ form.as_p }}<button class="button button--primary" type="submit">Remove this temporary record</button>
+{% if kind == 'center' %}<a class="button button--secondary" href="{% url 'admin_portal:evacuation-center-detail' record.pk %}">Cancel</a>{% else %}<a class="button button--secondary" href="{% url 'admin_portal:data-source-detail' record.pk %}">Cancel</a>{% endif %}</form></section>
+</div>{% endblock %}

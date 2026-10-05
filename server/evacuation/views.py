@@ -14,6 +14,7 @@ from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .catalog import NearbyMapRequestSerializer
 from .contracts import (
     INTERNAL_ERROR_DETAIL,
     MALFORMED_JSON_DETAIL,
@@ -30,6 +31,7 @@ from .throttles import NearestCenterThrottle
 
 
 class NearestCenterView(APIView):
+    request_serializer_class = NearestCenterRequestSerializer
     authentication_classes = ()
     permission_classes = (AllowAny,)
     parser_classes = (LimitedJSONParser,)
@@ -66,7 +68,7 @@ class NearestCenterView(APIView):
             media_type=request.content_type,
             parser_context={"encoding": request.encoding or "utf-8"},
         )
-        serializer = NearestCenterRequestSerializer(data=data)
+        serializer = self.request_serializer_class(data=data)
         serializer.is_valid(raise_exception=True)
         try:
             payload = self.lookup_centers(serializer.validated_data)
@@ -77,6 +79,12 @@ class NearestCenterView(APIView):
         return Response(payload)
 
     def lookup_centers(self, inputs):
+        from core.local_testing import local_testing_enabled
+
+        if local_testing_enabled(self.request):
+            from .local_preview import find_nearest_demonstration_centers
+
+            return find_nearest_demonstration_centers(approved_testing=True, **inputs)
         return find_nearest_eligible_centers(**inputs)
 
     def handle_exception(self, exc):
@@ -119,3 +127,47 @@ class LocalPreviewNearestCenterView(NearestCenterView):
         from .local_preview import find_nearest_demonstration_centers
 
         return find_nearest_demonstration_centers(**inputs)
+
+
+class MapCenterView(NearestCenterView):
+    """Public reference GET or bounded, read-only pin-centered POST."""
+
+    request_serializer_class = NearbyMapRequestSerializer
+
+    http_method_names = ("get", "post", "options")
+
+    def get_throttles(self):
+        # Share the existing bounded public discovery budget, not its payload.
+        return APIView.get_throttles(self) if self.request.method in {"GET", "POST"} else []
+
+    def post(self, request):
+        from .catalog import MAP_INPUT_ERROR
+
+        if request.query_params:
+            return Response({"detail": MAP_INPUT_ERROR}, status=400)
+        return super().post(request)
+
+    def lookup_centers(self, inputs):
+        from core.local_testing import local_testing_enabled
+
+        from .catalog import find_map_centers
+
+        return find_map_centers(approved_testing=local_testing_enabled(self.request), **inputs)
+
+    def get(self, request):
+        from core.local_testing import local_testing_enabled
+
+        from .catalog import MAP_INPUT_ERROR, MAP_INTERNAL_ERROR, find_map_centers
+
+        if request.query_params or request.META.get("CONTENT_LENGTH") not in (None, "", "0"):
+            return Response({"detail": MAP_INPUT_ERROR}, status=400)
+        try:
+            payload = find_map_centers(approved_testing=local_testing_enabled(request))
+        except Exception:
+            return Response({"detail": MAP_INTERNAL_ERROR}, status=500)
+        return Response(payload)
+
+    def finalize_response(self, request, response, *args, **kwargs):
+        response = super().finalize_response(request, response, *args, **kwargs)
+        response["Allow"] = "GET, POST, OPTIONS"
+        return response

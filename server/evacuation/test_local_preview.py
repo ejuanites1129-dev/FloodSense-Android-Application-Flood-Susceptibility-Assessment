@@ -22,6 +22,7 @@ layer = reference_fixtures.layer
 def preview_settings(settings):
     settings.DEBUG = True
     settings.ENABLE_LOCAL_CENTER_PREVIEW = True
+    settings.ENABLE_LOCAL_TESTING = False
     cache.clear()
 
 

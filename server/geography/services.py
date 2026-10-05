@@ -13,10 +13,11 @@ from django.db.models import Prefetch
 from provenance import policies
 from provenance.models import DataSource, PublicationStatus
 
+from .boundaries import bacoor_boundary_source_ids
 from .constants import (
+    BACOOR_BOUNDARY_STATUSES,
     BACOOR_CITY_CODE,
     BACOOR_REFERENCE_BARANGAY_COUNT,
-    BACOOR_REFERENCE_SOURCE_NAME,
 )
 from .models import (
     BarangaySusceptibilitySummary,
@@ -37,6 +38,8 @@ class BarangayResolutionResult:
     state: str
     barangay_psgc_code: str | None = None
     barangay_name: str | None = None
+    data_status: str = PublicationStatus.PENDING_VALIDATION
+    source_status: str = PublicationStatus.PENDING_VALIDATION
 
     @property
     def barangay(self) -> dict[str, str] | None:
@@ -51,20 +54,40 @@ class BarangayResolutionResult:
 
 
 def eligible_bacoor_reference_barangays():
-    """Return only the controlled pending-validation Bacoor reference rows.
+    """Return controlled pending or internally approved administrative boundaries.
 
     This selector is the Day 1 eligibility foundation. It deliberately performs
     no spatial lookup and does not decide whether the layer is complete.
     """
 
-    return GeographicArea.objects.select_related("source").filter(
-        area_type=GeographicArea.AreaType.BARANGAY,
+    city = GeographicArea.objects.filter(
+        code=BACOOR_CITY_CODE,
+        area_type=GeographicArea.AreaType.CITY,
         is_enabled=True,
-        status=PublicationStatus.PENDING_VALIDATION,
-        source__name=BACOOR_REFERENCE_SOURCE_NAME,
-        source__source_type=DataSource.SourceType.AGENCY_DATASET,
-        source__status=PublicationStatus.PENDING_VALIDATION,
-        source__is_publicly_releasable=True,
+        status__in=BACOOR_BOUNDARY_STATUSES,
+    ).annotate(empty=IsEmpty("geometry"), valid=IsValid("geometry"))
+    return (
+        GeographicArea.objects.select_related("source")
+        .filter(
+            area_type=GeographicArea.AreaType.BARANGAY,
+            is_enabled=True,
+            status__in=BACOOR_BOUNDARY_STATUSES,
+            source_id__in=city.filter(empty=False, valid=True).values("source_id"),
+            source__source_type=DataSource.SourceType.AGENCY_DATASET,
+            source__status__in=BACOOR_BOUNDARY_STATUSES,
+            source__is_publicly_releasable=True,
+        )
+        .annotate(boundary_empty=IsEmpty("geometry"), boundary_valid=IsValid("geometry"))
+        .filter(boundary_empty=False, boundary_valid=True)
+    )
+
+
+def boundary_collection_status(areas):
+    """Approval describes geometry only; mixed/pending collections remain pending."""
+    return (
+        PublicationStatus.APPROVED
+        if areas.exists() and not areas.exclude(status=PublicationStatus.APPROVED).exists()
+        else PublicationStatus.PENDING_VALIDATION
     )
 
 
@@ -268,9 +291,9 @@ def resolve_bacoor_barangay(
     point = Point(longitude, latitude, srid=4326)
     sources = list(
         DataSource.objects.filter(
-            name=BACOOR_REFERENCE_SOURCE_NAME,
+            pk__in=bacoor_boundary_source_ids(),
             source_type=DataSource.SourceType.AGENCY_DATASET,
-            status=PublicationStatus.PENDING_VALIDATION,
+            status__in=BACOOR_BOUNDARY_STATUSES,
             is_publicly_releasable=True,
         ).order_by("id")[:2]
     )
@@ -283,7 +306,7 @@ def resolve_bacoor_barangay(
         barangays.annotate(
             geometry_is_empty=IsEmpty("geometry"),
             geometry_is_valid=IsValid("geometry"),
-        ).values_list("code", "name", "geometry_is_empty", "geometry_is_valid")
+        ).values_list("code", "name", "geometry_is_empty", "geometry_is_valid", "status")
     )
     public_codes = [public_psgc_code(code) for code, *_ in identities]
     normalized_names = [name.strip().casefold() for _, name, *_ in identities]
@@ -291,7 +314,7 @@ def resolve_bacoor_barangay(
         len(identities) != BACOOR_REFERENCE_BARANGAY_COUNT
         or any(
             public_code is None or not name.strip() or geometry_is_empty or not geometry_is_valid
-            for public_code, (_, name, geometry_is_empty, geometry_is_valid) in zip(
+            for public_code, (_, name, geometry_is_empty, geometry_is_valid, _) in zip(
                 public_codes, identities, strict=True
             )
         )
@@ -305,7 +328,7 @@ def resolve_bacoor_barangay(
             code=BACOOR_CITY_CODE,
             area_type=GeographicArea.AreaType.CITY,
             is_enabled=True,
-            status=PublicationStatus.PENDING_VALIDATION,
+            status__in=BACOOR_BOUNDARY_STATUSES,
             source=source,
         )
         .annotate(
@@ -317,6 +340,14 @@ def resolve_bacoor_barangay(
     if len(city_rows) != 1 or city_rows[0][1] or not city_rows[0][2]:
         return BarangayResolutionResult(BarangayResolutionState.UNAVAILABLE)
     city_id = city_rows[0][0]
+    metadata = {
+        "data_status": (
+            PublicationStatus.APPROVED
+            if all(row[4] == PublicationStatus.APPROVED for row in identities)
+            else PublicationStatus.PENDING_VALIDATION
+        ),
+        "source_status": source.status,
+    }
 
     matches = list(
         barangays.filter(geometry__covers=point).values_list("code", "name").order_by("code", "id")
@@ -330,9 +361,11 @@ def resolve_bacoor_barangay(
             BarangayResolutionState.RESOLVED,
             barangay_psgc_code=psgc_code,
             barangay_name=name,
+            data_status=next(row[4] for row in identities if row[0] == f"PSGC_{psgc_code}"),
+            source_status=source.status,
         )
     if matched_identities:
-        return BarangayResolutionResult(BarangayResolutionState.AMBIGUOUS_BOUNDARY)
+        return BarangayResolutionResult(BarangayResolutionState.AMBIGUOUS_BOUNDARY, **metadata)
 
     if GeographicArea.objects.filter(
         id=city_id,
@@ -340,8 +373,8 @@ def resolve_bacoor_barangay(
     ).exists():
         # A City-covered point that is not covered by a current barangay is an
         # apparent data gap; it must not be mislabeled as outside Bacoor.
-        return BarangayResolutionResult(BarangayResolutionState.UNAVAILABLE)
-    return BarangayResolutionResult(BarangayResolutionState.OUTSIDE_BACOOR)
+        return BarangayResolutionResult(BarangayResolutionState.UNAVAILABLE, **metadata)
+    return BarangayResolutionResult(BarangayResolutionState.OUTSIDE_BACOOR, **metadata)
 
 
 def public_psgc_code(area_code: str) -> str | None:

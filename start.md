@@ -4,6 +4,11 @@ Use this guide to run the checked-out project locally from **VS Code's PowerShel
 
 **Startup order:** PostgreSQL → Django API and Admin → Android emulator or phone → Flutter app.
 
+For temporary source/evacuation-center tests in the **main** local workflow, use
+[this setup](docs/LOCAL_TESTING_WORKFLOW.md) and `scripts/run_android_local.ps1`.
+It reads the configured Mapbox token and current connected device automatically;
+the old separate center-preview launcher is not needed.
+
 **Shutdown order:** Flutter app → emulator and optional Android tools → Django → PostgreSQL, if you want to stop the local database service.
 
 ## 1. What needs to run?

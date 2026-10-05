@@ -19,9 +19,9 @@ abstract final class LocationCopy {
       'Location permission is blocked for FloodSense. You may enable it in '
       'Android app settings, or choose a location manually.';
   static const serviceDisabled =
-      'Device location is turned off. Tap Try again to open Android Location '
-      'Settings. FloodSense will retry once when you return, or you can choose '
-      'a location manually.';
+      'Location is turned off. Enable it in Android Location Settings, then '
+      'return here. If settings did not open, tap Try again. You can also '
+      'choose a barangay manually.';
   static const inaccurateOrUnavailable =
       'FloodSense could not get a reliable location. Try again, place a '
       'temporary map pin, or select a barangay.';

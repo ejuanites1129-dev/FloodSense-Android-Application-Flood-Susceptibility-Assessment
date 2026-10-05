@@ -8,6 +8,7 @@ import '../features/auth/auth_screens.dart';
 import '../features/auth/session_controller.dart';
 import '../features/auth/setup_screens.dart';
 import '../features/evacuation/nearest_center_provider.dart';
+import '../features/evacuation/evacuation_map_controller.dart';
 import '../features/home/resident_shell.dart';
 import '../features/location/location_service.dart';
 import 'theme/app_theme.dart';
@@ -20,6 +21,7 @@ class FloodSenseApp extends StatelessWidget {
     this.dssRepository,
     this.locationService,
     this.nearestCenterProvider,
+    this.evacuationMapProvider,
     this.showBasemap = true,
     this.enableResidentAuthentication,
   });
@@ -29,6 +31,7 @@ class FloodSenseApp extends StatelessWidget {
   final StructuredDssRepository? dssRepository;
   final LocationService? locationService;
   final NearestCenterProvider? nearestCenterProvider;
+  final EvacuationMapProvider? evacuationMapProvider;
   final bool showBasemap;
   final bool? enableResidentAuthentication;
 
@@ -40,6 +43,11 @@ class FloodSenseApp extends StatelessWidget {
       activeCenterProvider = activeApi as NearestCenterProvider;
     }
     final authenticationEnabled = enableResidentAuthentication ?? api == null;
+    final activeMapProvider =
+        evacuationMapProvider ??
+        (activeApi is EvacuationMapProvider
+            ? activeApi as EvacuationMapProvider
+            : null);
     if (!authenticationEnabled) {
       return MaterialApp(
         title: 'FloodSense',
@@ -49,6 +57,7 @@ class FloodSenseApp extends StatelessWidget {
           api: activeApi,
           locationService: locationService,
           nearestCenterProvider: activeCenterProvider,
+          evacuationMapProvider: activeMapProvider,
           showBasemap: showBasemap,
         ),
       );
@@ -59,6 +68,7 @@ class FloodSenseApp extends StatelessWidget {
       dssRepository: dssRepository,
       locationService: locationService,
       nearestCenterProvider: activeCenterProvider,
+      evacuationMapProvider: activeMapProvider,
       showBasemap: showBasemap,
     );
   }
@@ -71,6 +81,7 @@ class _ResidentApplication extends StatefulWidget {
     required this.dssRepository,
     required this.locationService,
     required this.nearestCenterProvider,
+    required this.evacuationMapProvider,
     required this.showBasemap,
   });
   final FloodSenseApi api;
@@ -78,6 +89,7 @@ class _ResidentApplication extends StatefulWidget {
   final StructuredDssRepository? dssRepository;
   final LocationService? locationService;
   final NearestCenterProvider? nearestCenterProvider;
+  final EvacuationMapProvider? evacuationMapProvider;
   final bool showBasemap;
   @override
   State<_ResidentApplication> createState() => _ResidentApplicationState();
@@ -125,6 +137,7 @@ class _ResidentApplicationState extends State<_ResidentApplication> {
           api: widget.api,
           locationService: widget.locationService,
           nearestCenterProvider: widget.nearestCenterProvider,
+          evacuationMapProvider: widget.evacuationMapProvider,
           dssRepository: widget.dssRepository,
           showBasemap: widget.showBasemap,
         ),

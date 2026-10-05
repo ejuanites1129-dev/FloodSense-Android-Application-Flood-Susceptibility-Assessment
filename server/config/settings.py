@@ -32,6 +32,7 @@ ENABLE_PROVISIONAL_MGB_PREVIEW = env_bool(
     False,
 )
 ENABLE_LOCAL_CENTER_PREVIEW = env_bool("FLOODSENSE_ENABLE_LOCAL_CENTER_PREVIEW", False)
+ENABLE_LOCAL_TESTING = env_bool("FLOODSENSE_LOCAL_TESTING", False)
 
 # Optional presentation provider. Mapbox is enabled only with a public `pk.`
 # browser token; missing, invalid, and secret tokens always fall back to the

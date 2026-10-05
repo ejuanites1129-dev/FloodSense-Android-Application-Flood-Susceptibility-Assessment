@@ -10,6 +10,7 @@ import 'package:floodsense/data/models/nearest_center_result.dart';
 import 'package:floodsense/data/models/point_resolution.dart';
 import 'package:floodsense/data/models/verified_center.dart';
 import 'package:floodsense/features/evacuation/nearest_center_controller.dart';
+import 'package:floodsense/features/evacuation/evacuation_center_marker.dart';
 import 'package:floodsense/features/evacuation/nearest_center_provider.dart';
 import 'package:floodsense/features/location/location_controller.dart';
 import 'package:floodsense/features/location/location_service.dart';
@@ -427,13 +428,14 @@ void main() {
       await tester.ensureVisible(nearCard);
       await tester.tap(nearCard);
       await tester.pumpAndSettle();
-      final nearMarkerIcon = tester.widget<Icon>(
+      final nearMarker = tester.widget<EvacuationCenterMarker>(
         find.descendant(
           of: find.byKey(const Key('nearest-center-marker-public-near')),
-          matching: find.byIcon(Icons.home_work),
+          matching: find.byType(EvacuationCenterMarker),
         ),
       );
-      expect(nearMarkerIcon.size, 46);
+      expect(nearMarker.isSelected, isTrue);
+      expect(nearMarker.isNearest, isTrue);
 
       final farMarker = find.byKey(
         const Key('nearest-center-marker-public-far'),

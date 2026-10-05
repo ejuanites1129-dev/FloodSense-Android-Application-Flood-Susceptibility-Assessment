@@ -50,7 +50,7 @@ def permitted_actions(module, actor):
     return [
         (a, spec.label)
         for a, spec in ACTION_MAPS[module].items()
-        if actor.has_perm(spec.permission)
+        if actor.has_perm(spec.permission) and a not in {"approve-test", "return-test-review"}
     ]
 
 
@@ -60,6 +60,8 @@ def view_permission(module):
 
 
 def _apply(module, record, action, actor, verified_on=None):
+    if module in {"centers", "sources"} and record.is_temporary:
+        raise ValidationError("Use this temporary record's local testing actions individually.")
     if module == "centers":
         return transition_center(
             center_id=record.pk,

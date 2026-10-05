@@ -7,6 +7,7 @@ import '../../data/models/verified_center.dart';
 import '../location/location_controller.dart';
 import '../location/location_flow_state.dart';
 import 'nearest_center_provider.dart';
+import 'evacuation_map_controller.dart';
 
 enum NearestCenterPhase {
   initial,
@@ -30,13 +31,18 @@ enum NearestCenterPhase {
 
 /// Coordinates center presentation without owning or persisting a coordinate.
 final class NearestCenterController extends ChangeNotifier {
-  NearestCenterController(this._locationController, {this.provider}) {
+  NearestCenterController(
+    this._locationController, {
+    this.provider,
+    this.mapController,
+  }) {
     _locationController.addListener(_onLocationChanged);
     _synchronizeWithLocation();
   }
 
   final LocationController _locationController;
   final NearestCenterProvider? provider;
+  final EvacuationMapController? mapController;
 
   NearestCenterPhase _phase = NearestCenterPhase.initial;
   List<VerifiedCenter> _centers = const [];
@@ -54,6 +60,16 @@ final class NearestCenterController extends ChangeNotifier {
   String? get distanceMethod => _distanceMethod;
   String? get selectedCenterIdentifier => _selectedCenterIdentifier;
   bool get isDemonstration => _isDemonstration;
+  String? get nearestCenterIdentifier =>
+      _phase == NearestCenterPhase.resultsAvailable && _centers.isNotEmpty
+      ? _centers.first.publicIdentifier
+      : null;
+  String get distanceOriginLabel => _locationController.isApproximateCoordinate
+      ? 'From an approximate point inside the selected barangay—not your exact location'
+      : _locationController.coordinateOrigin ==
+            LocationCoordinateOrigin.deviceGps
+      ? 'From your confirmed GPS location'
+      : 'From your confirmed map pin';
   bool get canRetry => switch (_phase) {
     NearestCenterPhase.offline ||
     NearestCenterPhase.timeout ||
@@ -62,6 +78,21 @@ final class NearestCenterController extends ChangeNotifier {
     NearestCenterPhase.recoverableError => true,
     _ => false,
   };
+
+  bool get canRefresh =>
+      _activeLocation != null &&
+      provider != null &&
+      (_phase == NearestCenterPhase.resultsAvailable ||
+          _phase == NearestCenterPhase.empty);
+
+  /// Explicit user refresh only; preserves the confirmed location and scenario.
+  Future<void> refresh() async {
+    if (_disposed || !canRefresh) return;
+    await Future.wait([
+      _request(_activeLocation!),
+      if (mapController != null) mapController!.load(refresh: true),
+    ]);
+  }
 
   String get message => switch (_phase) {
     NearestCenterPhase.initial ||
@@ -105,6 +136,12 @@ final class NearestCenterController extends ChangeNotifier {
     }
     if (_selectedCenterIdentifier == publicIdentifier) return;
     _selectedCenterIdentifier = publicIdentifier;
+    notifyListeners();
+  }
+
+  void clearSelection() {
+    if (_disposed || _selectedCenterIdentifier == null) return;
+    _selectedCenterIdentifier = null;
     notifyListeners();
   }
 

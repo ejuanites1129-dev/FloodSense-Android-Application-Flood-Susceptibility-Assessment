@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/theme/app_colors.dart';
+import '../../app/widgets/measured_scroll_view.dart';
 import '../../data/api/floodsense_api_client.dart';
 import '../../data/auth/resident_auth_repository.dart';
 import '../../data/dss/structured_dss_repository.dart';
@@ -18,6 +19,8 @@ import '../dss/dss_controller.dart';
 import '../dss/dss_assessment_context.dart';
 import '../dss/dss_flow_view.dart';
 import '../evacuation/nearest_center_controller.dart';
+import '../evacuation/evacuation_map_controller.dart';
+import '../evacuation/evacuation_map_status.dart';
 import '../evacuation/nearest_center_provider.dart';
 import '../evacuation/nearest_centers_section.dart';
 import '../location/location_card.dart';
@@ -32,6 +35,7 @@ class ResidentShell extends StatefulWidget {
     required this.api,
     this.locationService,
     this.nearestCenterProvider,
+    this.evacuationMapProvider,
     this.dssRepository,
     this.showBasemap = true,
     super.key,
@@ -40,6 +44,7 @@ class ResidentShell extends StatefulWidget {
   final FloodSenseApi api;
   final LocationService? locationService;
   final NearestCenterProvider? nearestCenterProvider;
+  final EvacuationMapProvider? evacuationMapProvider;
   final StructuredDssRepository? dssRepository;
   final bool showBasemap;
   @override
@@ -57,10 +62,38 @@ class _ResidentShellState extends State<ResidentShell> {
       DraggableScrollableController();
   LocationController? _location;
   NearestCenterController? _centers;
+  EvacuationMapController? _mapCenters;
   int _index = 0;
   int _assessmentStep = 0;
   bool _sheetIsCollapsed = false;
   bool _synchronizingBarangay = false;
+  bool _assessmentFlowOpen = false;
+  final Map<(int, int), double> _contentHeights = {};
+  double _sheetAvailableHeight = 0;
+
+  (int, int) get _sheetContentId => (_index, _index == 1 ? _assessmentStep : 0);
+
+  double get _contentMaximumSheetSize {
+    final height = _contentHeights[_sheetContentId];
+    if (height == null || _sheetAvailableHeight <= 0) return _maximumSheetSize;
+    // Include the fixed drag/collapse header and the body's bottom padding.
+    return ((height + 48) / _sheetAvailableHeight).clamp(
+      _collapseThreshold + 0.001,
+      _maximumSheetSize,
+    );
+  }
+
+  ValueChanged<double> get _onSheetContentHeightChanged {
+    final contentId = _sheetContentId;
+    return (height) {
+      if (!mounted ||
+          contentId != _sheetContentId ||
+          _contentHeights[contentId] == height) {
+        return;
+      }
+      setState(() => _contentHeights[contentId] = height);
+    };
+  }
 
   @override
   void initState() {
@@ -69,6 +102,9 @@ class _ResidentShellState extends State<ResidentShell> {
       ..load();
     _dss = DssController(widget.dssRepository ?? HttpStructuredDssRepository());
     _sheetController.addListener(_handleSheetExtentChange);
+    if (widget.evacuationMapProvider case final provider?) {
+      _mapCenters = EvacuationMapController(provider);
+    }
     if (widget.locationService case final service?) {
       _location = LocationController(service, resolver: widget.api);
       _location!.addListener(_synchronizeConfirmedBarangay);
@@ -76,19 +112,26 @@ class _ResidentShellState extends State<ResidentShell> {
       _centers = NearestCenterController(
         _location!,
         provider: widget.nearestCenterProvider,
+        mapController: _mapCenters,
       );
     }
+    _assessment.addListener(_synchronizeMapCenters);
+    _location?.addListener(_synchronizeMapCenters);
+    _synchronizeMapCenters();
   }
 
   @override
   void dispose() {
     _location?.removeListener(_synchronizeConfirmedBarangay);
     _assessment.removeListener(_synchronizeConfirmedBarangay);
+    _assessment.removeListener(_synchronizeMapCenters);
+    _location?.removeListener(_synchronizeMapCenters);
     _sheetController.removeListener(_handleSheetExtentChange);
     _sheetController.dispose();
     _assessment.dispose();
     _dss.dispose();
     _centers?.dispose();
+    _mapCenters?.dispose();
     _location?.dispose();
     super.dispose();
   }
@@ -96,6 +139,13 @@ class _ResidentShellState extends State<ResidentShell> {
   bool get _usesBarangayAssessments =>
       _assessment.areas.isNotEmpty &&
       _assessment.areas.every((area) => area.areaType == 'BARANGAY');
+
+  void _synchronizeMapCenters() => _mapCenters?.synchronizePin(
+    referenceAreas: _assessment.referenceAreas,
+    coordinate: _location == null
+        ? _assessment.pinCoordinate
+        : _location!.lookupCoordinate,
+  );
 
   void _synchronizeConfirmedBarangay() {
     if (_synchronizingBarangay || !_usesBarangayAssessments) return;
@@ -108,10 +158,9 @@ class _ResidentShellState extends State<ResidentShell> {
 
   void _selectDestination(int value) {
     setState(() {
-      _index = value;
-      if (value == 1 && _assessment.result != null) {
-        _assessmentStep = 0;
-      }
+      // Assess owns both flood information/results and its guided steps. The
+      // map remains the same retained canvas, not a fourth destination.
+      _index = value == 0 ? (_assessmentFlowOpen ? 1 : 0) : value + 1;
     });
     _restorePreferredSheetExtent();
   }
@@ -152,7 +201,7 @@ class _ResidentShellState extends State<ResidentShell> {
   Future<void> _animateSheetTo(double size) async {
     if (!_sheetController.isAttached) return;
     await _sheetController.animateTo(
-      size,
+      size.clamp(_collapsedSheetSize, _contentMaximumSheetSize),
       duration: const Duration(milliseconds: 240),
       curve: Curves.easeOutCubic,
     );
@@ -170,11 +219,12 @@ class _ResidentShellState extends State<ResidentShell> {
 
   void _dragSheetHandle(DragUpdateDetails details) {
     if (!_sheetController.isAttached) return;
-    final availableHeight = MediaQuery.sizeOf(context).height;
+    final availableHeight = _sheetAvailableHeight;
+    if (availableHeight <= 0) return;
     final delta = (details.primaryDelta ?? 0) / availableHeight;
     final nextSize = (_sheetController.size - delta).clamp(
       _collapsedSheetSize,
-      _maximumSheetSize,
+      _contentMaximumSheetSize,
     );
     _sheetController.jumpTo(nextSize);
   }
@@ -191,7 +241,10 @@ class _ResidentShellState extends State<ResidentShell> {
     }
     await _assessment.submit();
     if (!mounted || _assessment.result == null) return;
-    setState(() => _index = 0);
+    setState(() {
+      _index = 0;
+      _assessmentFlowOpen = false;
+    });
     _restorePreferredSheetExtent();
   }
 
@@ -199,9 +252,30 @@ class _ResidentShellState extends State<ResidentShell> {
     if (_assessmentStep > 0) {
       setState(() => _assessmentStep--);
     } else {
-      setState(() => _index = 0);
+      setState(() {
+        _index = 0;
+        _assessmentFlowOpen = false;
+      });
       _restorePreferredSheetExtent();
     }
+  }
+
+  bool get _canConfirmArea {
+    final location = _location;
+    if (!_usesBarangayAssessments || location == null) {
+      return _assessment.selectedArea != null;
+    }
+    final choice = location.candidateBarangay ?? location.confirmedBarangay;
+    return !location.isBusy &&
+        choice != null &&
+        _assessment.areas.any((area) => area.code == choice.geographicAreaCode);
+  }
+
+  void _confirmAreaAndContinue() {
+    if (!_canConfirmArea) return;
+    if (_usesBarangayAssessments) _location?.confirmCandidate();
+    // Confirmation synchronously selects the matching assessment polygon.
+    if (_assessment.selectedArea != null) _continueAssessment();
   }
 
   @override
@@ -212,7 +286,10 @@ class _ResidentShellState extends State<ResidentShell> {
       if (_index == 1 && _assessmentStep > 0) {
         setState(() => _assessmentStep--);
       } else {
-        setState(() => _index = 0);
+        setState(() {
+          _index = 0;
+          _assessmentFlowOpen = false;
+        });
         _restorePreferredSheetExtent();
       }
     },
@@ -222,9 +299,12 @@ class _ResidentShellState extends State<ResidentShell> {
         child: IndexedStack(
           index: _index == 3 ? 1 : 0,
           children: [
-            AnimatedBuilder(
-              animation: _assessment,
-              builder: (context, _) => _mapExperience(context),
+            TickerMode(
+              enabled: _index != 3,
+              child: AnimatedBuilder(
+                animation: Listenable.merge([_assessment, ?_location]),
+                builder: (context, _) => _mapExperience(context),
+              ),
             ),
             AccountScreen(session: widget.session, api: widget.api),
           ],
@@ -232,16 +312,10 @@ class _ResidentShellState extends State<ResidentShell> {
       ),
       bottomNavigationBar: NavigationBar(
         key: const Key('resident-bottom-navigation'),
-        selectedIndex: _index,
+        selectedIndex: _index <= 1 ? 0 : _index - 1,
         indicatorColor: AppColors.activeBackground,
         onDestinationSelected: _selectDestination,
         destinations: const [
-          NavigationDestination(
-            key: Key('resident-nav-map'),
-            icon: Icon(Icons.map_outlined),
-            selectedIcon: Icon(Icons.map),
-            label: 'Map',
-          ),
           NavigationDestination(
             key: Key('resident-nav-assess'),
             icon: Icon(Icons.search_outlined),
@@ -273,22 +347,14 @@ class _ResidentShellState extends State<ResidentShell> {
         controller: _assessment,
         locationController: _location,
         nearestCenterController: _centers,
+        evacuationMapController: _mapCenters,
         showBasemap: widget.showBasemap,
       ),
       Positioned(
         top: 10,
         left: 14,
         right: 76,
-        child: _ScenarioChip(
-          assessment: _assessment,
-          onTap: () {
-            setState(() {
-              _assessmentStep = 0;
-              _index = 1;
-            });
-            _restorePreferredSheetExtent();
-          },
-        ),
+        child: const Align(alignment: Alignment.centerLeft, child: _MapBrand()),
       ),
       _sheet(),
       if (_sheetIsCollapsed)
@@ -302,35 +368,43 @@ class _ResidentShellState extends State<ResidentShell> {
   );
 
   Widget _sheet() {
-    return DraggableScrollableSheet(
-      key: const Key('resident-draggable-sheet'),
-      controller: _sheetController,
-      initialChildSize: _preferredSheetSize,
-      minChildSize: _collapsedSheetSize,
-      maxChildSize: _maximumSheetSize,
-      snap: false,
-      builder: (context, scrollController) => Material(
-        key: const Key('resident-context-sheet'),
-        color: _sheetIsCollapsed ? Colors.transparent : AppColors.surface,
-        elevation: _sheetIsCollapsed ? 0 : 12,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        clipBehavior: Clip.antiAlias,
-        child: _sheetIsCollapsed
-            ? ListView(
-                controller: scrollController,
-                padding: EdgeInsets.zero,
-                children: const [],
-              )
-            : Column(
-                children: [
-                  _SheetHandle(
-                    onCollapse: _collapseSheet,
-                    onVerticalDragUpdate: _dragSheetHandle,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        _sheetAvailableHeight = constraints.maxHeight;
+        return DraggableScrollableSheet(
+          key: const Key('resident-draggable-sheet'),
+          controller: _sheetController,
+          initialChildSize: _preferredSheetSize.clamp(
+            _collapsedSheetSize,
+            _contentMaximumSheetSize,
+          ),
+          minChildSize: _collapsedSheetSize,
+          maxChildSize: _contentMaximumSheetSize,
+          snap: false,
+          builder: (context, scrollController) => Material(
+            key: const Key('resident-context-sheet'),
+            color: _sheetIsCollapsed ? Colors.transparent : AppColors.surface,
+            elevation: _sheetIsCollapsed ? 0 : 12,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            clipBehavior: Clip.antiAlias,
+            child: _sheetIsCollapsed
+                ? ListView(
+                    controller: scrollController,
+                    padding: EdgeInsets.zero,
+                    children: const [],
+                  )
+                : Column(
+                    children: [
+                      _SheetHandle(
+                        onCollapse: _collapseSheet,
+                        onVerticalDragUpdate: _dragSheetHandle,
+                      ),
+                      Expanded(child: _sheetBody(scrollController)),
+                    ],
                   ),
-                  Expanded(child: _sheetBody(scrollController)),
-                ],
-              ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -342,9 +416,10 @@ class _ResidentShellState extends State<ResidentShell> {
 
   Widget _mapSheet(ScrollController scrollController) {
     final result = _assessment.result;
-    return ListView(
+    return MeasuredScrollView(
       key: const Key('map-context-sheet-content'),
       controller: scrollController,
+      onHeightChanged: _onSheetContentHeightChanged,
       padding: const EdgeInsets.fromLTRB(18, 0, 18, 24),
       children: [
         if (result == null) ...[
@@ -386,6 +461,11 @@ class _ResidentShellState extends State<ResidentShell> {
           const SizedBox(height: 16),
           const _PlanningNotice(),
           const SizedBox(height: 12),
+          if (_mapCenters case final catalog?)
+            EvacuationMapStatus(
+              controller: catalog,
+              nearestController: _centers,
+            ),
           Text(
             _assessment.selectedArea == null
                 ? 'Drag the map pin to choose a temporary point, or begin the guided assessment to select a supported area.'
@@ -398,6 +478,7 @@ class _ResidentShellState extends State<ResidentShell> {
               setState(() {
                 _assessmentStep = _assessment.hasCompleteScenario ? 1 : 0;
                 _index = 1;
+                _assessmentFlowOpen = true;
               });
               _restorePreferredSheetExtent();
             },
@@ -423,6 +504,7 @@ class _ResidentShellState extends State<ResidentShell> {
               setState(() {
                 _assessmentStep = 0;
                 _index = 1;
+                _assessmentFlowOpen = true;
               });
               _restorePreferredSheetExtent();
             },
@@ -441,8 +523,9 @@ class _ResidentShellState extends State<ResidentShell> {
       );
     }
     if (_assessment.loadError != null) {
-      return ListView(
+      return MeasuredScrollView(
         controller: scrollController,
+        onHeightChanged: _onSheetContentHeightChanged,
         padding: const EdgeInsets.all(20),
         children: [
           const Text('Assessment options could not be loaded.'),
@@ -461,14 +544,15 @@ class _ResidentShellState extends State<ResidentShell> {
     };
   }
 
-  Widget _scenarioStep(ScrollController scrollController) => ListView(
+  Widget _scenarioStep(ScrollController scrollController) => MeasuredScrollView(
     key: const Key('hybrid-assessment-scenario'),
     controller: scrollController,
+    onHeightChanged: _onSheetContentHeightChanged,
     padding: const EdgeInsets.fromLTRB(18, 0, 18, 28),
     children: [
       const _StepHeading(
         icon: Icons.search,
-        title: 'Assess your area',
+        title: 'Rainfall scenario',
         step: 'Step 1 of 3',
         description: 'Choose a hypothetical rainfall scenario.',
       ),
@@ -499,22 +583,25 @@ class _ResidentShellState extends State<ResidentShell> {
     ],
   );
 
-  Widget _locationStep(ScrollController scrollController) => ListView(
+  Widget _locationStep(ScrollController scrollController) => MeasuredScrollView(
     key: const Key('hybrid-assessment-location'),
     controller: scrollController,
+    onHeightChanged: _onSheetContentHeightChanged,
     padding: const EdgeInsets.fromLTRB(18, 0, 18, 28),
     children: [
       const _StepHeading(
         icon: Icons.location_on_outlined,
         title: 'Choose your area',
         step: 'Step 2 of 3',
-        description: 'Place a temporary pin on the visible map or choose a supported area.',
+        description:
+            'Drag the map pin, use your location, or choose a barangay.',
       ),
       const SizedBox(height: 12),
       if (_location case final location?) ...[
         LocationCard(
           controller: location,
           barangays: _assessment.referenceAreas,
+          showAreaConfirmation: !_usesBarangayAssessments,
         ),
         const SizedBox(height: 12),
       ],
@@ -560,24 +647,23 @@ class _ResidentShellState extends State<ResidentShell> {
         )
       else
         const _PlanningNotice(
-          text: 'Confirm one barangay through GPS, a temporary map pin, or the manual barangay selector. This selects the same polygon used by the assessment—there is no separate demo-zone choice.',
+          text: 'Choose a barangay with GPS, the map pin, or manual selection. Tap Confirm area to review your assessment.',
         ),
       const SizedBox(height: 14),
       _NavigationButtons(
         backKey: const Key('hybrid-assessment-back'),
         continueKey: const Key('hybrid-assessment-continue'),
         onBack: _backAssessment,
-        onContinue: _assessment.selectedArea != null
-            ? _continueAssessment
-            : null,
+        onContinue: _canConfirmArea ? _confirmAreaAndContinue : null,
         continueLabel: 'Confirm area',
       ),
     ],
   );
 
-  Widget _reviewStep(ScrollController scrollController) => ListView(
+  Widget _reviewStep(ScrollController scrollController) => MeasuredScrollView(
     key: const Key('hybrid-assessment-review'),
     controller: scrollController,
+    onHeightChanged: _onSheetContentHeightChanged,
     padding: const EdgeInsets.fromLTRB(18, 0, 18, 28),
     children: [
       const _StepHeading(
@@ -615,8 +701,27 @@ class _ResidentShellState extends State<ResidentShell> {
           label: 'Provisional MGB-derived baseline',
           value: 'Not active on this server—no susceptibility value has been assigned',
         ),
-      if (_location?.confirmedBarangay case final barangay?)
-        _ReviewTile(label: 'Confirmed barangay', value: barangay.name),
+      if (_location?.coordinateDescription case final description?)
+        _ReviewTile(label: 'Location input', value: description),
+      if (_location?.temporaryLocation case final position?)
+        _ReviewTile(
+          label: 'GPS accuracy',
+          value: 'Approximately ${position.accuracyMeters.round()} meters',
+        ),
+      if (_location?.resolution case final resolution?)
+        ExpansionTile(
+          key: const Key('location-review-provenance'),
+          title: const Text('Boundary source and limitations'),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          expandedCrossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Bacoor administrative boundaries'),
+            Text(
+              'Boundary: ${resolution.boundary.dataStatus == 'APPROVED' ? 'approved for mapping' : 'pending validation'}; source: ${resolution.boundary.sourceStatus == 'APPROVED' ? 'approved' : 'pending validation'}.',
+            ),
+            ...resolution.limitations.map(Text.new),
+          ],
+        ),
       const SizedBox(height: 12),
       const _PlanningNotice(
         text: 'This explicit assessment produces a scenario-based result—not a live forecast, warning, safety guarantee, or evacuation order.',
@@ -643,9 +748,10 @@ class _ResidentShellState extends State<ResidentShell> {
   Widget _prepareSheet(ScrollController scrollController) {
     final result = _assessment.result;
     if (result == null || !result.isClassified) {
-      return ListView(
+      return MeasuredScrollView(
         key: const Key('prepare-empty-state'),
         controller: scrollController,
+        onHeightChanged: _onSheetContentHeightChanged,
         padding: const EdgeInsets.fromLTRB(18, 0, 18, 28),
         children: [
           const _StepHeading(
@@ -664,12 +770,21 @@ class _ResidentShellState extends State<ResidentShell> {
               setState(() {
                 _assessmentStep = 0;
                 _index = 1;
+                _assessmentFlowOpen = true;
               });
               _restorePreferredSheetExtent();
             },
             icon: const Icon(Icons.search),
             label: const Text('Start an Assessment'),
           ),
+          const SizedBox(height: 14),
+          if (_centers case final centers?)
+            NearestCentersSection(controller: centers),
+          if (_mapCenters case final catalog?)
+            EvacuationMapStatus(
+              controller: catalog,
+              nearestController: _centers,
+            ),
         ],
       );
     }
@@ -681,6 +796,7 @@ class _ResidentShellState extends State<ResidentShell> {
         durations: _assessment.durations,
       ),
       scrollController: scrollController,
+      onContentHeightChanged: _onSheetContentHeightChanged,
       padding: const EdgeInsets.fromLTRB(18, 0, 18, 28),
       header: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -690,14 +806,15 @@ class _ResidentShellState extends State<ResidentShell> {
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           const SizedBox(height: 12),
+          if (_centers case final centers?)
+            NearestCentersSection(controller: centers),
+          if (_mapCenters case final catalog?)
+            EvacuationMapStatus(
+              controller: catalog,
+              nearestController: _centers,
+            ),
         ],
       ),
-      footer: _centers == null
-          ? null
-          : Padding(
-              padding: const EdgeInsets.only(top: 14),
-              child: NearestCentersSection(controller: _centers!),
-            ),
     );
   }
 }
@@ -733,53 +850,35 @@ class _FloodSenseBrand extends StatelessWidget {
   );
 }
 
-class _ScenarioChip extends StatelessWidget {
-  const _ScenarioChip({required this.assessment, required this.onTap});
-
-  final AssessmentController assessment;
-  final VoidCallback onTap;
+class _MapBrand extends StatelessWidget {
+  const _MapBrand();
 
   @override
   Widget build(BuildContext context) {
-    final intensity = assessment.selectedIntensity?.label;
-    final duration = assessment.selectedDuration?.label;
-    final label = intensity == null || duration == null
-        ? 'Choose planning scenario'
-        : '$intensity rainfall · $duration';
     return Material(
+      key: const Key('map-brand'),
       color: AppColors.surface,
       elevation: 3,
       borderRadius: BorderRadius.circular(24),
-      child: InkWell(
-        key: const Key('map-scenario-chip'),
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(24),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                intensity == null ? Icons.tune : Icons.water_drop,
-                color: AppColors.primary,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 220),
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.waves, color: AppColors.primary, size: 20),
+            const SizedBox(width: 6),
+            Flexible(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 220),
+                child: const Text(
+                  'FloodSense',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontWeight: FontWeight.w700),
                 ),
               ),
-              const SizedBox(width: 4),
-              const Icon(Icons.keyboard_arrow_down, size: 20),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -796,71 +895,165 @@ class _SheetHandle extends StatelessWidget {
   final GestureDragUpdateCallback onVerticalDragUpdate;
 
   @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      label: 'Drag to resize the information panel',
-      child: GestureDetector(
-        key: const Key('resident-sheet-handle'),
-        behavior: HitTestBehavior.opaque,
-        onVerticalDragUpdate: onVerticalDragUpdate,
-        child: SizedBox(
-          height: 48,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Container(
-                width: 48,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: AppColors.secondaryText,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-              ),
-              Positioned(
-                right: 12,
-                child: IconButton(
-                  key: const Key('resident-sheet-collapse-button'),
-                  tooltip: 'Hide information panel',
-                  onPressed: onCollapse,
-                  icon: const Icon(
-                    Icons.keyboard_arrow_down_rounded,
+  Widget build(BuildContext context) => SizedBox(
+    height: 48,
+    child: Row(
+      children: [
+        const SizedBox(width: 48),
+        Expanded(
+          child: Semantics(
+            label: 'Drag to resize the information panel',
+            child: GestureDetector(
+              key: const Key('resident-sheet-handle'),
+              behavior: HitTestBehavior.opaque,
+              onVerticalDragUpdate: onVerticalDragUpdate,
+              child: Center(
+                child: Container(
+                  key: const Key('resident-sheet-drag-indicator'),
+                  width: 48,
+                  height: 4,
+                  decoration: BoxDecoration(
                     color: AppColors.secondaryText,
-                    size: 26,
+                    borderRadius: BorderRadius.circular(20),
                   ),
                 ),
               ),
-            ],
+            ),
           ),
         ),
-      ),
-    );
-  }
+        SizedBox(
+          width: 48,
+          height: 48,
+          child: IconButton(
+            key: const Key('resident-sheet-collapse-button'),
+            tooltip: 'Hide information panel',
+            onPressed: onCollapse,
+            icon: const Icon(
+              Icons.keyboard_arrow_down_rounded,
+              color: AppColors.secondaryText,
+              size: 26,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
-class _CollapsedSheetTab extends StatelessWidget {
+class _CollapsedSheetTab extends StatefulWidget {
   const _CollapsedSheetTab({required this.onTap});
 
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Material(
-    key: const Key('resident-sheet-expand-tab'),
-    color: AppColors.surface,
-    elevation: 10,
-    borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
-    clipBehavior: Clip.antiAlias,
-    child: InkWell(
-      onTap: onTap,
-      child: Semantics(
-        button: true,
-        label: 'Expand information panel',
-        child: const SizedBox(
-          width: 78,
-          height: 52,
-          child: Icon(
-            Icons.keyboard_arrow_up_rounded,
-            color: AppColors.bodyText,
-            size: 32,
+  State<_CollapsedSheetTab> createState() => _CollapsedSheetTabState();
+}
+
+class _CollapsedSheetTabState extends State<_CollapsedSheetTab>
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+  late final AnimationController _hint = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1600),
+  );
+  late final Animation<double> _offset = TweenSequence<double>([
+    for (var beat = 0; beat < 2; beat++) ...[
+      TweenSequenceItem(
+        tween: Tween(
+          begin: 0.0,
+          end: -3.0,
+        ).chain(CurveTween(curve: Curves.easeInOut)),
+        weight: 1,
+      ),
+      TweenSequenceItem(
+        tween: Tween(
+          begin: -3.0,
+          end: 0.0,
+        ).chain(CurveTween(curve: Curves.easeInOut)),
+        weight: 1,
+      ),
+    ],
+  ]).animate(_hint);
+  bool _hintPlayed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    final enabled =
+        !MediaQuery.disableAnimationsOf(context) &&
+        TickerMode.valuesOf(context).enabled &&
+        (lifecycle == null || lifecycle == AppLifecycleState.resumed);
+    if (!enabled) {
+      _hint.stop();
+      _hint.value = 1;
+      _hintPlayed = true;
+    } else if (!_hintPlayed) {
+      _hintPlayed = true;
+      _hint.forward();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) {
+      _hint.stop();
+      _hint.value = 1;
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _hint.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: 'Expand information panel',
+    child: Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: widget.onTap,
+        child: SizedBox(
+          key: const Key('resident-sheet-expand-touch-target'),
+          width: 108,
+          height: 48,
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: Material(
+              key: const Key('resident-sheet-expand-tab'),
+              color: AppColors.surface,
+              elevation: 8,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(12),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: SizedBox(
+                width: 108,
+                height: 34,
+                child: AnimatedBuilder(
+                  animation: _offset,
+                  builder: (_, child) => Transform.translate(
+                    key: const Key('resident-sheet-hint-arrow'),
+                    offset: Offset(0, _offset.value),
+                    child: child,
+                  ),
+                  child: const Icon(
+                    Icons.keyboard_arrow_up_rounded,
+                    color: AppColors.bodyText,
+                    size: 24,
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -908,7 +1101,7 @@ class _StatusPill extends StatelessWidget {
           color: ready ? AppColors.low : AppColors.secondaryText,
         ),
         const SizedBox(width: 5),
-        Text(label, style: const TextStyle(fontSize: 12)),
+        Flexible(child: Text(label, style: const TextStyle(fontSize: 12))),
       ],
     ),
   );
@@ -998,24 +1191,27 @@ class _NavigationButtons extends StatelessWidget {
   final String continueLabel;
 
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      Expanded(
-        child: OutlinedButton(
-          key: backKey,
-          onPressed: onBack,
-          child: const Text('Back'),
+  Widget build(BuildContext context) => IntrinsicHeight(
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          child: OutlinedButton(
+            key: backKey,
+            onPressed: onBack,
+            child: const Text('Back'),
+          ),
         ),
-      ),
-      const SizedBox(width: 10),
-      Expanded(
-        child: FilledButton(
-          key: continueKey,
-          onPressed: onContinue,
-          child: Text(continueLabel),
+        const SizedBox(width: 10),
+        Expanded(
+          child: FilledButton(
+            key: continueKey,
+            onPressed: onContinue,
+            child: Text(continueLabel),
+          ),
         ),
-      ),
-    ],
+      ],
+    ),
   );
 }
 
