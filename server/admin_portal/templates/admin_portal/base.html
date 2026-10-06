@@ -1,4 +1,4 @@
-{% load static %}
+{% load static portal_icons %}
 <!doctype html>
 <html lang="en">
 <head>
@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="FloodSense administration console">
   <title>{% block title %}FloodSense Admin{% endblock %}</title>
-  <link rel="stylesheet" href="{% static 'admin_portal/css/admin_portal.css' %}?v=sidebar-20261001-1">
+  <link rel="stylesheet" href="{% static 'admin_portal/css/admin_portal.css' %}?v=icons-20261006-2">
   <noscript><link rel="stylesheet" href="{% static 'admin_portal/css/no_script.css' %}?v=sidebar-20261001-1"></noscript>
   {% block extra_css %}{% endblock %}
 </head>
@@ -45,7 +45,7 @@
               {% else %}
                 <a aria-label="{{ label }}" class="nav-link{% if active_section == slug %} nav-link--active{% endif %}" href="{% url 'admin_portal:section' section_slug=slug %}"{% if active_section == slug %} aria-current="page"{% endif %}>
               {% endif %}
-                <span class="nav-link__icon" aria-hidden="true">{{ icon }}</span><span class="nav-link__label">{{ label }}</span>
+                <span class="nav-link__icon" aria-hidden="true">{% portal_icon slug icon %}</span><span class="nav-link__label">{{ label }}</span>
               </a>
             </li>
           {% endfor %}
@@ -61,12 +61,12 @@
       </button>
       <div class="account-menu__panel" id="account-menu" data-account-menu role="menu" hidden>
         <a class="account-menu__item" href="{% url 'admin_portal:settings' %}" role="menuitem"{% if active_section == 'settings' %} aria-current="page"{% endif %}>
-          <span aria-hidden="true">⚙</span><span>Settings</span>
+          <span aria-hidden="true">{% portal_icon 'settings' '⚙' %}</span><span>Settings</span>
         </a>
         <form method="post" action="{% url 'admin_portal:logout' %}">
           {% csrf_token %}
           <button class="account-menu__item" type="submit" role="menuitem">
-            <span aria-hidden="true">↪</span><span>Sign out</span>
+            <span aria-hidden="true">{% portal_icon 'sign-out' '↪' %}</span><span>Sign out</span>
           </button>
         </form>
       </div>

@@ -1,0 +1,15 @@
+{% if field %}
+<div class="field-group{% if wide %} field-group--wide{% endif %}{% if field.field.widget.input_type == 'checkbox' %} center-form__checkbox{% endif %}">
+  {% if field.field.widget.input_type == 'checkbox' %}
+    <div class="checkbox-confirm">
+      {{ field }}
+      <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+    </div>
+  {% else %}
+    <label for="{{ field.id_for_label }}">{{ field_label|default:field.label }}{% if field.field.required %} <span class="center-form__required" aria-hidden="true">*</span>{% else %} <span class="center-form__optional">(optional)</span>{% endif %}</label>
+    {{ field }}
+  {% endif %}
+  {% if field.help_text %}<p class="field-help" id="{{ field.auto_id }}_helptext">{{ field.help_text }}</p>{% endif %}
+  {% if field.errors %}<div class="field-error" id="{{ field.auto_id }}_error">{% for error in field.errors %}<p>{{ error }}</p>{% endfor %}</div>{% endif %}
+</div>
+{% endif %}

@@ -106,8 +106,12 @@ class EvacuationCenterForm(forms.ModelForm):
             )
             self.fields["temporary_data"].initial = self.initial["temporary_data"]
         self.duplicate_warnings = []
+        self.fields["geographic_area"].label = "Barangay / geographic area"
+        self.fields["geographic_area"].empty_label = "Choose available barangay"
+        self.fields["geographic_area"].widget.attrs["title"] = "Choose available barangay"
         self.fields["geographic_area"].help_text = (
-            "Assign the supported administrative area when known. A missing or unsupported "
+            "Choose an available barangay from the dropdown when known. "
+            "A missing or unsupported "
             "association keeps the record out of resident results; association does not "
             "verify the facility, assign flood susceptibility, or establish route safety."
         )

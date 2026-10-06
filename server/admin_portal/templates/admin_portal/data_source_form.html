@@ -1,13 +1,101 @@
-{% extends "admin_portal/base.html" %}{% load static %}
+{% extends "admin_portal/base.html" %}
+{% load static %}
 {% block title %}Source metadata | FloodSense Admin{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{% static 'admin_portal/css/operations.css' %}">{% endblock %}
-{% block content %}<div class="operations-page">
-  <section class="page-heading"><div><p class="eyebrow">Source metadata under review</p><h1>{% if source %}Edit {{ source.name }}{% else %}Create source metadata{% endif %}</h1><p>Describe the source honestly; blank metadata stays visibly unrecorded.</p></div></section>
-  <section class="notice notice--warning"><strong>Metadata only—not an official-data import</strong><p>Staff access does not establish scientific validity. Approval and public release each require their own permissions and complete metadata. No external API or restricted data is fetched.</p></section>
-  <section class="panel">{% if form.non_field_errors %}<div class="notice notice--error" role="alert">{{ form.non_field_errors }}</div>{% endif %}
-    <form class="operations-form" method="post" novalidate>{% csrf_token %}
-      {% for field in form %}{% if field.is_hidden %}{{ field }}{% else %}<div class="field-group"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<p class="field-help">{{ field.help_text }}</p>{% endif %}{% for error in field.errors %}<p class="field-error" role="alert">{{ error }}</p>{% endfor %}</div>{% endif %}{% endfor %}
-      {% include 'admin_portal/includes/save_actions.html' %}<a href="{% url 'admin_portal:sources-content' %}">Cancel</a>
+{% block extra_css %}<link rel="stylesheet" href="{% static 'admin_portal/css/operations.css' %}?v=source-form-20261006-1">{% endblock %}
+{% block content %}
+<div class="operations-page source-entry-page">
+  <section class="page-heading">
+    <div>
+      <p class="eyebrow">Source metadata under review</p>
+      <h1>{% if source %}Edit {{ source.name }}{% else %}Create source metadata{% endif %}</h1>
+      <p>Describe the source honestly; blank metadata stays visibly unrecorded.</p>
+    </div>
+  </section>
+  <section class="notice notice--warning">
+    <strong>Metadata only—not an official-data import</strong>
+    <p>Staff access does not establish scientific validity. Approval and public release each require their own permissions and complete metadata. No external API or restricted data is fetched.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="source-form-heading">
+    <h2 id="source-form-heading" class="sr-only">Source metadata fields</h2>
+    <form class="operations-form source-form" method="post" novalidate aria-labelledby="source-form-heading">
+      {% csrf_token %}
+      {% for field in form.hidden_fields %}{{ field }}{% endfor %}
+      {% include "admin_portal/includes/form_error_summary.html" %}
+      <p class="source-form__intro">Fields marked <span aria-hidden="true">*</span> are required to save for review. Other metadata can be completed later; approval requires complete source details.</p>
+
+      <fieldset class="source-form__section">
+        <legend>Source details</legend>
+        <p class="source-form__description">Identify the source and the organization or office responsible for it.</p>
+        <div class="source-form__grid">
+          {% include "admin_portal/includes/source_form_field.html" with field=form.name %}
+          {% include "admin_portal/includes/source_form_field.html" with field=form.source_type %}
+          {% include "admin_portal/includes/source_form_field.html" with field=form.organization %}
+          {% include "admin_portal/includes/source_form_field.html" with field=form.custodian %}
+          {% include "admin_portal/includes/source_form_field.html" with field=form.citation_url field_label="Citation URL" wide=True %}
+          {% if form.temporary_data %}{% include "admin_portal/includes/source_form_field.html" with field=form.temporary_data wide=True %}{% endif %}
+        </div>
+      </fieldset>
+
+      <fieldset class="source-form__section">
+        <legend>Coverage and version</legend>
+        <p class="source-form__description">Describe the places or records covered. Keep the record period separate from when the source was received or created.</p>
+        <div class="source-form__grid">
+          {% include "admin_portal/includes/source_form_field.html" with field=form.coverage_description wide=True %}
+          {% include "admin_portal/includes/source_form_field.html" with field=form.record_period_start %}
+          {% include "admin_portal/includes/source_form_field.html" with field=form.record_period_end %}
+          {% include "admin_portal/includes/source_form_field.html" with field=form.received_or_created_on %}
+          {% include "admin_portal/includes/source_form_field.html" with field=form.version %}
+        </div>
+      </fieldset>
+
+      <fieldset class="source-form__section">
+        <legend>Use and limitations</legend>
+        <p class="source-form__description">Record the documented permissions and caveats. Both are needed for metadata approval.</p>
+        <div class="source-form__grid">
+          {% include "admin_portal/includes/source_form_field.html" with field=form.permitted_use %}
+          {% include "admin_portal/includes/source_form_field.html" with field=form.limitations %}
+        </div>
+      </fieldset>
+
+      <fieldset class="source-form__section">
+        <legend>Processing and notes</legend>
+        <p class="source-form__description">Describe any processing separately from other staff notes.</p>
+        <div class="source-form__grid">
+          {% include "admin_portal/includes/source_form_field.html" with field=form.processing_notes %}
+          {% include "admin_portal/includes/source_form_field.html" with field=form.notes %}
+        </div>
+      </fieldset>
+
+      <fieldset class="source-form__section source-form__section--last">
+        <legend>Review and save</legend>
+        <p class="source-form__description">Save the metadata for review. This does not approve it or enable public release.</p>
+        <div class="operations-actions">
+          {% for action, label in save_actions %}
+            {% if action == 'save' or action == 'add-another' %}
+              <button class="button {% if action == 'save' %}button--primary{% else %}button--secondary{% endif %}" type="submit" name="save_action" value="{{ action }}">{{ label }}</button>
+            {% endif %}
+          {% endfor %}
+          <a class="button button--secondary" href="{% url 'admin_portal:sources-content' %}">Cancel</a>
+        </div>
+        {% if save_actions|length > 2 %}
+          <details class="source-form__approval"{% if form.confirm.errors or form.non_field_errors %} open{% endif %}>
+            <summary>Additional approval actions</summary>
+            <div class="source-form__approval-body">
+              <p class="source-form__description">Approval requires organization, custodian, coverage, permitted use and limitations. Confirm the selected action; public release is a separate permission.</p>
+              {% include "admin_portal/includes/source_form_field.html" with field=form.confirm %}
+              <div class="operations-actions">
+                {% for action, label in save_actions %}
+                  {% if action != 'save' and action != 'add-another' %}
+                    <button class="button button--secondary" type="submit" name="save_action" value="{{ action }}">{{ label }}</button>
+                  {% endif %}
+                {% endfor %}
+              </div>
+            </div>
+          </details>
+        {% endif %}
+      </fieldset>
     </form>
   </section>
-</div>{% endblock %}
+</div>
+{% endblock %}

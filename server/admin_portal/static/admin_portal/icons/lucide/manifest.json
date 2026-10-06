@@ -1,0 +1,117 @@
+{
+  "provider": "Lucide",
+  "verified_on": "2026-10-06",
+  "upstream_commit": "1fae58d0a9c661a338036838caf3399b5507bab6",
+  "license_references": [
+    "https://lucide.dev/license",
+    "https://raw.githubusercontent.com/lucide-icons/lucide/1fae58d0a9c661a338036838caf3399b5507bab6/LICENSE"
+  ],
+  "acquisition": "User-supplied Lucide website SVG downloads; account interaction not observed. The Downloads/Flaticon folder name does not identify the asset provider.",
+  "verification": "All drawing geometry and standard SVG attributes match pinned upstream files after whitespace/comma normalization; source formatting and preview classes differ.",
+  "customization": "Supplied SVG bytes unchanged. CSS masks inherit interface colors at 20px.",
+  "unused_supplied_assets": [
+    "map.svg"
+  ],
+  "assets": [
+    {
+      "slug": "dashboard",
+      "name": "monitor",
+      "sha256": "0a201b0b22faf72da891c4e9fc0d611fe7fc637a3b25f5d27702a3a9cea42540",
+      "official_source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/1fae58d0a9c661a338036838caf3399b5507bab6/icons/monitor.svg",
+      "geometry_matches": true,
+      "official_url": "https://lucide.dev/icons/monitor",
+      "local_path": "server/admin_portal/static/admin_portal/icons/lucide/monitor.svg",
+      "license": "ISC + Feather MIT"
+    },
+    {
+      "slug": "reports",
+      "name": "chart-column-increasing",
+      "sha256": "87a4e8a99c1b408883b9b3a910749f58f069c818283eac2b27f8a5237adc8a78",
+      "official_source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/1fae58d0a9c661a338036838caf3399b5507bab6/icons/chart-column-increasing.svg",
+      "geometry_matches": true,
+      "official_url": "https://lucide.dev/icons/chart-column-increasing",
+      "local_path": "server/admin_portal/static/admin_portal/icons/lucide/chart-column-increasing.svg",
+      "license": "ISC"
+    },
+    {
+      "slug": "map-data",
+      "name": "map-pinned",
+      "sha256": "dae7b9f66812f5730139c08ce09a737a7b9e2dfd02f5af8320e66e947d8d7949",
+      "official_source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/1fae58d0a9c661a338036838caf3399b5507bab6/icons/map-pinned.svg",
+      "geometry_matches": true,
+      "official_url": "https://lucide.dev/icons/map-pinned",
+      "local_path": "server/admin_portal/static/admin_portal/icons/lucide/map-pinned.svg",
+      "license": "ISC"
+    },
+    {
+      "slug": "dss-content",
+      "name": "book-bookmark",
+      "sha256": "b87a24f15569ddd1dda5e9a698fb92e88286533422423ca14cd905973db83169",
+      "official_source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/1fae58d0a9c661a338036838caf3399b5507bab6/icons/book-bookmark.svg",
+      "geometry_matches": true,
+      "official_url": "https://lucide.dev/icons/book-bookmark",
+      "local_path": "server/admin_portal/static/admin_portal/icons/lucide/book-bookmark.svg",
+      "license": "ISC"
+    },
+    {
+      "slug": "rainfall-references",
+      "name": "cloud",
+      "sha256": "125be15e8c5a53d332f4043e99a13607f3e6b34ba34d5acc59986114cd7bd6bb",
+      "official_source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/1fae58d0a9c661a338036838caf3399b5507bab6/icons/cloud.svg",
+      "geometry_matches": true,
+      "official_url": "https://lucide.dev/icons/cloud",
+      "local_path": "server/admin_portal/static/admin_portal/icons/lucide/cloud.svg",
+      "license": "ISC"
+    },
+    {
+      "slug": "evacuation-centers",
+      "name": "house",
+      "sha256": "aef48f8e1764a40ddd6b7a194e9e37b5f1608e400fb2418b943878b879eef9e9",
+      "official_source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/1fae58d0a9c661a338036838caf3399b5507bab6/icons/house.svg",
+      "geometry_matches": true,
+      "official_url": "https://lucide.dev/icons/house",
+      "local_path": "server/admin_portal/static/admin_portal/icons/lucide/house.svg",
+      "license": "ISC"
+    },
+    {
+      "slug": "sources-content",
+      "name": "folder",
+      "sha256": "8ea28a301ee77c050af98cb753e29ba5840c3265b12ffd93ed3c9ee9804ce966",
+      "official_source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/1fae58d0a9c661a338036838caf3399b5507bab6/icons/folder.svg",
+      "geometry_matches": true,
+      "official_url": "https://lucide.dev/icons/folder",
+      "local_path": "server/admin_portal/static/admin_portal/icons/lucide/folder.svg",
+      "license": "ISC"
+    },
+    {
+      "slug": "audit-history",
+      "name": "clock",
+      "sha256": "0475f10647e2204c3d41473170876915bf9aaf6a2a99ab0dbe5a4783dd4172ab",
+      "official_source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/1fae58d0a9c661a338036838caf3399b5507bab6/icons/clock.svg",
+      "geometry_matches": true,
+      "official_url": "https://lucide.dev/icons/clock",
+      "local_path": "server/admin_portal/static/admin_portal/icons/lucide/clock.svg",
+      "license": "ISC + Feather MIT"
+    },
+    {
+      "slug": "settings",
+      "name": "settings",
+      "sha256": "26ca33cb979f715ee9e3b64797a37b5173d2a954ccf1eb3312a3ca9d27085b73",
+      "official_source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/1fae58d0a9c661a338036838caf3399b5507bab6/icons/settings.svg",
+      "geometry_matches": true,
+      "official_url": "https://lucide.dev/icons/settings",
+      "local_path": "server/admin_portal/static/admin_portal/icons/lucide/settings.svg",
+      "license": "ISC"
+    },
+    {
+      "slug": "sign-out",
+      "name": "square-arrow-right-exit",
+      "sha256": "415a9677e51f57f69a04852b520f6998e5fe35d412eaf4103df5dc92ef87dab1",
+      "official_source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/1fae58d0a9c661a338036838caf3399b5507bab6/icons/square-arrow-right-exit.svg",
+      "geometry_matches": true,
+      "official_url": "https://lucide.dev/icons/square-arrow-right-exit",
+      "local_path": "server/admin_portal/static/admin_portal/icons/lucide/square-arrow-right-exit.svg",
+      "license": "ISC"
+    }
+  ]
+}

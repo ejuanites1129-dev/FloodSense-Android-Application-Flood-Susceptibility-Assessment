@@ -2,7 +2,7 @@
 
 from html.parser import HTMLParser
 
-from django.contrib.admin.models import ADDITION, CHANGE, DELETION, LogEntry
+from django.contrib.admin.models import CHANGE, LogEntry
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
@@ -112,6 +112,7 @@ class OperationalDashboardTests(TestCase):
             map_color="#112233",
             definition="Isolated fixture, not a geographic classification.",
             source=source,
+            is_enabled=True,
         )
         guidance = GuidanceItem.objects.create(
             title="Synthetic dashboard fixture content",
@@ -180,97 +181,127 @@ class OperationalDashboardTests(TestCase):
         with self.assertNumQueries(0), self.assertRaises(PermissionDenied):
             dashboard(request)
 
-    def test_active_staff_receives_zero_counts_and_meaningful_empty_states(self):
-        response = self.client.get(self.url)
-        self.assertEqual(response.status_code, 200)
-        for name in (
-            "geographic_areas",
-            "data_sources",
-            "guidance_items",
-            "scenario_options",
-            "evacuation_centers",
-        ):
-            with self.subTest(summary=name):
-                self.assertEqual(response.context["dashboard"][name]["total"], 0)
-        self.assertEqual(response.context["dashboard"]["review_attention"]["total"], 0)
-        for message in self.approved_empty_messages:
-            self.assertContains(response, message)
-        self.assertNotContains(response, "No records currently need validation or content review.")
-        self.assertNotContains(response, "No recorded maintenance activity is available.")
-        self.assertContains(response, "current local database")
-        self.assertNotContains(response, "Everything is approved")
+    def grant(self, *, activity=False, create=False):
+        permissions = [
+            "view_datasource",
+            "view_guidanceitem",
+            "view_dssflowversion",
+            "view_scenariooption",
+            "view_ruleset",
+            "view_evacuationcenter",
+        ]
+        if activity:
+            permissions.append("view_logentry")
+        if create:
+            permissions += ["add_guidanceitem", "add_evacuationcenter"]
+        self.staff.user_permissions.set(Permission.objects.filter(codename__in=permissions))
 
-    def test_demonstration_records_remain_unapproved_even_when_enabled(self):
+    def cards(self, response):
+        return {card["key"]: card for card in response.context["dashboard"]["cards"]}
+
+    def test_inaccessible_module_information_is_restricted_not_zero(self):
         self.create_records()
-        response = self.client.get(self.url)
-        for name in (
-            "geographic_areas",
-            "data_sources",
-            "guidance_items",
-            "scenario_options",
-            "evacuation_centers",
-        ):
-            with self.subTest(summary=name):
-                summary = response.context["dashboard"][name]
-                self.assertEqual(summary["total"], 1)
-                self.assertEqual(summary["status_counts"][PublicationStatus.DEMONSTRATION], 1)
-                self.assertEqual(summary["status_counts"][PublicationStatus.APPROVED], 0)
-        for message in self.approved_empty_messages:
-            self.assertContains(response, message)
-        self.assertContains(response, PublicationStatus.DEMONSTRATION.label)
-        self.assertNotContains(response, "No records currently need validation or content review.")
-        self.assertNotContains(response, "No recorded maintenance activity is available.")
-        self.assertEqual(response.context["dashboard"]["recent_activity"], [])
+        with CaptureQueriesContext(connection) as queries:
+            response = self.client.get(self.url)
+        cards = self.cards(response)
+        self.assertEqual(len(cards), 5)
+        self.assertTrue(cards["map-data"]["allowed"])
+        for key in ("sources-content", "dss-content", "rainfall-references", "evacuation-centers"):
+            self.assertFalse(cards[key]["allowed"])
+            self.assertNotIn("metric", cards[key])
+        self.assertContains(response, "Access restricted", count=4)
+        self.assertEqual(response.context["dashboard"]["attention"], [])
+        self.assertIsNone(response.context["dashboard"]["recent_activity"])
+        for query in queries:
+            for table in (
+                "dss_guidanceitem",
+                "dss_dssflowversion",
+                "expert_scenariooption",
+                "evacuation_evacuationcenter",
+                "django_admin_log",
+            ):
+                self.assertNotIn(table, query["sql"].lower())
 
-    def test_approved_data_removes_only_the_corresponding_empty_states(self):
-        source, _, _, _ = self.create_records(status=PublicationStatus.APPROVED)
-        source.is_publicly_releasable = False
-        source.save(update_fields=["is_publicly_releasable"])
+    def test_permitted_empty_modules_show_measured_zero_and_unavailable_states(self):
+        self.grant()
         response = self.client.get(self.url)
-        self.assertContains(response, "No approved public data sources are available.")
-        for message in self.approved_empty_messages:
-            if "public data sources" not in message and "evacuation-center" not in message:
-                self.assertNotContains(response, message)
+        cards = self.cards(response)
+        self.assertEqual(cards["map-data"]["metric"], "0 / 47")
+        for key in ("sources-content", "dss-content", "rainfall-references", "evacuation-centers"):
+            self.assertEqual(cards[key]["metric"], 0)
+        self.assertContains(response, "Prepare flow unavailable")
+        self.assertContains(response, "Reference layer unavailable")
+        self.assertContains(response, "Resident setup content incomplete")
+        self.assertContains(response, "Assessment configuration incomplete")
+        self.assertNotContains(response, "System healthy")
+        self.assertContains(response, "current local database")
+
+    def test_demonstration_is_an_explicit_mode_and_never_normal_public_availability(self):
+        self.grant()
+        self.create_records()
+        official = self.cards(self.client.get(self.url))
+        demo_response = self.client.get(self.url, {"mode": "DEMONSTRATION"})
+        demo = self.cards(demo_response)
+        self.assertEqual(official["rainfall-references"]["metric"], 0)
+        self.assertEqual(official["dss-content"]["metric"], 0)
+        self.assertEqual(demo["rainfall-references"]["metric"], 1)
+        self.assertEqual(demo["dss-content"]["metric"], 1)
+        self.assertEqual(demo["sources-content"]["metric"], 0)
+        self.assertEqual(demo["evacuation-centers"]["metric"], 0)
+        self.assertContains(demo_response, "Demonstration data—not official")
+
+    def test_approved_sources_require_public_permission_and_non_demo_provenance(self):
+        self.grant()
+        source, _, _, _ = self.create_records(status=PublicationStatus.APPROVED)
+        self.assertEqual(self.cards(self.client.get(self.url))["sources-content"]["metric"], 0)
+        source.source_type = DataSource.SourceType.AGENCY_DATASET
+        source.is_publicly_releasable = False
+        source.save(update_fields=["source_type", "is_publicly_releasable"])
+        self.assertEqual(self.cards(self.client.get(self.url))["sources-content"]["metric"], 0)
         source.is_publicly_releasable = True
         source.save(update_fields=["is_publicly_releasable"])
-        self.assertNotContains(
-            self.client.get(self.url), "No approved public data sources are available."
-        )
+        self.assertEqual(self.cards(self.client.get(self.url))["sources-content"]["metric"], 1)
 
-    def test_pending_records_populate_attention_without_counting_other_statuses(self):
-        self.create_records(status=PublicationStatus.PENDING_VALIDATION)
-        for status in (PublicationStatus.RESTRICTED, PublicationStatus.RETIRED):
-            DataSource.objects.create(
-                name=f"Synthetic {status} fixture",
-                source_type=DataSource.SourceType.DEMONSTRATION,
-                status=status,
-            )
-        response = self.client.get(self.url)
-        self.assertEqual(response.context["dashboard"]["review_attention"]["total"], 4)
-        self.assertNotContains(response, "No records currently need validation or content review.")
-        self.assertContains(response, PublicationStatus.PENDING_VALIDATION.label)
-        self.assertContains(response, PublicationStatus.RESTRICTED.label)
-        self.assertContains(response, PublicationStatus.RETIRED.label)
-
-    def test_guidance_in_review_populates_attention_without_pending_data_status(self):
-        _, _, guidance, _ = self.create_records()
+    def test_attention_counts_explicit_review_states_and_excludes_restrictions(self):
+        self.grant()
+        _, _, guidance, _ = self.create_records(status=PublicationStatus.PENDING_VALIDATION)
         guidance.workflow_status = GuidanceItem.WorkflowStatus.IN_REVIEW
         guidance.is_enabled = False
-        guidance.save(update_fields=("workflow_status", "is_enabled"))
-
+        guidance.save(update_fields=["workflow_status", "is_enabled"])
+        DataSource.objects.create(
+            name="Synthetic restricted source", source_type="OTHER", status="RESTRICTED"
+        )
         response = self.client.get(self.url)
+        items = response.context["dashboard"]["attention"]
+        self.assertEqual(
+            {row["label"]: row["count"] for row in items},
+            {
+                "Centers awaiting verification review": 1,
+                "Assessment guidance awaiting review": 1,
+                "Source metadata awaiting review": 1,
+            },
+        )
+        self.assertTrue(all(row["kind"] == "Workflow queue" for row in items))
+        self.assertTrue(all("?state=" in row["url"] for row in items))
+        self.assertNotContains(response, "Synthetic restricted source")
 
-        self.assertEqual(response.context["dashboard"]["review_attention"]["total"], 1)
-        self.assertNotContains(response, "Records needing review by module")
+    def test_pending_guidance_draft_is_not_an_error_or_review_queue(self):
+        self.grant()
+        _, _, guidance, _ = self.create_records(status=PublicationStatus.PENDING_VALIDATION)
+        guidance.workflow_status = "DRAFT"
+        guidance.is_enabled = False
+        guidance.save(update_fields=["workflow_status", "is_enabled"])
+        items = self.client.get(self.url).context["dashboard"]["attention"]
+        self.assertFalse(any("Assessment guidance" in row["label"] for row in items))
 
     def test_dashboard_get_is_read_only_and_does_not_query_raw_rule_tables(self):
+        self.grant(activity=True)
         self.create_records()
         self.create_log(DataSource)
         with CaptureQueriesContext(connection) as queries:
             response = self.client.get(self.url)
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(queries.captured_queries)
-        for query in queries.captured_queries:
+        for query in queries:
             sql = query["sql"].strip().upper()
             self.assertTrue(sql.startswith("SELECT"), msg=sql)
             self.assertNotIn('"EXPERT_EXPERTRULE"', sql)
@@ -282,65 +313,52 @@ class OperationalDashboardTests(TestCase):
                 response = self.client.generic(method, self.url)
                 self.assertEqual(response.status_code, 405)
                 self.assertEqual(response.headers["Allow"], "GET")
-            for query in queries.captured_queries:
+            for query in queries:
                 self.assertTrue(query["sql"].strip().upper().startswith("SELECT"))
 
     def test_source_details_guidance_body_and_derived_values_are_not_exposed(self):
+        self.grant(activity=True)
         self.create_records(status=PublicationStatus.RESTRICTED)
+        self.create_log(DataSource)
         response = self.client.get(self.url)
-        for private_value in (
+        for value in (
             "private-note-sentinel",
             "private-permitted-use-sentinel",
             "private-guidance-body-sentinel",
             "91731",
+            "private-object-repr-sentinel",
+            "private-change-message-sentinel",
         ):
-            self.assertNotContains(response, private_value)
+            self.assertNotContains(response, value)
 
-    def test_overview_omits_activity_even_when_recorded_events_exist(self):
-        self.staff.user_permissions.set(
-            Permission.objects.filter(
-                content_type__app_label__in=("provenance", "dss", "evacuation"),
-                codename__in=(
-                    "view_datasource",
-                    "view_guidanceitem",
-                    "view_evacuationcenter",
-                ),
-            )
-        )
-        for model, action in (
-            (DataSource, ADDITION),
-            (GeographicArea, CHANGE),
-            (GuidanceItem, DELETION),
-            (ScenarioOption, CHANGE),
-            (EvacuationCenter, CHANGE),
-        ):
-            self.create_log(model, action=action)
-        response = self.client.get(self.url)
-        self.assertEqual(response.context["dashboard"]["recent_activity"], [])
-        self.assertNotContains(response, "Recent recorded maintenance activity")
-        self.assertNotContains(response, "private-object-repr-sentinel")
-        self.assertNotContains(response, "private-change-message-sentinel")
-        self.assertFalse(DashboardHTML(response).select("time"))
-
-    def test_raw_rule_and_condition_logs_do_not_create_dashboard_activity(self):
-        for model in (ExpertRule, ExpertRuleCondition):
-            self.create_log(model)
-        response = self.client.get(self.url)
-        self.assertEqual(response.context["dashboard"]["recent_activity"], [])
-        self.assertNotContains(response, "No recorded maintenance activity is available.")
-        self.assertNotContains(response, self.activity_limitation)
-
-    def test_activity_for_permission_controlled_modules_is_hidden_without_view_access(self):
+    def test_activity_requires_audit_and_individual_module_view_permission(self):
         self.create_log(DataSource)
         self.create_log(GuidanceItem)
-        self.create_log(EvacuationCenter)
-
+        self.staff.user_permissions.set(Permission.objects.filter(codename="view_logentry"))
         response = self.client.get(self.url)
-
         self.assertEqual(response.context["dashboard"]["recent_activity"], [])
-        self.assertNotContains(response, "No recorded maintenance activity is available.")
+        self.assertContains(response, "No recorded changes are available")
+        self.staff.user_permissions.clear()
+        response = self.client.get(self.url)
+        self.assertNotContains(response, "Recent administrative changes")
+
+    def test_recent_changes_are_three_real_events_and_include_prepare_versions(self):
+        from dss.models import DSSFlowVersion
+
+        self.grant(activity=True)
+        for model in (DataSource, GeographicArea, GuidanceItem, DSSFlowVersion):
+            self.create_log(model)
+        response = self.client.get(self.url)
+        events = response.context["dashboard"]["recent_activity"]
+        self.assertEqual(len(events), 3)
+        self.assertEqual(events[0]["module"], "Prepare flows")
+        self.assertContains(response, "View audit history")
+        for model in (ExpertRule, ExpertRuleCondition):
+            self.create_log(model)
+        self.assertEqual(self.client.get(self.url).context["dashboard"]["recent_activity"], events)
 
     def test_database_display_names_are_escaped_in_greeting_and_activity(self):
+        self.grant(activity=True)
         self.staff.display_name = '<img src=x onerror="alert(1)">'
         self.staff.save(update_fields=["display_name"])
         self.create_log(GeographicArea)
@@ -349,53 +367,32 @@ class OperationalDashboardTests(TestCase):
         self.assertNotContains(response, self.staff.display_name)
         self.assertFalse(DashboardHTML(response).select("img", onerror="alert(1)"))
 
-    def test_removed_panels_and_anchors_are_absent(self):
-        response = self.client.get(self.url)
-        for removed in (
-            "Review attention",
-            "Recorded actions",
-            "Recent recorded maintenance activity",
-            "Attention needed",
-            "Records needing review by module",
-            "Management modules",
-            "Quick actions",
-            "Review assessment parameters",
-            'id="review-attention"',
-            'href="#review-attention"',
-            'class="content-grid dashboard-panels"',
-        ):
-            self.assertNotContains(response, removed)
-        links = DashboardHTML(response).select("a", href=reverse("admin_portal:settings"))
-        self.assertEqual(len(links), 1)
-        self.assertEqual(links[0]["attrs"].get("role"), "menuitem")
-
-    def test_dashboard_retains_accessible_safety_and_removes_foundation_and_rule_controls(self):
+    def test_compact_snapshot_has_no_status_breakdown_or_rule_controls(self):
+        self.grant(create=True)
         response = self.client.get(self.url)
         html = DashboardHTML(response)
         self.assertEqual(len(html.select("h1")), 1)
         self.assertTrue(html.select(**{"aria-label": "Data safety notice"}))
-        self.assertTrue(html.select("nav", **{"aria-label": "Administration navigation"}))
-        self.assertTrue(html.select("form", method="post", action=reverse("admin_portal:logout")))
-        self.assertContains(response, "Development environment")
+        self.assertTrue(html.select("label", **{"for": "snapshot-mode"}))
+        self.assertTrue(html.select("time"))
+        self.assertContains(response, "Needs attention")
+        self.assertContains(response, "Create center draft")
+        self.assertContains(response, "Create guidance draft")
+        self.assertNotContains(response, "Verification states")
+        self.assertNotContains(response, "Area types")
+        self.assertNotContains(response, "dashboard-statuses")
         for forbidden in (
-            "Foundation · Day 1",
-            "Day 1 checklist",
-            "Continue the build",
+            "API healthy",
+            "System healthy",
             "Create rule draft",
             "Publish rule set",
-            "Change inference method",
-            "Publish center changes",
             "Approve all",
             "Bulk activate",
-            "Expert Rule Set",
-            "Published map version",
-            "DSS version",
-            "Verified centers",
-            "API healthy",
         ):
             self.assertNotContains(response, forbidden)
         for link in html.select("a"):
             self.assertFalse(link["attrs"].get("href", "").startswith("/admin/"))
-            self.assertNotIn("expert rules", html.text(link).lower())
-        self.assertEqual(reverse("admin:index"), "/admin/")
-        self.assertEqual(self.url, "/management/")
+
+    def test_invalid_mode_falls_back_to_approved_source_snapshot(self):
+        response = self.client.get(self.url, {"mode": "invented"})
+        self.assertEqual(response.context["dashboard"]["mode"], "OFFICIAL")

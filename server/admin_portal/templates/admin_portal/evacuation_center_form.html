@@ -1,13 +1,150 @@
-{% extends "admin_portal/base.html" %}{% load static %}
+{% extends "admin_portal/base.html" %}
+{% load static %}
 {% block title %}{% if form_mode == 'create' %}Create{% else %}Edit{% endif %} center | FloodSense Admin{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{% static 'admin_portal/css/operations.css' %}"><link rel="stylesheet" href="{{ openlayers_root }}/ol.css">{% if map_config.mapbox_enabled %}<link rel="stylesheet" href="{{ map_config.mapbox_css_url }}">{% endif %}{% endblock %}
-{% block content %}<div class="operations-page"><section class="page-heading"><div><p class="eyebrow">Evacuation center draft</p><h1>{% if form_mode == 'create' %}Create center draft{% else %}Edit {{ center.name }}{% endif %}</h1><p>Coordinates use WGS 84 latitude and longitude. Verify the marker and source before submitting.</p></div></section>
-<section class="notice notice--warning"><strong>{% if local_testing %}Real or temporary record{% else %}Use authorized records only{% endif %}</strong><p>{% if local_testing %}For testing, select Temporary local test record and a temporary source. No special record name or second table is needed. Local test approval needs no invented verification date or capacity. Use the ordinary verification actions only for genuine evidence.{% else %}Do not add invented centers or personal contact information. Capacity is captured only during formal verification.{% endif %}</p></section>
-{% include "admin_portal/includes/center_safety.html" %}
-<section class="panel">{% include "admin_portal/includes/form_error_summary.html" %}<h2>Draft fields</h2><form class="operations-form" method="post" novalidate>{% csrf_token %}{% for field in form %}{% if field.is_hidden %}{{ field }}{% elif field.name != 'duplicate_review_confirmed' %}<div class="field-group{% if field.name == 'address' or field.name == 'notes' or field.name == 'limitations' %} field-group--wide{% endif %}">{% include "admin_portal/includes/operation_field.html" %}</div>{% endif %}{% endfor %}
-{% if form.duplicate_warnings %}<div class="notice notice--warning field-group--wide" role="alert" aria-labelledby="duplicate-review-heading"><h3 id="duplicate-review-heading">Possible duplicate records require review</h3><p>These deterministic matches are warnings, not proof of duplication. FloodSense will not merge or delete either record automatically.</p><ul>{% for warning in form.duplicate_warnings %}<li><strong>{{ warning.name }}</strong> — {{ warning.area }} ({{ warning.reasons|join:", " }})</li>{% endfor %}</ul><div class="checkbox-confirm">{{ form.duplicate_review_confirmed }}<label for="{{ form.duplicate_review_confirmed.id_for_label }}">{{ form.duplicate_review_confirmed.label }}</label></div>{% for error in form.duplicate_review_confirmed.errors %}<p class="field-error" id="{{ form.duplicate_review_confirmed.auto_id }}_error">{{ error }}</p>{% endfor %}</div>{% endif %}
-{% include "admin_portal/includes/save_actions.html" %}<div class="operations-actions"><a class="button button--secondary" href="{% url 'admin_portal:evacuation-centers' %}">Cancel</a></div></form></section>
-{% include "admin_portal/includes/center_inline_source.html" %}
-{% if selected_source %}<section class="panel" aria-labelledby="source-review-heading"><h2 id="source-review-heading">Selected source review context</h2><p>This staff-only context does not make the draft verified or resident-visible.</p><dl class="detail-grid"><div><dt>Source title</dt><dd>{{ selected_source.name }}</dd></div><div><dt>Organization</dt><dd>{{ selected_source.organization|default:"Not recorded" }}</dd></div><div><dt>Custodian</dt><dd>{{ selected_source.custodian|default:"Not recorded" }}</dd></div><div><dt>Review status</dt><dd>{{ selected_source.get_status_display }}</dd></div><div><dt>Public release permission</dt><dd>{{ selected_source.is_publicly_releasable|yesno:"Permitted,Not permitted" }}</dd></div><div><dt>Version</dt><dd>{{ selected_source.version|default:"Not recorded" }}</dd></div><div class="detail-wide"><dt>Permitted use</dt><dd>{{ selected_source.permitted_use|default:"Not recorded" }}</dd></div><div class="detail-wide"><dt>Source limitations</dt><dd>{{ selected_source.limitations|default:"Not recorded" }}</dd></div><div class="detail-wide"><dt>Processing notes</dt><dd>{{ selected_source.processing_notes|default:"Not recorded" }}</dd></div></dl></section>{% endif %}
-<section class="panel"><h2 id="coordinate-preview-heading">Coordinate preview</h2><p id="coordinate-preview-description">The marker updates from the labeled WGS 84 latitude and longitude fields. A marker is only a coordinate preview; it does not verify the record, boundary association, current opening, or route safety.</p><p class="map-preview__status" data-center-map-status role="status" aria-live="polite">Enter valid coordinates to preview a marker. The form remains usable if the map is unavailable.</p><div class="map-preview" role="region" tabindex="0" data-center-map data-map-provider="{{ map_config.provider }}"{% if center %} data-latitude="{{ center.latitude }}" data-longitude="{{ center.longitude }}"{% endif %} aria-labelledby="coordinate-preview-heading" aria-describedby="coordinate-preview-description"><p class="map-preview__fallback">Enter coordinates to preview the marker. If the map library is unavailable, verify the coordinates independently using the labeled values before review.</p></div><p class="map-attribution"><span data-provider-attribution="mapbox"{% if not map_config.mapbox_enabled %} hidden{% endif %}>Provider attribution and telemetry controls are available within the Mapbox map.</span><span data-provider-attribution="osm"{% if map_config.mapbox_enabled %} hidden{% endif %}>Base-map context: <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>.</span> The base map is not facility verification.</p><noscript><p class="notice notice--info">JavaScript is unavailable, so the map preview cannot update. You can still enter, review, validate, and save the labeled latitude and longitude fields.</p></noscript></section>{{ map_config|json_script:"map-provider-config" }}</div>{% endblock %}
-{% block extra_js %}{% if map_config.mapbox_enabled %}<script src="{{ map_config.mapbox_js_url }}" defer></script>{% endif %}<script src="{{ openlayers_root }}/dist/ol.js" defer></script><script src="{% static 'admin_portal/js/center_map.js' %}" defer></script><script src="{% static 'admin_portal/js/record_workflows.js' %}" defer></script>{% endblock %}
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'admin_portal/css/operations.css' %}?v=center-form-20261006-1">
+  <link rel="stylesheet" href="{{ openlayers_root }}/ol.css">
+  {% if map_config.mapbox_enabled %}<link rel="stylesheet" href="{{ map_config.mapbox_css_url }}">{% endif %}
+{% endblock %}
+{% block content %}
+<div class="operations-page center-entry-page">
+  <section class="page-heading">
+    <div>
+      <p class="eyebrow">Evacuation center draft</p>
+      <h1>{% if form_mode == 'create' %}Create center draft{% else %}Edit {{ center.name }}{% endif %}</h1>
+      <p>Enter the center details, check its location, and select the supporting source. You can save a draft before submitting it for review.</p>
+    </div>
+  </section>
+  <section class="notice notice--warning">
+    <strong>{% if local_testing %}Real or temporary record{% else %}Use authorized records only{% endif %}</strong>
+    <p>{% if local_testing %}For testing, select Temporary local test record and a temporary source. No special record name or second table is needed. Local test approval needs no invented verification date or capacity. Use the ordinary verification actions only for genuine evidence.{% else %}Do not add invented centers or personal contact information. Capacity is captured only during formal verification.{% endif %}</p>
+  </section>
+  {% include "admin_portal/includes/center_safety.html" %}
+
+  <section class="panel" aria-labelledby="center-form-heading">
+    <h2 id="center-form-heading" class="sr-only">Center draft fields</h2>
+    <form class="operations-form center-form" method="post" novalidate aria-labelledby="center-form-heading">
+      {% csrf_token %}
+      {% for field in form.hidden_fields %}{{ field }}{% endfor %}
+      {% include "admin_portal/includes/form_error_summary.html" %}
+      <p class="center-form__intro">Fields marked <span aria-hidden="true">*</span> are required. Optional fields can be completed later.</p>
+
+      <fieldset class="center-form__section">
+        <legend>Center details</legend>
+        <p class="center-form__description">Use the center's documented name and address.</p>
+        <div class="center-form__grid">
+          {% include "admin_portal/includes/center_form_field.html" with field=form.name %}
+          {% include "admin_portal/includes/center_form_field.html" with field=form.contact_information %}
+          {% include "admin_portal/includes/center_form_field.html" with field=form.address wide=True %}
+        </div>
+      </fieldset>
+
+      <fieldset class="center-form__section">
+        <legend>Location</legend>
+        <p class="center-form__description">Assign the geographic area and enter WGS 84 coordinates. Check the preview before submitting.</p>
+        <div class="center-form__grid">
+          {% include "admin_portal/includes/center_form_field.html" with field=form.geographic_area wide=True %}
+          {% include "admin_portal/includes/center_form_field.html" with field=form.latitude %}
+          {% include "admin_portal/includes/center_form_field.html" with field=form.longitude %}
+        </div>
+        <section class="center-form__map" aria-labelledby="coordinate-preview-heading">
+          <h3 id="coordinate-preview-heading">Coordinate preview</h3>
+          <p id="coordinate-preview-description">The marker updates from the labeled WGS 84 latitude and longitude fields. A marker is only a coordinate preview; it does not verify the record, boundary association, current opening, or route safety.</p>
+          <p class="map-preview__status" data-center-map-status role="status" aria-live="polite">Enter valid coordinates to preview a marker. The form remains usable if the map is unavailable.</p>
+          <div class="map-preview" role="region" tabindex="0" data-center-map data-map-provider="{{ map_config.provider }}"{% if center %} data-latitude="{{ center.latitude }}" data-longitude="{{ center.longitude }}"{% endif %} aria-labelledby="coordinate-preview-heading" aria-describedby="coordinate-preview-description">
+            <p class="map-preview__fallback">Enter coordinates to preview the marker. If the map library is unavailable, verify the coordinates independently using the labeled values before review.</p>
+          </div>
+          <p class="map-attribution"><span data-provider-attribution="mapbox"{% if not map_config.mapbox_enabled %} hidden{% endif %}>Provider attribution and telemetry controls are available within the Mapbox map.</span><span data-provider-attribution="osm"{% if map_config.mapbox_enabled %} hidden{% endif %}>Base-map context: <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>.</span> The base map is not facility verification.</p>
+          <noscript><p class="notice notice--info">JavaScript is unavailable, so the map preview cannot update. You can still enter, review, validate, and save the labeled latitude and longitude fields.</p></noscript>
+        </section>
+      </fieldset>
+
+      <fieldset class="center-form__section">
+        <legend>Source and status</legend>
+        <p class="center-form__description">Link the facility evidence and choose the record's data status. Saving a draft does not approve or publish it.</p>
+        <div class="center-form__grid">
+          {% include "admin_portal/includes/center_form_field.html" with field=form.source wide=True %}
+          <p class="center-form__source-link field-group--wide"><a href="#inline-source-heading">Create or review source metadata without losing this draft</a></p>
+          {% include "admin_portal/includes/center_form_field.html" with field=form.publication_status %}
+          {% if form.temporary_data %}{% include "admin_portal/includes/center_form_field.html" with field=form.temporary_data %}{% endif %}
+        </div>
+      </fieldset>
+
+      <fieldset class="center-form__section">
+        <legend>Notes and limitations</legend>
+        <p class="center-form__description">Keep staff notes separate from the public-facing caveats needed to interpret this record.</p>
+        <div class="center-form__grid">
+          {% include "admin_portal/includes/center_form_field.html" with field=form.notes %}
+          {% include "admin_portal/includes/center_form_field.html" with field=form.limitations %}
+        </div>
+      </fieldset>
+
+      {% if form.duplicate_warnings %}
+        <div class="notice notice--warning" role="alert" aria-labelledby="duplicate-review-heading">
+          <h3 id="duplicate-review-heading">Possible duplicate records require review</h3>
+          <p>These deterministic matches are warnings, not proof of duplication. FloodSense will not merge or delete either record automatically.</p>
+          <ul>{% for warning in form.duplicate_warnings %}<li><strong>{{ warning.name }}</strong> — {{ warning.area }} ({{ warning.reasons|join:", " }})</li>{% endfor %}</ul>
+          {% include "admin_portal/includes/center_form_field.html" with field=form.duplicate_review_confirmed %}
+        </div>
+      {% endif %}
+
+      <fieldset class="center-form__section center-form__section--last">
+        <legend>Review and save</legend>
+        <p class="center-form__description">Save your progress as a draft, or submit the completed record through an action available to your account.</p>
+        <div class="operations-actions center-form__primary-actions">
+          {% for action, label in save_actions %}
+            {% if action == 'save' or action == 'add-another' or action == 'submit' %}
+              <button class="button {% if action == 'save' %}button--primary{% else %}button--secondary{% endif %}" type="submit" name="save_action" value="{{ action }}">{{ label }}</button>
+            {% endif %}
+          {% endfor %}
+          <a class="button button--secondary" href="{% url 'admin_portal:evacuation-centers' %}">Cancel</a>
+        </div>
+        <details class="center-form__additional-actions"{% if form.verified_on.errors or form.capacity.errors or form.confirm.errors or form.non_field_errors %} open{% endif %}>
+          <summary>Additional review and verification actions</summary>
+          <div class="center-form__additional-body">
+            <p class="center-form__description">Verification date and capacity are used only when verifying a center. Draft saves do not record capacity. Verification, source approval and public release still require the existing permissions and checks.</p>
+            <div class="center-form__grid">
+              {% include "admin_portal/includes/center_form_field.html" with field=form.verified_on field_label="Verification date" %}
+              {% include "admin_portal/includes/center_form_field.html" with field=form.capacity %}
+              {% include "admin_portal/includes/center_form_field.html" with field=form.confirm wide=True %}
+            </div>
+            <div class="operations-actions">
+              {% for action, label in save_actions %}
+                {% if action != 'save' and action != 'add-another' and action != 'submit' %}
+                  <button class="button button--secondary" type="submit" name="save_action" value="{{ action }}">{{ label }}</button>
+                {% endif %}
+              {% endfor %}
+            </div>
+          </div>
+        </details>
+      </fieldset>
+    </form>
+  </section>
+
+  {% include "admin_portal/includes/center_inline_source.html" %}
+  {% if selected_source %}
+    <section class="panel" aria-labelledby="source-review-heading">
+      <h2 id="source-review-heading">Selected source review context</h2>
+      <p>This staff-only context does not make the draft verified or resident-visible.</p>
+      <dl class="detail-grid">
+        <div><dt>Source title</dt><dd>{{ selected_source.name }}</dd></div>
+        <div><dt>Organization</dt><dd>{{ selected_source.organization|default:"Not recorded" }}</dd></div>
+        <div><dt>Custodian</dt><dd>{{ selected_source.custodian|default:"Not recorded" }}</dd></div>
+        <div><dt>Review status</dt><dd>{{ selected_source.get_status_display }}</dd></div>
+        <div><dt>Public release permission</dt><dd>{{ selected_source.is_publicly_releasable|yesno:"Permitted,Not permitted" }}</dd></div>
+        <div><dt>Version</dt><dd>{{ selected_source.version|default:"Not recorded" }}</dd></div>
+        <div class="detail-wide"><dt>Permitted use</dt><dd>{{ selected_source.permitted_use|default:"Not recorded" }}</dd></div>
+        <div class="detail-wide"><dt>Source limitations</dt><dd>{{ selected_source.limitations|default:"Not recorded" }}</dd></div>
+        <div class="detail-wide"><dt>Processing notes</dt><dd>{{ selected_source.processing_notes|default:"Not recorded" }}</dd></div>
+      </dl>
+    </section>
+  {% endif %}
+  {{ map_config|json_script:"map-provider-config" }}
+</div>
+{% endblock %}
+{% block extra_js %}
+  {% if map_config.mapbox_enabled %}<script src="{{ map_config.mapbox_js_url }}" defer></script>{% endif %}
+  <script src="{{ openlayers_root }}/dist/ol.js" defer></script>
+  <script src="{% static 'admin_portal/js/center_map.js' %}" defer></script>
+  <script src="{% static 'admin_portal/js/record_workflows.js' %}?v=barangay-dropdown-20261006-1" defer></script>
+{% endblock %}

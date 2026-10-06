@@ -73,6 +73,16 @@ sidebar footer. Expanded navigation shows the avatar, name, and system state;
 collapsed navigation shows the avatar with a name tooltip. The same profile
 control opens Settings and Sign out in both states and in the mobile drawer.
 
+On 6 October 2026, the owner requested a compact, permission-aware Overview
+availability snapshot. The five cards now use existing resident/source gates,
+include structured Prepare visibility and distinguish approved-source from
+demonstration mode. A targeted Needs attention panel, configuration notices and
+small permission-controlled shortcut/activity sections replace the former
+stored-status breakdowns. Reports retains detailed stored-record statistics.
+This intentionally supersedes the earlier Overview-only card arrangement;
+scientific, approval, publication and scenario-only boundaries are unchanged.
+See `ADMIN_OVERVIEW_AVAILABILITY.md` for definitions, validation and teammate steps.
+
 | Day | Status | Main outcome |
 | --- | --- | --- |
 | 1 | Complete | Authentication, responsive shell, navigation, Settings placeholder |

@@ -89,3 +89,64 @@
 .workflow-inline form { display: grid; gap: 12px; margin-top: 12px; }
 .operations-page, .source-dialog, .review-form { overflow-wrap: anywhere; }
 .operations-form input[type="search"] { margin-bottom: 8px; }
+
+/* Center entry groups fields by task and keeps controls from stretching with help text. */
+.center-entry-page { width: 100%; max-width: 1120px; margin-inline: auto; }
+.operations-form.center-form { grid-template-columns: minmax(0, 1fr); gap: 24px; margin-top: 0; }
+.center-form__intro, .center-form__description { margin-bottom: 16px; color: var(--muted); font-size: .9rem; line-height: 1.5; }
+.center-form__intro { margin-bottom: 0; }
+.center-form__section { min-width: 0; margin: 0; padding: 0 0 24px; border: 0; border-bottom: 1px solid var(--border); }
+.center-form__section legend { max-width: 100%; padding: 0; margin-bottom: 8px; font-size: 1.125rem; font-weight: 800; }
+.center-form__section--last { padding-bottom: 0; border-bottom: 0; }
+.center-form__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
+.center-form .field-group { display: flex; flex-direction: column; gap: 8px; align-self: start; }
+.center-form .field-group input:not([type="checkbox"]), .center-form .field-group select { height: 46px; min-height: 46px; }
+.center-form .field-group input[type="search"] { margin-bottom: 0; }
+.center-form .field-group textarea { min-height: 88px; }
+.center-form .field-help { margin: 0; color: var(--muted); font-size: .85rem; line-height: 1.5; }
+.center-form .field-error p { margin: 0; line-height: 1.5; }
+.center-form__required { color: var(--danger); }
+.center-form__optional { color: var(--muted); font-size: .8rem; font-weight: 400; }
+.center-form .checkbox-confirm { align-items: flex-start; }
+.center-form .checkbox-confirm input { width: 20px; height: 20px; min-height: 20px; margin: 1px 0 0; accent-color: var(--brand); }
+.center-form .checkbox-confirm label { line-height: 1.5; }
+.center-form__source-link { margin: -8px 0 0; font-size: .875rem; line-height: 1.5; }
+.center-form__map { margin-top: 24px; }
+.center-form__map .map-preview { height: 310px; }
+.center-form__map h3 { margin: 0 0 8px; font-size: 1rem; }
+.center-form__map > p:not(.map-preview__status) { color: var(--muted); font-size: .85rem; line-height: 1.5; }
+.center-form__additional-actions { margin-top: 20px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.center-form__additional-actions > summary { padding: 16px; color: var(--brand-dark); font-weight: 700; line-height: 1.5; cursor: pointer; }
+.center-form__additional-actions > summary:focus-visible { outline: 3px solid var(--brand-dark); outline-offset: 3px; border-radius: var(--radius-sm); }
+.center-form__additional-body { padding: 0 16px 16px; }
+.center-form__additional-body > .operations-actions { margin-top: 20px; }
+@media (max-width: 900px) {
+  .center-form__grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Source metadata uses the same grouped entry layout as center drafts. */
+.source-entry-page { width: 100%; max-width: 1120px; margin-inline: auto; }
+.operations-form.source-form { grid-template-columns: minmax(0, 1fr); gap: 24px; margin-top: 0; }
+.source-form__intro, .source-form__description { margin-bottom: 16px; color: var(--muted); font-size: .9rem; line-height: 1.5; }
+.source-form__intro { margin-bottom: 0; }
+.source-form__section { min-width: 0; margin: 0; padding: 0 0 24px; border: 0; border-bottom: 1px solid var(--border); }
+.source-form__section legend { max-width: 100%; padding: 0; margin-bottom: 8px; font-size: 1.125rem; font-weight: 800; }
+.source-form__section--last { padding-bottom: 0; border-bottom: 0; }
+.source-form__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
+.source-form .field-group { display: flex; flex-direction: column; gap: 8px; align-self: start; }
+.source-form .field-group input:not([type="checkbox"]), .source-form .field-group select { height: 46px; min-height: 46px; }
+.source-form .field-group textarea { min-height: 88px; }
+.source-form .field-help { margin: 0; color: var(--muted); font-size: .85rem; line-height: 1.5; }
+.source-form .field-error p { margin: 0; line-height: 1.5; }
+.source-form__required { color: var(--danger); }
+.source-form__optional { color: var(--muted); font-size: .8rem; font-weight: 400; }
+.source-form .checkbox-confirm input { width: 20px; height: 20px; min-height: 20px; margin: 1px 0 0; accent-color: var(--brand); }
+.source-form .checkbox-confirm label { line-height: 1.5; }
+.source-form__approval { margin-top: 20px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.source-form__approval > summary { padding: 16px; color: var(--brand-dark); font-weight: 700; line-height: 1.5; cursor: pointer; }
+.source-form__approval > summary:focus-visible { outline: 3px solid var(--brand-dark); outline-offset: 3px; border-radius: var(--radius-sm); }
+.source-form__approval-body { padding: 0 16px 16px; }
+.source-form__approval-body > .operations-actions { margin-top: 20px; }
+@media (max-width: 900px) {
+  .source-form__grid { grid-template-columns: minmax(0, 1fr); }
+}

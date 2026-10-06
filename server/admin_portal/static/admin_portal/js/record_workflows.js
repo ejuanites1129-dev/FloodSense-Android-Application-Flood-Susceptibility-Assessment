@@ -1,14 +1,14 @@
 "use strict";
 (() => {
-  // Filter native selects, preserving the chosen value and complete server validation.
-  for (const id of ["id_source", "id_geographic_area"]) {
+  // Source search preserves its native selection; barangays use only a dropdown.
+  for (const id of ["id_source"]) {
     const select = document.getElementById(id);
     if (!select) continue;
     const input = document.createElement("input");
     input.type = "search"; input.placeholder = "Search available choices";
     input.id = `${id}_search`;
     const label = document.createElement("label");
-    label.htmlFor = input.id; label.textContent = `Search ${id === "id_source" ? "sources" : "areas"}`;
+    label.htmlFor = input.id; label.textContent = "Search sources";
     select.before(label, input);
     input.addEventListener("input", () => {
       const query = input.value.toLocaleLowerCase();

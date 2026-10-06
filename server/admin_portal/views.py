@@ -65,8 +65,8 @@ from .forms import (
     StaffAuthenticationForm,
 )
 from .map_config import get_map_client_config
-from .services.dashboard import get_dashboard_summary
 from .services.map_data import get_map_data
+from .services.overview import MODE_LABELS, get_overview_snapshot
 from .services.reports import get_report_summary
 from .services.settings_data import get_settings_data
 
@@ -281,7 +281,10 @@ def password_help(request: HttpRequest) -> HttpResponse:
 @require_GET
 def dashboard(request: HttpRequest) -> HttpResponse:
     context = _portal_context(request, active_section="dashboard")
-    context["dashboard"] = get_dashboard_summary(user=request.user, include_activity=False)
+    mode = request.GET.get("mode", "OFFICIAL").strip().upper()
+    context["dashboard"] = get_overview_snapshot(
+        user=request.user, mode=mode if mode in MODE_LABELS else "OFFICIAL"
+    )
     return render(request, "admin_portal/dashboard.html", context)
 
 

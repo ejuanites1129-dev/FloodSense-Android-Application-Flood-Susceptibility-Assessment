@@ -1,0 +1,1 @@
+{% load static %}{% if asset %}<span class="portal-icon" aria-hidden="true" style="--portal-icon: url('{% static asset %}')"><img src="{% static asset %}" width="20" height="20" alt="" draggable="false"></span>{% else %}{{ fallback }}{% endif %}

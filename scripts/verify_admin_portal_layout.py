@@ -5,11 +5,16 @@ Set FLOODSENSE_QA_BROWSER to a Chromium executable if bundled browsers are unava
 """
 
 import os
+import re
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
 from django.contrib.gis.geos import MultiPolygon, Polygon
+from django.urls import reverse
+from evacuation.models import EvacuationCenter
 from geography.models import GeographicArea
 from provenance.models import DataSource
 
@@ -17,10 +22,12 @@ pw = pytest.importorskip("playwright.sync_api")
 OUTPUT = Path(__file__).resolve().parents[1] / "tmp" / "portal-layout-qa"
 
 
-def login(page, url):
+def login(
+    page, url, email="layout-qa@example.com", password="Isolated-layout-QA-2026"
+):
     page.goto(url + "/management/login/")
-    page.get_by_label("Work email").fill("layout-qa@example.com")
-    page.get_by_label("Password", exact=True).fill("Isolated-layout-QA-2026")
+    page.get_by_label("Work email").fill(email)
+    page.get_by_label("Password", exact=True).fill(password)
     page.locator("button[type=submit]").click()
     pw.expect(page).to_have_url(url + "/management/")
 
@@ -85,8 +92,48 @@ def test_portal_layout_browser(live_server, settings):
 
         page.route("**/admin_portal/js/map_data.js", instrument)
         login(page, live_server.url)
-        pw.expect(page.locator(".dashboard-metrics .metric-card")).to_have_count(5)
+        # Compare the previous text symbols with SVGs using identical synthetic data.
+        # The baseline is reconstructed in the QA DOM, not an older application build.
+        original_symbols = ["▦", "▤", "◇", "?", "≈", "⌂", "○", "▤"]
+        for width in [1440, 768, 390]:
+            page.set_viewport_size({"width": width, "height": 1000})
+            page.reload()
+            if width <= 760:
+                page.locator("[data-menu-toggle]").click()
+            settled(page)
+            page.wait_for_function("""() => {
+                const icons = [...document.querySelectorAll('.sidebar .portal-icon img')];
+                return icons.length === 10 && icons.every(img =>
+                    img.complete && img.naturalWidth === 24);
+            }""")
+            for icon in page.locator(".nav-link__icon .portal-icon").all():
+                assert icon.bounding_box()["width"] == 20
+                assert icon.bounding_box()["height"] == 20
+                assert icon.evaluate(
+                    "el => getComputedStyle(el).backgroundColor === getComputedStyle(el).color"
+                )
+            no_overflow(page)
+            page.screenshot(path=str(OUTPUT / f"icons-{width}-after.png"), full_page=True)
+            page.evaluate("""symbols => {
+                document.querySelectorAll('.nav-link__icon').forEach((el, i) => {
+                    el.textContent = symbols[i];
+                });
+            }""", original_symbols)
+            page.screenshot(path=str(OUTPUT / f"icons-{width}-before.png"), full_page=True)
+        page.set_viewport_size({"width": 1440, "height": 1000})
+        page.reload()
+        pw.expect(page.locator(".portal-attribution")).to_have_count(0)
+        pw.expect(page.locator('img[src*="/icons/lordicon/"]')).to_have_count(0)
+        page.evaluate("window.scrollTo(0,0)")
+        pw.expect(page.locator(".overview-cards .metric-card")).to_have_count(5)
+        pw.expect(page.locator("#attention-heading")).to_have_text("Needs attention")
+        pw.expect(page.locator("#snapshot-mode")).to_have_value("OFFICIAL")
+        page.locator("#snapshot-mode").select_option("DEMONSTRATION")
+        page.get_by_role("button", name="Update snapshot").click()
+        pw.expect(page.locator("#snapshot-mode")).to_have_value("DEMONSTRATION")
+        pw.expect(page.locator(".portal-notice")).to_contain_text("Demonstration data—not official")
         assert page.locator("#review-attention").count() == 0
+        page.screenshot(path=str(OUTPUT / "overview-1440-demonstration.png"), full_page=True)
         nav = page.locator("#sidebar-navigation")
         toggle = page.locator("[data-sidebar-toggle]")
         assert page.locator(".topbar").count() == 0
@@ -108,6 +155,12 @@ def test_portal_layout_browser(live_server, settings):
             profile.click()
             panel = page.locator("[data-account-menu]")
             pw.expect(panel).to_be_visible()
+            for icon in panel.locator(".portal-icon").all():
+                assert icon.bounding_box()["width"] == 20
+                assert icon.bounding_box()["height"] == 20
+                assert icon.evaluate(
+                    "el => getComputedStyle(el).backgroundColor === getComputedStyle(el).color"
+                )
             pw.expect(page.get_by_role("menuitem", name="Settings")).to_be_focused()
             assert (
                 panel.bounding_box()["y"] + panel.bounding_box()["height"]
@@ -167,6 +220,7 @@ def test_portal_layout_browser(live_server, settings):
             assert link.evaluate("el => getComputedStyle(el, '::after').content") == f'"{name}"'
             link.click()
             pw.expect(page).to_have_url(live_server.url + href)
+            pw.expect(page.locator(".portal-attribution")).to_have_count(0)
             pw.expect(nav.get_by_role("link", name=name, exact=True)).to_have_attribute(
                 "aria-current", "page"
             )
@@ -371,7 +425,14 @@ def test_portal_layout_browser(live_server, settings):
         )
         plain = noscript.new_page()
         login(plain, live_server.url)
+        pw.expect(plain.locator(".overview-card")).to_have_count(5)
+        plain.locator("#snapshot-mode").select_option("DEMONSTRATION")
+        plain.get_by_role("button", name="Update snapshot").click()
+        pw.expect(plain.locator("#snapshot-mode")).to_have_value("DEMONSTRATION")
+        no_overflow(plain)
         plain.get_by_role("link", name="Reports", exact=True).click()
+        pw.expect(plain.locator(".portal-icon img")).to_have_count(10)
+        pw.expect(plain.locator(".portal-attribution")).to_have_count(0)
         pw.expect(plain.locator("h1")).to_have_text("Reports")
         plain.get_by_role("menuitem", name="Settings").click()
         pw.expect(plain.locator("h1")).to_have_text("Settings")
@@ -403,3 +464,412 @@ def test_portal_layout_browser(live_server, settings):
         pw.expect(unavailable.locator("#detail-heading")).to_contain_text("Synthetic area 1")
         assert not errors, errors
         browser.close()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_center_form_browser(live_server, settings):
+    settings.DEBUG = True
+    settings.ENABLE_LOCAL_TESTING = True
+    settings.FLOODSENSE_MAP_PROVIDER = "osm"
+    get_user_model().objects.create_user(
+        email="layout-qa@example.com",
+        display_name="Isolated QA Maintainer",
+        password="Isolated-layout-QA-2026",
+        is_staff=True,
+        is_superuser=True,
+    )
+    source = DataSource.objects.create(
+        name="Synthetic center form evidence—not official",
+        source_type="OTHER",
+        status="PENDING_VALIDATION",
+    )
+    area = GeographicArea.objects.create(
+        code="CENTER-FORM-QA",
+        name="Synthetic area—not official",
+        area_type="DEMO_ZONE",
+        source=source,
+        status="DEMONSTRATION",
+        is_enabled=True,
+        geometry=MultiPolygon(Polygon.from_bbox((0, 0, 1, 1)), srid=4326),
+    )
+    url = live_server.url + reverse("admin_portal:evacuation-center-create")
+    OUTPUT.mkdir(parents=True, exist_ok=True)
+    with pw.sync_playwright() as p:
+        executable = os.environ.get("FLOODSENSE_QA_BROWSER")
+        browser = p.chromium.launch(**({"executable_path": executable} if executable else {}))
+        context = browser.new_context(viewport={"width": 1440, "height": 1000})
+        # Exercise form usability even when external map assets cannot load.
+        context.route("https://**", lambda route: route.abort())
+        page = context.new_page()
+        errors = []
+        page.on("pageerror", lambda error: errors.append(str(error)))
+        login(page, live_server.url)
+        for width in [1440, 1024, 768, 390, 320]:
+            page.set_viewport_size({"width": width, "height": 1000})
+            page.goto(url)
+            if width > 760 and "sidebar-collapsed" in page.locator("body").get_attribute("class"):
+                page.locator(".sidebar__brand-area").hover()
+                page.locator("[data-sidebar-toggle]").click()
+                settled(page)
+            form = page.locator(".center-form")
+            pw.expect(page.locator("#id_geographic_area_search")).to_have_count(0)
+            pw.expect(page.locator("#id_geographic_area")).to_have_attribute(
+                "title", "Choose available barangay"
+            )
+            pw.expect(page.locator("#id_geographic_area option").first).to_have_text(
+                "Choose available barangay"
+            )
+            pw.expect(form.locator("legend")).to_have_text([
+                "Center details", "Location", "Source and status",
+                "Notes and limitations", "Review and save",
+            ])
+            latitude = page.locator("#id_latitude")
+            longitude = page.locator("#id_longitude")
+            page.locator("#id_name").fill("Synthetic center form fixture")
+            page.locator("#id_address").fill("Synthetic address—not a real facility")
+            latitude.fill("0.5")
+            longitude.fill("0.5")
+            page.locator("#id_source").select_option(str(source.pk))
+            page.locator("#id_geographic_area").select_option(str(area.pk))
+            page.locator("#id_notes").fill("Synthetic staff notes")
+            pw.expect(page.locator("[data-center-map-status]")).to_contain_text(
+                "latitude 0.5, longitude 0.5"
+            )
+            if width == 1440 and page.locator("[data-center-map] button").count():
+                page.locator("[data-center-map] button").first.click()
+                pw.expect(page).to_have_url(url)
+            assert latitude.bounding_box()["height"] == 46
+            assert longitude.bounding_box()["height"] == 46
+            if width > 900:
+                assert latitude.bounding_box()["y"] == longitude.bounding_box()["y"]
+            else:
+                assert latitude.bounding_box()["y"] < longitude.bounding_box()["y"]
+            extra = page.locator(".center-form__additional-actions")
+            assert extra.get_attribute("open") is None
+            extra.locator("summary").focus()
+            page.keyboard.press("Space")
+            pw.expect(page.locator("#id_verified_on")).to_be_visible()
+            pw.expect(page.locator("#id_capacity")).to_be_visible()
+            for control in form.locator("input:not([type=hidden]), select").all():
+                assert control.bounding_box()["height"] == (
+                    20 if control.get_attribute("type") == "checkbox" else 46
+                )
+            page.locator('label[for="id_confirm"]').click()
+            pw.expect(page.locator("#id_confirm")).to_be_checked()
+            page.locator("#id_confirm").uncheck()
+            page.locator('label[for="id_temporary_data"]').click()
+            pw.expect(page.locator("#id_temporary_data")).to_be_checked()
+            page.locator("#id_temporary_data").uncheck()
+            no_overflow(page)
+            form.screenshot(
+                path=str(OUTPUT / f"center-form-{width}-expanded.png"),
+                animations="disabled",
+            )
+            if width == 390:
+                # Cropped captures can include fixed elements outside the viewport.
+                assert page.locator(".skip-link").evaluate(
+                    "el => el.getBoundingClientRect().bottom <= 0"
+                )
+                form.locator("fieldset").first.screenshot(
+                    path=str(OUTPUT / "center-form-details-390.png"), animations="disabled",
+                    style=".skip-link:not(:focus) { visibility: hidden; }",
+                )
+                form.locator(".center-form__section--last").screenshot(
+                    path=str(OUTPUT / "center-form-actions-390.png"), animations="disabled",
+                    style=".skip-link:not(:focus) { visibility: hidden; }",
+                )
+            if width > 760:
+                page.locator("[data-sidebar-toggle]").click()
+                settled(page)
+                no_overflow(page)
+                form.screenshot(
+                    path=str(OUTPUT / f"center-form-{width}-collapsed.png"),
+                    animations="disabled",
+                )
+
+        page.set_viewport_size({"width": 1440, "height": 1000})
+        # Filtering a source list must preserve its selected value.
+        page.locator("#id_source_search").fill("no other choice should match")
+        pw.expect(page.locator("#id_source")).to_have_value(str(source.pk))
+        page.locator("#id_source_search").fill("")
+        page.locator("[data-inline-source-new]").click()
+        pw.expect(page.locator("[data-source-dialog]")).to_be_visible()
+        pw.expect(page.locator("[data-inline-source-form]")).to_be_visible()
+        page.locator("[data-source-close]").click()
+        pw.expect(page.locator("#id_name")).to_have_value("Synthetic center form fixture")
+
+        # Failed submission retains values and links its summary to the invalid input.
+        page.locator("#id_latitude").fill("91")
+        page.get_by_role("button", name="Save draft", exact=True).click()
+        pw.expect(page.locator(".form-error-summary")).to_be_visible()
+        pw.expect(page.locator("#id_name")).to_have_value("Synthetic center form fixture")
+        pw.expect(page.locator("#id_notes")).to_have_value("Synthetic staff notes")
+        pw.expect(page.locator("#id_latitude")).to_have_attribute("aria-invalid", "true")
+        page.locator('.form-error-summary a[href="#id_latitude"]').click()
+        pw.expect(page.locator("#id_latitude")).to_be_focused()
+
+        # Errors inside the disclosure reopen it automatically.
+        page.locator("#id_latitude").fill("0.5")
+        page.locator(".center-form__additional-actions summary").click()
+        page.locator("#id_capacity").fill("0")
+        page.get_by_role("button", name="Save draft", exact=True).click()
+        pw.expect(page.locator("#id_capacity")).to_be_visible()
+        pw.expect(page.locator("#id_capacity_error")).to_be_visible()
+        no_overflow(page)
+        page.locator(".center-form").screenshot(
+            path=str(OUTPUT / "center-form-errors.png"), animations="disabled"
+        )
+        page.locator("#id_capacity").fill("")
+        page.get_by_role("button", name="Save draft", exact=True).click()
+        pw.expect(page).to_have_url(re.compile(r"/management/evacuation-centers/\d+/(?:#.*)?$"))
+        center_id = int(urlsplit(page.url).path.rstrip("/").rsplit("/", 1)[1])
+
+        # Editing preserves the existing hidden concurrency values and save behavior.
+        page.goto(
+            live_server.url + reverse("admin_portal:evacuation-center-edit", args=[center_id])
+        )
+        assert page.locator("#id_expected_updated_at").input_value()
+        assert page.locator("#id_expected_source_updated_at").input_value()
+        page.locator("#id_name").fill("Synthetic edited form fixture")
+        page.get_by_role("button", name="Save draft", exact=True).click()
+        pw.expect(page.locator("h1")).to_have_text("Synthetic edited form fixture")
+
+        # Duplicate review remains an explicit labeled checkbox, without silent saving.
+        page.goto(url)
+        page.locator("#id_name").fill("Synthetic edited form fixture")
+        page.locator("#id_address").fill("Synthetic duplicate candidate")
+        page.locator("#id_latitude").fill("0.5")
+        page.locator("#id_longitude").fill("0.5")
+        page.get_by_role("button", name="Save draft", exact=True).click()
+        pw.expect(page.locator("#duplicate-review-heading")).to_be_visible()
+        page.locator('label[for="id_duplicate_review_confirmed"]').click()
+        pw.expect(page.locator("#id_duplicate_review_confirmed")).to_be_checked()
+
+        # Native disclosure, required controls and add-another work without JavaScript.
+        plain_context = browser.new_context(
+            java_script_enabled=False, viewport={"width": 390, "height": 844}
+        )
+        plain_context.route("https://**", lambda route: route.abort())
+        plain = plain_context.new_page()
+        login(plain, live_server.url)
+        plain.goto(url)
+        pw.expect(plain.locator("#id_source_search")).to_have_count(0)
+        pw.expect(plain.locator("#id_geographic_area_search")).to_have_count(0)
+        pw.expect(plain.locator("#id_geographic_area option").first).to_have_text(
+            "Choose available barangay"
+        )
+        plain.locator(".center-form__additional-actions summary").click()
+        pw.expect(plain.locator("#id_verified_on")).to_be_visible()
+        plain.locator("#id_name").fill("Synthetic no-script center")
+        plain.locator("#id_address").fill("Synthetic address")
+        plain.locator("#id_latitude").fill("0.6")
+        plain.locator("#id_longitude").fill("0.6")
+        plain.locator("#id_source").select_option(str(source.pk))
+        plain.locator("#id_geographic_area").select_option(str(area.pk))
+        no_overflow(plain)
+        plain.locator(".center-form").screenshot(
+            path=str(OUTPUT / "center-form-390-no-script.png"), animations="disabled"
+        )
+        plain.get_by_role("button", name="Save and add another", exact=True).click()
+        pw.expect(plain).to_have_url(url)
+        pw.expect(plain.locator("#id_name")).to_have_value("")
+        pw.expect(plain.locator("#id_source")).to_have_value(str(source.pk))
+        assert not errors, errors
+        browser.close()
+    # Inspect persistence after Playwright's event loop has stopped.
+    assert EvacuationCenter.objects.count() == 2
+    center = EvacuationCenter.objects.get(pk=center_id)
+    assert center.name == "Synthetic edited form fixture"
+    assert center.verification_status == "DRAFT" and center.capacity is None
+
+
+@pytest.mark.django_db(transaction=True)
+def test_source_form_browser(live_server, settings):
+    settings.DEBUG = True
+    settings.ENABLE_LOCAL_TESTING = True
+    get_user_model().objects.create_user(
+        email="layout-qa@example.com",
+        display_name="Isolated QA Maintainer",
+        password="Isolated-layout-QA-2026",
+        is_staff=True,
+        is_superuser=True,
+    )
+    editor = get_user_model().objects.create_user(
+        email="source-editor-qa@example.com",
+        password="Isolated-layout-QA-2026",
+        is_staff=True,
+    )
+    editor.user_permissions.set(Permission.objects.filter(
+        content_type__app_label="provenance",
+        codename__in=["add_datasource", "change_datasource", "view_datasource"],
+    ))
+    url = live_server.url + reverse("admin_portal:data-source-create")
+    OUTPUT.mkdir(parents=True, exist_ok=True)
+    values = {
+        "name": "Synthetic source form fixture—not official",
+        "organization": "Isolated synthetic QA office",
+        "custodian": "Synthetic records role",
+        "citation_url": "https://example.test/synthetic-source",
+        "coverage_description": "Synthetic QA records only",
+        "record_period_start": "2026-01-01",
+        "record_period_end": "2026-02-01",
+        "received_or_created_on": "2026-02-02",
+        "version": "QA-1",
+        "permitted_use": "Isolated QA only",
+        "limitations": "Synthetic evidence. No agency endorsement or operational use.",
+        "processing_notes": "No official dataset was processed.",
+        "notes": "Synthetic staff notes",
+    }
+
+    def fill_metadata(page):
+        for name, value in values.items():
+            page.locator(f"#id_{name}").fill(value)
+        page.locator("#id_source_type").select_option("OTHER")
+
+    with pw.sync_playwright() as p:
+        executable = os.environ.get("FLOODSENSE_QA_BROWSER")
+        browser = p.chromium.launch(**({"executable_path": executable} if executable else {}))
+        context = browser.new_context(viewport={"width": 1440, "height": 1000})
+        context.route("https://**", lambda route: route.abort())
+        page = context.new_page()
+        errors = []
+        page.on("pageerror", lambda error: errors.append(str(error)))
+        login(page, live_server.url)
+        for width in [1440, 1024, 768, 390, 320]:
+            page.set_viewport_size({"width": width, "height": 1000})
+            page.goto(url)
+            if width > 760 and "sidebar-collapsed" in page.locator("body").get_attribute("class"):
+                page.locator(".sidebar__brand-area").hover()
+                page.locator("[data-sidebar-toggle]").click()
+                settled(page)
+            form = page.locator(".source-form")
+            pw.expect(form.locator("legend")).to_have_text([
+                "Source details", "Coverage and version", "Use and limitations",
+                "Processing and notes", "Review and save",
+            ])
+            fill_metadata(page)
+            assert form.locator("textarea").count() == 5
+            for left, right in [
+                ("name", "source_type"), ("organization", "custodian"),
+                ("record_period_start", "record_period_end"),
+                ("received_or_created_on", "version"),
+            ]:
+                first = page.locator(f"#id_{left}").bounding_box()
+                second = page.locator(f"#id_{right}").bounding_box()
+                assert first["height"] == second["height"] == 46
+                assert first["y"] == second["y"] if width > 900 else first["y"] < second["y"]
+            no_overflow(page)
+            approval = page.locator(".source-form__approval")
+            assert approval.get_attribute("open") is None
+            if width in [1440, 390]:
+                form.screenshot(
+                    path=str(OUTPUT / f"source-form-{width}-expanded.png"),
+                    animations="disabled",
+                    style=".skip-link:not(:focus) { visibility: hidden; }",
+                )
+            approval.locator("summary").focus()
+            page.keyboard.press("Space")
+            pw.expect(page.locator("#id_confirm")).to_be_visible()
+            for control in form.locator("input:not([type=hidden]), select").all():
+                assert control.bounding_box()["height"] == (
+                    20 if control.get_attribute("type") == "checkbox" else 46
+                )
+            page.locator('label[for="id_confirm"]').click()
+            pw.expect(page.locator("#id_confirm")).to_be_checked()
+            page.locator("#id_confirm").uncheck()
+            page.locator('label[for="id_temporary_data"]').click()
+            pw.expect(page.locator("#id_temporary_data")).to_be_checked()
+            page.locator("#id_temporary_data").uncheck()
+            if width > 760:
+                page.locator("[data-sidebar-toggle]").click()
+                settled(page)
+                no_overflow(page)
+
+        # Inline errors retain entered data and connect the summary to invalid controls.
+        page.set_viewport_size({"width": 1440, "height": 1000})
+        page.locator("#id_record_period_end").fill("2025-12-31")
+        page.locator("#id_citation_url").fill("invalid-url")
+        page.get_by_role("button", name="Save for review", exact=True).click()
+        pw.expect(page.locator(".form-error-summary")).to_be_visible()
+        pw.expect(page.locator("#id_record_period_end")).to_have_attribute("aria-invalid", "true")
+        pw.expect(page.locator("#id_record_period_end_error")).to_be_visible()
+        pw.expect(page.locator("#id_notes")).to_have_value(values["notes"])
+        page.locator('.form-error-summary a[href="#id_record_period_end"]').click()
+        pw.expect(page.locator("#id_record_period_end")).to_be_focused()
+        ids = page.locator(".source-form [id]").evaluate_all("els => els.map(el => el.id)")
+        assert len(ids) == len(set(ids))
+
+        # Approval failures reopen the native disclosure and do not silently save.
+        page.locator("#id_record_period_end").fill(values["record_period_end"])
+        page.locator("#id_citation_url").fill(values["citation_url"])
+        page.locator(".source-form__approval summary").click()
+        page.locator('button[value="approve"]').click()
+        pw.expect(page.locator(".form-error-summary")).to_contain_text("Confirm metadata approval")
+        pw.expect(page.locator("#id_confirm")).to_be_visible()
+        page.locator("#id_confirm").check()
+        page.locator("#id_permitted_use").fill("")
+        page.locator('button[value="approve"]').click()
+        pw.expect(page.locator(".form-error-summary")).to_contain_text(
+            "Approval requires complete metadata"
+        )
+        page.locator(".source-form").screenshot(
+            path=str(OUTPUT / "source-form-approval-error.png"), animations="disabled"
+        )
+        page.locator("#id_permitted_use").fill(values["permitted_use"])
+        page.get_by_role("button", name="Save for review", exact=True).click()
+        pw.expect(page).to_have_url(re.compile(r"/management/sources-content/\d+/(?:#.*)?$"))
+        source_id = int(urlsplit(page.url).path.rstrip("/").rsplit("/", 1)[1])
+
+        # Editing retains the hidden concurrency token. Approval alone does not release.
+        page.goto(live_server.url + reverse("admin_portal:data-source-edit", args=[source_id]))
+        assert page.locator("#id_expected_updated_at").input_value()
+        pw.expect(page.locator("#id_notes")).to_have_value(values["notes"])
+        page.locator("#id_name").fill("Synthetic edited source fixture—not official")
+        page.locator(".source-form__approval summary").click()
+        page.locator("#id_confirm").check()
+        page.locator('button[value="approve"]').click()
+        pw.expect(page).to_have_url(re.compile(r"/management/sources-content/\d+/(?:#.*)?$"))
+
+        # Public release remains an explicit, separate action.
+        page.goto(url)
+        fill_metadata(page)
+        page.locator("#id_name").fill("Synthetic releasable QA source—not official")
+        page.locator(".source-form__approval summary").click()
+        page.locator("#id_confirm").check()
+        page.locator('button[value="approve-publish"]').click()
+        pw.expect(page).to_have_url(re.compile(r"/management/sources-content/\d+/$"))
+
+        # Without JavaScript, native disclosure and add-another still submit normally.
+        plain_context = browser.new_context(
+            java_script_enabled=False, viewport={"width": 390, "height": 844}
+        )
+        plain = plain_context.new_page()
+        login(plain, live_server.url)
+        plain.goto(url)
+        plain.locator(".source-form__approval summary").click()
+        pw.expect(plain.locator("#id_confirm")).to_be_visible()
+        plain.locator("#id_name").fill("Synthetic no-script source—not official")
+        plain.locator("#id_source_type").select_option("OTHER")
+        no_overflow(plain)
+        plain.get_by_role("button", name="Save and add another", exact=True).click()
+        pw.expect(plain).to_have_url(url)
+        pw.expect(plain.locator("#id_name")).to_have_value("")
+
+        # An ordinary metadata editor sees routine saves, without empty approval controls.
+        limited = browser.new_context(viewport={"width": 390, "height": 844}).new_page()
+        login(limited, live_server.url, email="source-editor-qa@example.com")
+        limited.goto(url)
+        pw.expect(limited.locator(".source-form__approval")).to_have_count(0)
+        pw.expect(limited.locator("#id_confirm")).to_have_count(0)
+        pw.expect(limited.get_by_role("button", name="Save for review", exact=True)).to_be_visible()
+        no_overflow(limited)
+        assert not errors, errors
+        browser.close()
+    assert DataSource.objects.count() == 3
+    source = DataSource.objects.get(pk=source_id)
+    assert source.name == "Synthetic edited source fixture—not official"
+    assert source.status == "APPROVED" and not source.is_publicly_releasable
+    released = DataSource.objects.get(name="Synthetic releasable QA source—not official")
+    assert released.status == "APPROVED" and released.is_publicly_releasable
+    draft = DataSource.objects.get(name="Synthetic no-script source—not official")
+    assert draft.status == "PENDING_VALIDATION" and not draft.is_publicly_releasable

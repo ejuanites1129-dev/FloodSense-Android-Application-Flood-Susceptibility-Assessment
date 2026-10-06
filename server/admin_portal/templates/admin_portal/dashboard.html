@@ -1,99 +1,121 @@
 {% extends "admin_portal/base.html" %}
-
+{% load static portal_icons %}
 {% block title %}Overview | FloodSense Admin{% endblock %}
-
+{% block extra_css %}<link rel="stylesheet" href="{% static 'admin_portal/css/overview.css' %}?v=overview-20261006-1">{% endblock %}
 {% block content %}
-  <div class="dashboard">
-    <section class="page-heading">
+<div class="dashboard overview">
+  <section class="page-heading">
+    <div>
+      <p class="eyebrow">Operations overview</p>
+      <h1>Good day, {{ display_name }}.</h1>
+      <p>Availability and next steps from the current local database. Local records differ between teammates.</p>
+    </div>
+    <a class="button button--secondary" href="{% url 'admin_portal:reports' %}">Detailed reports</a>
+  </section>
+
+  <section class="overview-context" aria-label="Snapshot context">
+    <form method="get" class="overview-mode">
       <div>
-        <p class="eyebrow">Operations overview</p>
-        <h1>Good day, {{ display_name }}.</h1>
-        <p>A read-only summary of the current local database. Local records differ between teammates.</p>
+        <label for="snapshot-mode">Scenario and DSS snapshot mode</label>
+        <select id="snapshot-mode" name="mode">
+          <option value="OFFICIAL"{% if dashboard.mode == 'OFFICIAL' %} selected{% endif %}>Approved-source mode</option>
+          <option value="DEMONSTRATION"{% if dashboard.mode == 'DEMONSTRATION' %} selected{% endif %}>Demonstration only</option>
+        </select>
       </div>
-      <span class="status-pill status-pill--development">Database-backed · Read-only</span>
+      <button class="button button--secondary" type="submit">Update snapshot</button>
+    </form>
+    <p>Generated <time datetime="{{ dashboard.generated_at|date:'c' }}">{{ dashboard.generated_at|date:"j M Y, g:i a T" }}</time><br>Refresh on navigation or manual reload.</p>
+  </section>
+
+  <section class="notice notice--warning portal-notice" aria-label="Data safety notice">
+    <strong>{% if dashboard.mode == 'DEMONSTRATION' %}Demonstration data—not official{% else %}Recorded availability, with existing eligibility checks{% endif %}</strong>
+    <p>{% if dashboard.mode == 'DEMONSTRATION' %}Scenario and DSS counts use fictional demonstration content. {% endif %}Boundary coverage does not establish flood susceptibility. Centers use normal resident-display checks and exclude temporary tests. These are not official citywide statistics or live conditions.</p>
+  </section>
+
+  <section class="overview-cards" aria-label="Module availability">
+    {% for card in dashboard.cards %}
+      <article class="metric-card overview-card" data-overview-card="{{ card.key }}" aria-labelledby="overview-{{ card.key }}">
+        <div class="overview-card__heading">{% portal_icon card.icon %}<h2 id="overview-{{ card.key }}">{{ card.title }}</h2></div>
+        {% if card.allowed %}
+          <p class="overview-card__metric">{{ card.metric }}</p>
+          <p class="overview-card__metric-label">{{ card.metric_label }}</p>
+          {% for line in card.lines %}<p class="overview-card__context">{{ line }}</p>{% endfor %}
+          {% if card.prepare %}
+            <div class="overview-prepare">
+              {% if card.prepare.available %}
+                <p><strong>Prepare flow available</strong> · v{{ card.prepare.version }}</p>
+                <p>Applies to {{ card.prepare.levels|join:", " }} in {{ dashboard.mode_label|lower }}.</p>
+                <a href="{{ card.prepare.link.url }}">{{ card.prepare.link.text }}</a>
+              {% else %}
+                <p><strong>Prepare flow unavailable</strong></p>
+                <p>{{ card.prepare.reason }}</p>
+              {% endif %}
+            </div>
+          {% endif %}
+          <p class="overview-card__note">{{ card.note }}</p>
+          <div class="overview-card__links">{% for link in card.links %}<a href="{{ link.url }}">{{ link.text }}</a>{% endfor %}</div>
+        {% else %}
+          <p class="overview-card__restricted">Access restricted</p>
+          <p class="overview-card__note">Your account does not have permission to view this module's information.</p>
+        {% endif %}
+      </article>
+    {% endfor %}
+  </section>
+
+  {% if dashboard.configuration %}
+    <section class="panel overview-configuration" aria-labelledby="configuration-heading">
+      <h2 id="configuration-heading">Configuration availability</h2>
+      <ul>
+        {% for item in dashboard.configuration %}
+          <li><div><h3>{{ item.label }}</h3><p>{{ item.reason }}</p></div>{% if item.url %}<a href="{{ item.url }}">{{ item.text }}</a>{% endif %}</li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+
+  <div class="overview-lower{% if not dashboard.show_activity and not dashboard.quick_actions %} overview-lower--single{% endif %}">
+    <section class="panel overview-attention" aria-labelledby="attention-heading">
+      <h2 id="attention-heading">Needs attention</h2>
+      <p class="overview-help">Up to five priority items for modules you can view. Workflow queues cover all modes; availability problems use the selected mode. Drafts and deliberate restrictions are not errors.</p>
+      <ul class="overview-attention__list">
+        {% for item in dashboard.attention %}
+          <li>
+            <div class="overview-attention__meta"><span class="overview-tag{% if item.kind == 'Availability problem' %} overview-tag--problem{% endif %}">{{ item.kind }}</span>{% if item.count %}<span>{{ item.count }} {{ item.unit|default:"record" }}{{ item.count|pluralize }}</span>{% endif %}</div>
+            <h3>{{ item.label }}</h3>
+            <p>{{ item.reason }}</p>
+            <a href="{{ item.url }}">{{ item.text }}</a>
+          </li>
+        {% empty %}
+          <li class="overview-empty">No priority review queues or published Prepare problems were found in modules you can view. Availability is described in the cards above.</li>
+        {% endfor %}
+      </ul>
     </section>
 
-    <section class="notice notice--warning portal-notice" aria-label="Data safety notice">
-      <strong>Local records, with their recorded status</strong>
-      <p>These counts are not official citywide or national statistics. Demonstration data are not official Bacoor flood information. Enabled does not mean approved, and approval alone does not establish public availability.</p>
-    </section>
-
-    <section class="metric-grid dashboard-metrics" aria-label="Database record summaries">
-      <article class="metric-card" aria-labelledby="geographic-heading">
-        <h2 class="metric-card__label" id="geographic-heading">Geographic areas</h2>
-        <p class="dashboard-total"><span>{{ dashboard.geographic_areas.total }}</span> total records</p>
-        <p class="dashboard-secondary">{{ dashboard.geographic_areas.enabled }} enabled</p>
-        {% include "admin_portal/publication_breakdown.html" with summary=dashboard.geographic_areas only %}
-        {% if not dashboard.geographic_areas.status_counts.APPROVED %}
-          <p class="dashboard-empty">No geographic records are currently approved.</p>
+    {% if dashboard.show_activity or dashboard.quick_actions %}
+      <aside class="overview-secondary" aria-label="Administrative shortcuts and recorded changes">
+        {% if dashboard.quick_actions %}
+          <section class="panel" aria-labelledby="quick-actions-heading">
+            <h2 id="quick-actions-heading">Quick actions</h2>
+            <p class="overview-help">Start a draft or staged import. Review and confirmation remain in their existing workflows.</p>
+            <div class="overview-actions">{% for action in dashboard.quick_actions %}<a class="button button--secondary" href="{{ action.url }}">{{ action.text }}</a>{% endfor %}</div>
+          </section>
         {% endif %}
-        <details class="dashboard-details">
-          <summary>Area types</summary>
-          <dl class="dashboard-counts">
-            {% for area_type in dashboard.geographic_areas.area_types %}
-              <div><dt>{{ area_type.label }}</dt><dd>{{ area_type.count }}</dd></div>
-            {% endfor %}
-          </dl>
-        </details>
-        <p class="dashboard-note">Barangay boundaries identify administrative areas; they do not assign susceptibility.</p>
-      </article>
-
-      <article class="metric-card" aria-labelledby="sources-heading">
-        <h2 class="metric-card__label" id="sources-heading">Data sources</h2>
-        <p class="dashboard-total"><span>{{ dashboard.data_sources.total }}</span> total sources</p>
-        <p class="dashboard-secondary">{{ dashboard.data_sources.approved_public }} approved and publicly releasable</p>
-        {% include "admin_portal/publication_breakdown.html" with summary=dashboard.data_sources only %}
-        {% if not dashboard.data_sources.approved_public %}
-          <p class="dashboard-empty">No approved public data sources are available.</p>
+        {% if dashboard.show_activity %}
+          <section class="panel overview-activity" aria-labelledby="activity-heading">
+            <h2 id="activity-heading">Recent administrative changes</h2>
+            <p class="overview-help">Recorded maintenance events in modules you can view; not a complete audit history.</p>
+            <ol>
+              {% for event in dashboard.recent_activity %}
+                <li><p><strong>{{ event.action }} · {{ event.module }}</strong></p><p>{{ event.actor }}</p><time datetime="{{ event.timestamp|date:'c' }}">{{ event.timestamp|date:"j M, g:i a T" }}</time></li>
+              {% empty %}
+                <li>No recorded changes are available for your permitted modules.</li>
+              {% endfor %}
+            </ol>
+            <a href="{% url 'admin_portal:audit-history' %}">View audit history</a>
+          </section>
         {% endif %}
-        <p class="dashboard-note">Public release requires both approval and permission to release the source.</p>
-      </article>
-
-      <article class="metric-card" aria-labelledby="guidance-heading">
-        <h2 class="metric-card__label" id="guidance-heading">DSS guidance</h2>
-        <p class="dashboard-total"><span>{{ dashboard.guidance_items.total }}</span> total items</p>
-        <p class="dashboard-secondary">{{ dashboard.guidance_items.enabled }} enabled</p>
-        {% include "admin_portal/publication_breakdown.html" with summary=dashboard.guidance_items only %}
-        {% if not dashboard.guidance_items.status_counts.APPROVED %}
-          <p class="dashboard-empty">No approved preparedness guidance is available.</p>
-        {% endif %}
-        <p class="dashboard-note">Preparedness content is separate from susceptibility classification.</p>
-      </article>
-
-      <article class="metric-card" aria-labelledby="scenarios-heading">
-        <h2 class="metric-card__label" id="scenarios-heading">Scenario options</h2>
-        <p class="dashboard-total"><span>{{ dashboard.scenario_options.total }}</span> total options</p>
-        <p class="dashboard-secondary">{{ dashboard.scenario_options.enabled }} enabled</p>
-        {% include "admin_portal/publication_breakdown.html" with summary=dashboard.scenario_options only %}
-        {% if not dashboard.scenario_options.status_counts.APPROVED %}
-          <p class="dashboard-empty">No approved scenario options are available.</p>
-        {% endif %}
-        <dl class="dashboard-counts dashboard-categories">
-          <div><dt>Enabled rainfall intensity</dt><dd>{{ dashboard.scenario_options.enabled_intensity }}</dd></div>
-          <div><dt>Enabled rainfall duration</dt><dd>{{ dashboard.scenario_options.enabled_duration }}</dd></div>
-        </dl>
-        <p class="dashboard-note">Stored hypothetical inputs, not current rainfall observations.</p>
-      </article>
-
-      <article class="metric-card" aria-labelledby="centers-heading">
-        <h2 class="metric-card__label" id="centers-heading">Evacuation centers</h2>
-        <p class="dashboard-total"><span>{{ dashboard.evacuation_centers.total }}</span> total records</p>
-        <p class="dashboard-secondary">{{ dashboard.evacuation_centers.verification_counts.VERIFIED }} verified</p>
-        {% include "admin_portal/publication_breakdown.html" with summary=dashboard.evacuation_centers only %}
-        {% if not dashboard.evacuation_centers.verification_counts.VERIFIED %}
-          <p class="dashboard-empty">No evacuation-center records are currently verified.</p>
-        {% endif %}
-        <details class="dashboard-details">
-          <summary>Verification states</summary>
-          <dl class="dashboard-counts">
-            {% for verification in dashboard.evacuation_centers.verifications %}
-              <div><dt>{{ verification.label }}</dt><dd>{{ verification.count }}</dd></div>
-            {% endfor %}
-          </dl>
-        </details>
-        <p class="dashboard-note">Verification and publication are separate; this summary does not establish resident-facing eligibility.</p>
-      </article>
-
-    </section>
+      </aside>
+    {% endif %}
   </div>
+</div>
 {% endblock %}

@@ -348,7 +348,22 @@ class MapDataTests(TestCase):
         self.assertContains(response, escape(attack))
         self.assertNotContains(response, attack)
         html = DashboardHTML(response)
-        self.assertFalse(html.select("img"))
+        # Only the trusted sidebar images may exist; record content stays text.
+        from django.templatetags.static import static
+
+        from .templatetags.portal_icons import PORTAL_ICONS
+
+        approved_images = {
+            static(f"admin_portal/icons/lucide/{icon}.svg")
+            for icon in PORTAL_ICONS.values()
+        }
+        for image in html.select("img"):
+            self.assertIn(image["attrs"].get("src"), approved_images)
+            self.assertFalse(any(key.startswith("on") for key in image["attrs"]))
+            self.assertTrue(any(
+                ancestor["attrs"].get("id") == "portal-sidebar"
+                for ancestor in image["ancestors"]
+            ))
         script = html.select("script", id="map-data-payload", type="application/json")[0]
         payload = json.loads("".join(script["text"]))
         self.assertEqual(payload["records"][0]["name"], attack)
