@@ -18,7 +18,7 @@ the old separate center-preview launcher is not needed.
 | PostgreSQL with PostGIS | Stores application records and geographic data | Windows service, normally on port `5432` |
 | Django | Serves the API, custom Admin portal, and technical Django Admin | One terminal running `runserver`, on port `8000` |
 | Android emulator or USB phone | Runs the Android application | Android SDK emulator or connected device |
-| Flutter | Builds the app and keeps its debug session connected | A separate terminal running `flutter run` |
+| Flutter | Builds the app and keeps its debug session connected | A separate terminal running `scripts/run_android_local.ps1` for Android Mapbox |
 | Flutter browser preview (optional) | Runs the resident interface in Chrome | Another Flutter session on port `3000` |
 
 The custom Admin panel does **not** need a separate frontend server. PostGIS is a database extension, not a separate service. Android Studio supplies the SDK and emulator tools; its editor does not have to stay open. pgAdmin, Docker, Node.js, and a background worker are not required for this local workflow.
@@ -347,7 +347,7 @@ The client uses `http://127.0.0.1:8000/api/v1`. Keep port `3000` so the browser 
 
 With the default console email backend, verification/reset emails appear in the **Backend terminal**, not in an actual mailbox. Treat those links as private. For phone-based email-link testing, see [resident authentication setup](docs/RESIDENT_AUTH_ONBOARDING_AND_DSS_SETUP.md).
 
-The standard map uses OpenStreetMap; internet access is needed for basemap tiles. Mapbox, Google OAuth, and the provisional MGB consultation preview are optional, separately configured features. Follow the [map presentation guide](docs/MAP_PRESENTATION_PROVIDER_GUIDE.md) or [barangay preview handoff](docs/TEAM_HANDOFF_BARANGAY_PREVIEW_AND_PREPARE.md) when those features are specifically being tested. A code pull does not transfer restricted datasets or another developer's configured records.
+The native Android workflow is Mapbox-first when a restricted public `pk.` token is configured and the app is launched with `scripts/run_android_local.ps1`. OSM remains the safe fallback when the token is absent, the platform is unsupported, or Mapbox cannot initialize. Internet access is needed for either basemap. Follow the [map presentation guide](docs/MAP_PRESENTATION_PROVIDER_GUIDE.md) or [barangay preview handoff](docs/TEAM_HANDOFF_BARANGAY_PREVIEW_AND_PREPARE.md) for their specific checks. A code pull does not transfer tokens, restricted datasets, or another developer's configured records.
 
 ## 8. Shut down safely, in this order
 

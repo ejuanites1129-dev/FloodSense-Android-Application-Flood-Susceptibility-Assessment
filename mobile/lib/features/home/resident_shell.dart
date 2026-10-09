@@ -17,7 +17,7 @@ import '../auth/session_controller.dart';
 import '../auth/setup_screens.dart';
 import '../dss/dss_controller.dart';
 import '../dss/dss_assessment_context.dart';
-import '../dss/dss_flow_view.dart';
+import '../dss/preparedness_dashboard.dart';
 import '../evacuation/nearest_center_controller.dart';
 import '../evacuation/evacuation_map_controller.dart';
 import '../evacuation/evacuation_map_status.dart';
@@ -170,7 +170,7 @@ class _ResidentShellState extends State<ResidentShell> {
     final selected = _assessment.selectedArea;
     return switch (_index) {
       1 => 0.52,
-      2 => 0.58,
+      2 => 0.84,
       _ when result != null => 0.55,
       _ when selected != null => 0.3,
       _ => 0.16,
@@ -778,44 +778,57 @@ class _ResidentShellState extends State<ResidentShell> {
             label: const Text('Start an Assessment'),
           ),
           const SizedBox(height: 14),
-          if (_centers case final centers?)
-            NearestCentersSection(controller: centers),
-          if (_mapCenters case final catalog?)
-            EvacuationMapStatus(
-              controller: catalog,
-              nearestController: _centers,
-            ),
+          _prepareResources(),
         ],
       );
     }
-    return DssFlowView(
+    return PreparednessDashboard(
       controller: _dss,
       assessmentContext: DssAssessmentContext.fromAssessment(
         result,
         intensities: _assessment.intensities,
         durations: _assessment.durations,
       ),
+      guidance: result.guidance,
       scrollController: scrollController,
       onContentHeightChanged: _onSheetContentHeightChanged,
       padding: const EdgeInsets.fromLTRB(18, 0, 18, 28),
-      header: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'Preparedness',
-            style: Theme.of(context).textTheme.headlineSmall,
-          ),
-          const SizedBox(height: 12),
-          if (_centers case final centers?)
-            NearestCentersSection(controller: centers),
-          if (_mapCenters case final catalog?)
-            EvacuationMapStatus(
-              controller: catalog,
-              nearestController: _centers,
-            ),
-        ],
-      ),
+      resources: _prepareResources(),
     );
+  }
+
+  Widget _prepareResources() {
+    if (_centers case final centers?) {
+      return AnimatedBuilder(
+        animation: Listenable.merge([centers, ?_mapCenters]),
+        builder: (context, _) => NearestCentersSection(
+          controller: centers,
+          compact: true,
+          onRefreshFallback:
+              _mapCenters?.origin != null && !_mapCenters!.isLoading
+              ? () => _mapCenters!.load(refresh: true)
+              : null,
+          footer: _mapCenters == null
+              ? null
+              : EvacuationMapStatus(
+                  controller: _mapCenters!,
+                  nearestController: centers,
+                  showRefresh: false,
+                ),
+        ),
+      );
+    }
+    if (_mapCenters case final catalog?) {
+      return ExpansionTile(
+        key: const Key('prepare-map-centers'),
+        title: const Text('Nearby centers'),
+        subtitle: const Text(
+          'Information only—not safety or availability advice.',
+        ),
+        children: [EvacuationMapStatus(controller: catalog)],
+      );
+    }
+    return const SizedBox.shrink();
   }
 }
 

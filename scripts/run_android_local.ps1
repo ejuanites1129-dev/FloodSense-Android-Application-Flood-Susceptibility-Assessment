@@ -29,8 +29,17 @@ try {
     )
     if ($LASTEXITCODE -ne 0) { throw 'Could not inspect Android devices.' }
     $floodSenseWirelessIds = @($floodSenseConnectedIds | Where-Object { $_ -match '\._adb-tls-connect\._tcp$' })
+    $floodSenseUsbIds = @(
+        $floodSenseConnectedIds | Where-Object {
+            $_ -notmatch '\._adb-tls-connect\._tcp$' -and
+            $_ -notmatch '^emulator-' -and
+            $_ -notmatch '^\d{1,3}(\.\d{1,3}){3}:'
+        }
+    )
     if (-not $DeviceId) {
-        if ($floodSenseWirelessIds.Count -eq 1) {
+        if ($floodSenseUsbIds.Count -eq 1) {
+            $DeviceId = $floodSenseUsbIds[0]
+        } elseif ($floodSenseWirelessIds.Count -eq 1) {
             $DeviceId = $floodSenseWirelessIds[0]
         } elseif ($floodSenseConnectedIds.Count -eq 1) {
             $DeviceId = $floodSenseConnectedIds[0]
@@ -43,6 +52,7 @@ try {
     }
     Write-Output "Selected Android device: $DeviceId"
     Write-Output "Normal application endpoint; local temporary-data mode: $($floodSenseConfig.testing)."
+    Write-Output 'Map renderer: Mapbox (OSM remains the failure fallback).'
     Write-Output 'Mapbox public token is configured. Restart Django after changing its settings.'
     if ($ValidateOnly) {
         Write-Output 'Validation only: no forwarding, build, installation or launch performed.'

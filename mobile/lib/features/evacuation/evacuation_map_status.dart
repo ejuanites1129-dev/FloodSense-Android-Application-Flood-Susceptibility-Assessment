@@ -9,10 +9,12 @@ class EvacuationMapStatus extends StatelessWidget {
   const EvacuationMapStatus({
     required this.controller,
     this.nearestController,
+    this.showRefresh = true,
     super.key,
   });
   final EvacuationMapController controller;
   final NearestCenterController? nearestController;
+  final bool showRefresh;
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
@@ -36,7 +38,7 @@ class EvacuationMapStatus extends StatelessWidget {
                     : warning,
                 style: Theme.of(context).textTheme.bodySmall,
               ),
-          if (!controller.isLoading)
+          if (showRefresh && !controller.isLoading)
             TextButton.icon(
               key: const Key('refresh-evacuation-map'),
               onPressed: controller.origin == null

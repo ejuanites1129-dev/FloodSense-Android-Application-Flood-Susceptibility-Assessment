@@ -5,7 +5,7 @@ import '../../data/api/floodsense_api_client.dart';
 import '../../data/dss/structured_dss_repository.dart';
 import '../dss/dss_controller.dart';
 import '../dss/dss_assessment_context.dart';
-import '../dss/dss_flow_view.dart';
+import '../dss/preparedness_dashboard.dart';
 import '../evacuation/nearest_center_controller.dart';
 import '../evacuation/nearest_center_provider.dart';
 import '../evacuation/nearest_centers_section.dart';
@@ -407,26 +407,17 @@ class _MultiStepAssessmentScreenState extends State<MultiStepAssessmentScreen> {
         ),
       ]);
     }
-    return Column(
-      children: [
-        Expanded(
-          child: DssFlowView(
-            controller: _dss,
-            assessmentContext: DssAssessmentContext.fromAssessment(
-              result,
-              intensities: _assessment.intensities,
-              durations: _assessment.durations,
-            ),
-          ),
-        ),
-        if (_centers case final centers?)
-          Flexible(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: NearestCentersSection(controller: centers),
-            ),
-          ),
-      ],
+    return PreparednessDashboard(
+      controller: _dss,
+      assessmentContext: DssAssessmentContext.fromAssessment(
+        result,
+        intensities: _assessment.intensities,
+        durations: _assessment.durations,
+      ),
+      guidance: result.guidance,
+      resources: _centers == null
+          ? null
+          : NearestCentersSection(controller: _centers!, compact: true),
     );
   }
 }

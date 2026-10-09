@@ -19,6 +19,7 @@ class DssFlowView extends StatefulWidget {
     this.header,
     this.footer,
     this.onContentHeightChanged,
+    this.householdOnly = false,
     super.key,
   });
   final DssController controller;
@@ -28,6 +29,9 @@ class DssFlowView extends StatefulWidget {
   final Widget? header;
   final Widget? footer;
   final ValueChanged<double>? onContentHeightChanged;
+
+  /// The optional household check has its own focused reading view.
+  final bool householdOnly;
   @override
   State<DssFlowView> createState() => _DssFlowViewState();
 }
@@ -62,6 +66,9 @@ class _DssFlowViewState extends State<DssFlowView> {
     animation: widget.controller,
     builder: (context, _) {
       final step = widget.controller.current;
+      if (widget.householdOnly && step != null) {
+        return _focusedHouseholdCheck(step);
+      }
       final children = <Widget>[
         ?widget.header,
         _ScenarioContextCard(assessment: widget.assessmentContext),
@@ -155,6 +162,99 @@ class _DssFlowViewState extends State<DssFlowView> {
       );
     },
   );
+
+  Widget _focusedHouseholdCheck(DssStep step) {
+    final children = <Widget>[
+      Text(
+        'Household support check',
+        style: Theme.of(context).textTheme.headlineSmall,
+      ),
+      const SizedBox(height: 6),
+      Text(
+        '${widget.assessmentContext.areaName} • '
+        '${widget.assessmentContext.susceptibilityLabel} scenario',
+      ),
+      Text('Guidance: ${_statusLabel(step.dataStatus)}'),
+      const SizedBox(height: 8),
+      const Text(
+        'Optional. Answers stay in memory and do not change susceptibility. '
+        'This is not a live warning or evacuation order.',
+      ),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          key: const Key('dss-close-household'),
+          onPressed: () {
+            widget.controller.closeHouseholdCheck();
+            _showQuestionTop();
+          },
+          icon: const Icon(Icons.close),
+          label: const Text('Close household check'),
+        ),
+      ),
+      const SizedBox(height: 12),
+      LinearProgressIndicator(
+        value: step.isOutcome
+            ? 1
+            : (step.position / step.total.clamp(1, 1000)).clamp(0, 1),
+        semanticsLabel: 'Decision support progress',
+      ),
+      const SizedBox(height: 16),
+      if (step.question case final question?) ..._question(question),
+      if (step.outcome case final outcome?) ..._outcome(step, outcome),
+      if (!step.isOutcome)
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+            key: const Key('dss-reset-answers'),
+            onPressed: widget.controller.busy ? null : _resetAnswers,
+            child: const Text('Reset answers'),
+          ),
+        ),
+      ExpansionTile(
+        key: const Key('dss-household-details'),
+        title: const Text('Sources and limitations'),
+        children: [
+          const Text(dssScenarioDisclaimer),
+          if (step.warning.isNotEmpty && step.warning != dssScenarioDisclaimer)
+            _Notice(step.warning),
+          ..._sources(step).skip(3),
+        ],
+      ),
+    ];
+    if (widget.onContentHeightChanged case final onHeightChanged?) {
+      return MeasuredScrollView(
+        key: const Key('dss-flow-view'),
+        controller: widget.scrollController,
+        padding: widget.padding,
+        onHeightChanged: onHeightChanged,
+        children: children,
+      );
+    }
+    return SingleChildScrollView(
+      key: const Key('dss-flow-view'),
+      controller: widget.scrollController,
+      padding: widget.padding,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: children,
+      ),
+    );
+  }
+
+  void _showQuestionTop() {
+    if (!widget.householdOnly) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && widget.scrollController?.hasClients == true) {
+        widget.scrollController!.jumpTo(0);
+      }
+    });
+  }
+
+  Future<void> _resetAnswers() async {
+    await widget.controller.restart();
+    _showQuestionTop();
+  }
 
   List<Widget> _question(DssQuestion question) => [
     Text(question.prompt, style: Theme.of(context).textTheme.titleLarge),
@@ -258,39 +358,57 @@ class _DssFlowViewState extends State<DssFlowView> {
     _navigation(isOutcome: true),
   ];
 
-  Widget _navigation({required bool isOutcome}) => IntrinsicHeight(
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Expanded(
-          child: OutlinedButton(
-            onPressed: widget.controller.canGoBack && !widget.controller.busy
-                ? widget.controller.goBack
-                : null,
-            child: const Text('Back'),
-          ),
+  Widget _navigation({required bool isOutcome}) => LayoutBuilder(
+    builder: (context, constraints) {
+      final back = OutlinedButton(
+        onPressed: widget.controller.canGoBack && !widget.controller.busy
+            ? () {
+                widget.controller.goBack();
+                _showQuestionTop();
+              }
+            : null,
+        child: const Text('Back'),
+      );
+      final next = FilledButton(
+        onPressed: widget.controller.busy
+            ? null
+            : isOutcome
+            ? _resetAnswers
+            : widget.controller.selectedOptionCode == null
+            ? null
+            : () async {
+                await widget.controller.continueFlow();
+                if (widget.controller.error == null) _showQuestionTop();
+              },
+        child: Text(
+          widget.controller.busy
+              ? 'Loading…'
+              : isOutcome
+              ? (widget.householdOnly ? 'Reset answers' : 'Restart')
+              : 'Continue',
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: FilledButton(
-            onPressed: widget.controller.busy
-                ? null
-                : isOutcome
-                ? widget.controller.restart
-                : widget.controller.selectedOptionCode == null
-                ? null
-                : widget.controller.continueFlow,
-            child: Text(
-              widget.controller.busy
-                  ? 'Loading…'
-                  : isOutcome
-                  ? 'Restart'
-                  : 'Continue',
-            ),
-          ),
+      );
+      if (widget.householdOnly && !widget.controller.canGoBack) {
+        return SizedBox(width: double.infinity, child: next);
+      }
+      if (constraints.maxWidth < 360 &&
+          MediaQuery.textScalerOf(context).scale(16) > 22) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [back, const SizedBox(height: 8), next],
+        );
+      }
+      return IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(child: back),
+            const SizedBox(width: 12),
+            Expanded(child: next),
+          ],
         ),
-      ],
-    ),
+      );
+    },
   );
 
   List<Widget> _contentSections(DssStep step) {
@@ -316,7 +434,7 @@ class _DssFlowViewState extends State<DssFlowView> {
         if (note != null) Text(note),
         const SizedBox(height: 8),
         for (var i = 0; i < blocks.length; i++)
-          _ContentCard(block: blocks[i], ordinal: checklist ? i + 1 : null),
+          DssContentCard(block: blocks[i], ordinal: checklist ? i + 1 : null),
       ]);
     }
 
@@ -359,7 +477,7 @@ class _DssFlowViewState extends State<DssFlowView> {
             'FloodSense does not monitor these sources live.',
           ),
           children: [
-            for (final block in monitoring) _ContentCard(block: block),
+            for (final block in monitoring) DssContentCard(block: block),
           ],
         ),
       );
@@ -374,7 +492,7 @@ class _DssFlowViewState extends State<DssFlowView> {
       style: Theme.of(context).textTheme.titleLarge,
     ),
     const SizedBox(height: 8),
-    _Provenance(
+    DssProvenance(
       source: step.source,
       sourceLocator: step.sourceLocator,
       attribution: step.attribution,
@@ -393,7 +511,7 @@ class _DssFlowViewState extends State<DssFlowView> {
           key: const Key('dss-outcome-source'),
           tilePadding: EdgeInsets.zero,
           title: Text('Outcome source for ${outcome.title}'),
-          children: [_Provenance(source: outcome.sourceDetails)],
+          children: [DssProvenance(source: outcome.sourceDetails)],
         ),
       for (final item in outcome.guidance)
         if (item.source.name.isNotEmpty || item.attribution.isNotEmpty)
@@ -401,7 +519,7 @@ class _DssFlowViewState extends State<DssFlowView> {
             tilePadding: EdgeInsets.zero,
             title: Text('Linked guidance source for ${item.title}'),
             children: [
-              _Provenance(source: item.source, attribution: item.attribution),
+              DssProvenance(source: item.source, attribution: item.attribution),
             ],
           ),
     ],
@@ -410,7 +528,7 @@ class _DssFlowViewState extends State<DssFlowView> {
         tilePadding: EdgeInsets.zero,
         title: Text('Source for ${block.title}'),
         children: [
-          _Provenance(
+          DssProvenance(
             source: block.source,
             sourceLocator: block.sourceLocator,
             attribution: block.attribution,
@@ -481,10 +599,16 @@ class _Notice extends StatelessWidget {
   );
 }
 
-class _ContentCard extends StatelessWidget {
-  const _ContentCard({required this.block, this.ordinal});
+class DssContentCard extends StatelessWidget {
+  const DssContentCard({
+    required this.block,
+    this.ordinal,
+    this.showProvenance = false,
+    super.key,
+  });
   final DssContentBlock block;
   final int? ordinal;
+  final bool showProvenance;
   @override
   Widget build(BuildContext context) => Card(
     child: Padding(
@@ -519,6 +643,22 @@ class _ContentCard extends StatelessWidget {
                     : 'Verified public source address',
               ),
             ),
+          if (showProvenance)
+            ExpansionTile(
+              title: const Text('Full source details'),
+              tilePadding: EdgeInsets.zero,
+              children: [
+                DssProvenance(
+                  source: block.source,
+                  sourceLocator: block.sourceLocator,
+                  attribution: block.attribution,
+                  limitations: block.limitations,
+                  effectiveDate: block.effectiveDate,
+                  reviewedOn: block.reviewedOn,
+                  expiresOn: block.expiresOn,
+                ),
+              ],
+            ),
         ],
       ),
     ),
@@ -547,8 +687,8 @@ class _ContentCard extends StatelessWidget {
   );
 }
 
-class _Provenance extends StatelessWidget {
-  const _Provenance({
+class DssProvenance extends StatelessWidget {
+  const DssProvenance({
     required this.source,
     this.sourceLocator = '',
     this.attribution = '',
@@ -556,6 +696,7 @@ class _Provenance extends StatelessWidget {
     this.effectiveDate = '',
     this.reviewedOn = '',
     this.expiresOn = '',
+    super.key,
   });
   final DssSource source;
   final String sourceLocator;

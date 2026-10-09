@@ -616,7 +616,7 @@ DJANGO_SECRET_KEY=replace-with-a-long-random-value
 DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,10.0.2.2
 FLOODSENSE_GIS_ENABLED=true
 FLOODSENSE_ENABLE_PROVISIONAL_MGB_PREVIEW=false
-FLOODSENSE_MAP_PROVIDER=auto
+FLOODSENSE_MAP_PROVIDER=mapbox
 MAPBOX_ACCESS_TOKEN=
 FLOODSENSE_MAP_3D=false
 DATABASE_NAME=floodsense
@@ -638,9 +638,9 @@ Important rules:
 - Keep `FLOODSENSE_ENABLE_PROVISIONAL_MGB_PREVIEW=false` for ordinary setup. The
   provisional MGB data README documents the explicit local consultation-only
   workflow; enabling it does not approve or publish that source.
-- Leave `MAPBOX_ACCESS_TOKEN` blank for the standard OSM map. If the optional
-  Mapbox Admin presentation is rehearsed, use only a restricted public `pk.`
-  browser token in the private `server/.env`; never use an `sk.` token. See
+- Mapbox is the default presentation. Add only a restricted public `pk.` token
+  to the private `server/.env`; never use an `sk.` token. Leaving it blank uses
+  the safe OSM fallback. See
   `MAP_PRESENTATION_PROVIDER_GUIDE.md`.
 
 Generate a local Django secret key with:
@@ -875,11 +875,17 @@ This is a development APK, not a signed production release.
 
 ### Run the app with live debugging
 
-Make sure `FloodSense_API_36` has finished booting, then run:
+For the normal Android Mapbox workflow, return to the repository root and run:
 
 ```powershell
-flutter run
+Set-Location ..
+.\scripts\run_android_local.ps1
 ```
+
+The launcher reads only the public Mapbox token needed by Flutter from the
+private Django configuration and prefers one connected USB phone over a stale
+wireless-debugging connection. A bare `flutter run` does not inherit that token
+and therefore uses the safe OSM fallback.
 
 Leave this terminal open while developing. Interactive keys include:
 
@@ -1001,11 +1007,11 @@ that another researcher did not authorize for sharing.
    server\.venv\Scripts\python.exe server\manage.py runserver 0.0.0.0:8000
    ```
 
-5. In VS Code terminal 2, start Flutter:
+5. In VS Code terminal 2, start the Android Mapbox workflow from the repository
+   root:
 
    ```powershell
-   Set-Location mobile
-   flutter run
+   .\scripts\run_android_local.ps1
    ```
 
 6. Keep both terminals open while testing app-to-server behavior.

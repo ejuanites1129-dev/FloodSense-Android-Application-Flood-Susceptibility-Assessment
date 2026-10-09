@@ -316,14 +316,15 @@ void main() {
       await tester.tap(preparedness);
       await tester.pumpAndSettle();
       expect(find.text('FloodSense'), findsOneWidget);
-      final validationStatus = find.text(
-        'Guidance data status: Demonstration — pending expert validation',
-      );
-      await _scrollTo(tester, validationStatus, const Key('dss-flow-view'));
+      expect(find.byKey(const Key('prepare-priorities')), findsOneWidget);
+      expect(find.text('Are essential supplies ready?'), findsNothing);
+      final validationStatus = find.byKey(const Key('prepare-guidance-status'));
+      await _scrollTo(tester, validationStatus, const Key('prepare-dashboard'));
       expect(validationStatus, findsOneWidget);
-      final warning = find.text('This is not an evacuation order.');
-      await _scrollTo(tester, warning, const Key('dss-flow-view'));
-      expect(warning, findsOneWidget);
+      final tailor = find.byKey(const Key('prepare-tailor-household'));
+      await _scrollTo(tester, tailor, const Key('prepare-dashboard'));
+      await tester.tap(tailor);
+      await tester.pumpAndSettle();
       final question = find.text('Are essential supplies ready?');
       await _scrollTo(tester, question, const Key('dss-flow-view'));
       expect(question, findsOneWidget);

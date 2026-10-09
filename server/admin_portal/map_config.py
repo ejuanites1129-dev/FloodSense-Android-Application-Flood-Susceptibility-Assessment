@@ -6,7 +6,7 @@ from django.conf import settings
 
 
 def get_map_client_config() -> dict[str, Any]:
-    requested = str(getattr(settings, "FLOODSENSE_MAP_PROVIDER", "auto")).lower()
+    requested = str(getattr(settings, "FLOODSENSE_MAP_PROVIDER", "mapbox")).lower()
     if requested not in {"auto", "mapbox", "osm"}:
         requested = "auto"
     token = str(getattr(settings, "MAPBOX_ACCESS_TOKEN", "")).strip()

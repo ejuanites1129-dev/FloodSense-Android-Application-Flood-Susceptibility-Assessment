@@ -103,12 +103,13 @@ must configure demonstration records. It never substitutes local fake data.
 ## Map networking, optional Mapbox presentation, and attribution
 
 OpenStreetMap remains the zero-configuration renderer and the automatic
-fallback. To rehearse the optional Mapbox presentation on Android, pass a
-restricted public token at build/run time without writing it to the repository:
+fallback. Mapbox is the default presentation on supported Android/iOS devices,
+but it still requires a restricted public token at build/run time. The normal
+local Android command reads that token without writing it to the repository:
 
 ```powershell
-flutter run --dart-define=FLOODSENSE_MAP_PROVIDER=mapbox `
-  --dart-define=MAPBOX_ACCESS_TOKEN=<your-restricted-public-pk-token>
+Set-Location ..
+.\scripts\run_android_local.ps1
 ```
 
 Perspective buildings are a presentation-only, opt-in enhancement. They remain

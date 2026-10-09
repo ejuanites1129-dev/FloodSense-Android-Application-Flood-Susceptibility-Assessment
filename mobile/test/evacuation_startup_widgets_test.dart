@@ -140,6 +140,42 @@ Future<void> _scrollPrepareTo(WidgetTester tester, Finder finder) async {
 
 void main() {
   testWidgets(
+    'Prepare retains one explicit catalog refresh before location confirmation',
+    (tester) async {
+      final auth = FakeResidentAuthRepository()
+        ..restoration = testSession(SetupStage.authenticatedReady);
+      final catalog = _CatalogProvider();
+      final gps = FakeDay3LocationService();
+      final nearest = FakeNearestCenterProvider();
+      await _pumpApp(
+        tester,
+        auth: auth,
+        catalog: catalog,
+        gps: gps,
+        nearest: nearest,
+      );
+      final before = catalog.calls;
+      await tester.tap(find.byKey(const Key('resident-nav-prepare')));
+      await tester.pumpAndSettle();
+      await _scrollPrepareTo(tester, find.text('Nearby centers'));
+      await tester.tap(find.text('Nearby centers'));
+      await tester.pumpAndSettle();
+      expect(catalog.calls, before);
+      final refresh = find.byKey(const Key('nearest-centers-refresh'));
+      await _scrollPrepareTo(tester, refresh);
+      expect(refresh, findsOneWidget);
+      expect(find.byKey(const Key('refresh-evacuation-map')), findsNothing);
+      await tester.tap(refresh);
+      await tester.pumpAndSettle();
+      expect(catalog.calls, before + 1);
+      expect(nearest.calls, 0);
+      expect(gps.acquisitions, 0);
+      expect(gps.permissionRequests, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'legacy barangay selector synchronizes its interior map pin without GPS',
     (tester) async {
       final first = sampleReferenceAreas().single;
@@ -488,11 +524,11 @@ void main() {
       final summary = find.byKey(const Key('nearest-center-distance-summary'));
       await _scrollPrepareTo(tester, summary);
       expect(summary, findsOneWidget);
-      expect(find.text('Nearest: Synthetic Near Center'), findsOneWidget);
       expect(
-        find.text('Distance: 180 m approximate straight-line distance'),
+        find.text('Nearest: 180 m approximate straight-line distance'),
         findsOneWidget,
       );
+      expect(find.text('Synthetic Near Center'), findsNothing);
       expect(
         find.byKey(const Key('nearest-center-distance-origin')),
         findsOneWidget,
@@ -507,6 +543,15 @@ void main() {
       expect(dss.startCalls, 0);
       expect(dss.answerCalls, 0);
       expect(find.byKey(const Key('dss-flow-view')), findsNothing);
+      final panel = find.byKey(const Key('prepare-nearby-centers'));
+      await _scrollPrepareTo(tester, panel);
+      await tester.tap(
+        find.descendant(of: panel, matching: find.text('Nearby centers')),
+      );
+      await tester.pumpAndSettle();
+      await _scrollPrepareTo(tester, find.text('Synthetic Near Center'));
+      expect(find.text('Synthetic Near Center'), findsOneWidget);
+      expect(find.byKey(const Key('refresh-evacuation-map')), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );

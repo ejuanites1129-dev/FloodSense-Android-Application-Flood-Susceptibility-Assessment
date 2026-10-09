@@ -20,6 +20,8 @@ class DssController extends ChangeNotifier {
   String? get susceptibilityCode => assessmentContext?.susceptibilityCode;
   List<DssAnswer> get answers => List.unmodifiable(_answers);
   DssStep? current;
+  DssStep? overview;
+  bool householdCheckOpen = false;
   String? selectedOptionCode;
   String? error;
   bool busy = false;
@@ -33,6 +35,8 @@ class DssController extends ChangeNotifier {
     _history.clear();
     _answers.clear();
     current = null;
+    overview = null;
+    householdCheckOpen = false;
     selectedOptionCode = null;
     assessmentContext = context;
     notifyListeners();
@@ -42,7 +46,10 @@ class DssController extends ChangeNotifier {
         operatingMode: context.operatingMode,
       );
       _validateMode(step, context);
-      if (generation == _generation && !_disposed) current = step;
+      if (generation == _generation && !_disposed) {
+        current = step;
+        overview = step;
+      }
     } catch (failure) {
       if (generation == _generation && !_disposed) {
         error = _errorMessage(failure);
@@ -111,15 +118,37 @@ class DssController extends ChangeNotifier {
   void goBack() {
     if (_history.isEmpty || busy) return;
     current = _history.removeLast();
-    _answers.removeLast();
-    selectedOptionCode = null;
+    selectedOptionCode = _answers.removeLast().option.code;
     error = null;
     notifyListeners();
   }
 
   Future<void> restart() async {
     final context = assessmentContext;
-    if (context != null) await start(context);
+    final reopen = householdCheckOpen;
+    if (context != null) {
+      final request = start(context);
+      final generation = _generation;
+      await request;
+      if (!_disposed &&
+          generation == _generation &&
+          assessmentContext == context &&
+          current != null) {
+        householdCheckOpen = reopen;
+        notifyListeners();
+      }
+    }
+  }
+
+  void openHouseholdCheck() {
+    if (current == null || busy) return;
+    householdCheckOpen = true;
+    notifyListeners();
+  }
+
+  void closeHouseholdCheck() {
+    householdCheckOpen = false;
+    notifyListeners();
   }
 
   void _validateMode(DssStep step, DssAssessmentContext context) {
@@ -142,6 +171,8 @@ class DssController extends ChangeNotifier {
     _history.clear();
     _answers.clear();
     current = null;
+    overview = null;
+    householdCheckOpen = false;
     selectedOptionCode = null;
     assessmentContext = null;
     busy = false;

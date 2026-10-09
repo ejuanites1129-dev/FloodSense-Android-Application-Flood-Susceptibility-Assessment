@@ -147,6 +147,19 @@ void main() {
     expect(find.text('High susceptibility'), findsOneWidget);
     await tester.tap(find.byKey(const Key('assessment-continue')));
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('prepare-priorities')), findsOneWidget);
+    expect(find.text('Are essential supplies ready?'), findsNothing);
+    final tailor = find.byKey(const Key('prepare-tailor-household'));
+    await tester.scrollUntilVisible(
+      tailor,
+      250,
+      scrollable: find.descendant(
+        of: find.byKey(const Key('prepare-dashboard')),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await tester.tap(tailor);
+    await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
       find.text('Are essential supplies ready?'),
       250,

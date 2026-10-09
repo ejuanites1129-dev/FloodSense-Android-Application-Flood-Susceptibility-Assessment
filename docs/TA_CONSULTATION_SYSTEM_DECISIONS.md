@@ -215,6 +215,34 @@ app is open. It must not silently become continuous background monitoring.
 
 ## Change-control rule
 
+### Team answer-first Prepare decision — 9 October 2026
+
+The project owner authorized implementation of an answer-first Flutter Prepare
+view after reviewing the long resident screenshots. This is a **team usability
+decision**, not adviser/agency approval or a scientific-method change.
+
+- Reuse the completed classified assessment. Show up to three eligible pre-event
+  actions in existing content order immediately; do not require household
+  answers, another scenario selection or another susceptibility calculation.
+- The existing versioned household question/branch contract is optional. Open it
+  in a focused view without center lists or long reference sections above each
+  question. Closing preserves in-memory progress; resetting answers is a separate
+  explicit action. Scenario changes invalidate that progress and late responses.
+  Unanswered questions are never interpreted as negative answers.
+- Center lists, educational references and full provenance are expandable.
+  Preserve prominent demonstration status and concise straight-line-distance,
+  reference-point and safety/availability limitations. Each center appears once
+  in the expanded list. Keep one explicit center refresh, not background polling.
+- Prepare opens a larger, draggable reading panel over the retained map. Use one
+  scroll surface, return new household questions to the top, and allow controls
+  to stack on narrow screens with enlarged text.
+- Guidance and center API eligibility, publication, privacy and source gates are
+  unchanged. If no eligible content exists, show the unavailable state instead
+  of inventing advice. Household answers never alter susceptibility.
+
+See [the Prepare handoff](PREPARE_ANSWER_FIRST_WORKFLOW.md). This update requires
+no dependency, migration, seed/import, parameter activation or database edit.
+
 ### Team selected-local-record sharing decision — 6 October 2026
 
 The project owner authorized a reviewed, repeatable package of selected local

@@ -20,7 +20,7 @@ final class FloodMapProviderConfig {
       FloodMapProviderConfig.fromValues(
         provider: const String.fromEnvironment(
           'FLOODSENSE_MAP_PROVIDER',
-          defaultValue: 'auto',
+          defaultValue: 'mapbox',
         ),
         mapboxPublicToken: const String.fromEnvironment('MAPBOX_ACCESS_TOKEN'),
         allowThreeDimensionalView: const bool.fromEnvironment(
@@ -30,7 +30,7 @@ final class FloodMapProviderConfig {
       );
 
   factory FloodMapProviderConfig.fromValues({
-    String provider = 'auto',
+    String provider = 'mapbox',
     String mapboxPublicToken = '',
     bool allowThreeDimensionalView = false,
   }) {

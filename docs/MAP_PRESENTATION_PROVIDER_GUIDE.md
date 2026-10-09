@@ -5,11 +5,12 @@ Flutter app and custom Django Admin portal. It does not change the Expert
 System, scenario inputs, susceptibility meaning, geographic records, resident
 location lifecycle, evacuation-center eligibility, or publication governance.
 
-## Safe defaults and supported surfaces
+## Mapbox-first default and supported surfaces
 
-- `auto` is the default provider setting.
+- `mapbox` is the default provider setting for supported Android/iOS and Admin
+  surfaces.
 - Without a valid public `pk.` token, every surface uses the existing
-  OpenStreetMap presentation.
+  OpenStreetMap presentation as a safe fallback.
 - The stable Mapbox Flutter SDK is enabled only on Android and iOS. Flutter web
   and desktop use OSM.
 - The Django Admin may use pinned Mapbox GL JS `v3.30.0`; OpenLayers/OSM remains
@@ -37,12 +38,12 @@ meaning merely because the presentation provider changes.
 Keep `server/.env` private and ignored. OSM requires no additional setting:
 
 ```dotenv
-FLOODSENSE_MAP_PROVIDER=auto
+FLOODSENSE_MAP_PROVIDER=mapbox
 MAPBOX_ACCESS_TOKEN=
 FLOODSENSE_MAP_3D=false
 ```
 
-For an authorized local Mapbox rehearsal:
+For an authorized local Mapbox run:
 
 ```dotenv
 FLOODSENSE_MAP_PROVIDER=mapbox
